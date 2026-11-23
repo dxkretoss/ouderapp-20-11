@@ -1,0 +1,515 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system — "Ouderschap & Co"
+ * Frosted Glass Warmth: zachte salie/zandtinten, veel witruimte, ronde vormen.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --font-display: "Nunito", "Nunito Sans", system-ui, sans-serif;
+  --font-body: "Nunito Sans", system-ui, sans-serif;
+  --font-sans: "Nunito Sans", system-ui, sans-serif;
+
+  --color-logo-surface: var(--logo-surface);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-accent-warm: var(--accent-warm);
+  --color-oker: var(--oker);
+  --color-meter-1: var(--meter-1);
+  --color-meter-2: var(--meter-2);
+  --color-meter-3: var(--meter-3);
+  --color-meter-4: var(--meter-4);
+  --color-meter-5: var(--meter-5);
+  --color-meter-6: var(--meter-6);
+  --color-accent-soft: var(--accent-soft);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-surface: var(--surface);
+  --color-ai-space: var(--ai-space);
+  --color-ai-reply: var(--ai-reply);
+  --color-ai-ink: var(--ai-ink);
+  --color-ai-soft: var(--ai-soft);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+:root {
+  /* Eigen design system — salie & zand, editoriaal en rustig */
+  --logo-surface: oklch(0.978 0.008 85);
+  --radius: 1.125rem;  /* A6: kaart 18 px */
+  --brand: #4F6B58;                      /* A6 mos */
+  --brand-soft: #DCE3D3;                 /* A6 salie */
+  --oker: #C99A3C;                       /* A6 oker (kindkleur) */
+  --meter-1: oklch(0.58 0.06 205);
+  --meter-2: oklch(0.7 0.1 135);
+  --meter-3: oklch(0.75 0.12 90);
+  --meter-4: oklch(0.7 0.13 60);
+  --meter-5: oklch(0.6 0.15 35);
+  --meter-6: oklch(0.48 0.14 25);
+  --gradient-meter: linear-gradient(90deg, var(--meter-1), var(--meter-2), var(--meter-3), var(--meter-4), var(--meter-5), var(--meter-6));
+  --accent-warm: #A88B72;                /* A6 lint bij de ander (geen rood/oranje als signaal) */
+  --accent-soft: #E4D5C7;                /* A6 haver */
+  --ink: #26211D;                        /* A6 tekst */
+  --ink-soft: #524C46;                   /* A6 grijs, iets donkerder voor leesbaarheid */
+  --surface: rgba(255, 255, 255, 0.62);  /* A6 glaskaart */
+  --ai-space: #3F5747;
+  --ai-reply: #4F6B58;
+  --ai-ink: #FBF8F3;
+  --ai-soft: #DCE6D2;
+
+  --background: #F3EDE3;                 /* A6 zand (midden van het verloop) */
+  --app-verloop: linear-gradient(170deg, #DCE6D2 0%, #F3EDE3 45%, #EADBC7 100%);
+  --foreground: var(--ink);
+  --card: rgba(255, 255, 255, 0.62);     /* A6 glaskaart: wit 62% */
+  --card-foreground: var(--ink);
+  --popover: #FBF8F2;
+  --popover-foreground: var(--ink);
+  --primary: var(--brand);
+  --primary-foreground: oklch(0.98 0.006 85);
+  --secondary: var(--accent-soft);
+  --secondary-foreground: var(--ink);
+  --muted: #EFE7DC;
+  --muted-foreground: var(--ink-soft);
+  --accent: var(--accent-soft);
+  --accent-foreground: oklch(0.52 0.11 38);
+  --destructive: #8A5A44;                /* gedempt, nooit fel rood */
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: rgba(255, 255, 255, 0.85);   /* A6 rand glaskaart */
+  --input: #E2D8CB;
+  --ring: var(--brand);
+
+  --duration-fast: 150ms;
+  --duration-base: 240ms;
+  --ease-calm: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Donker thema: warm nachtelijk (espresso/olijf), geen omgekeerde kleuren */
+.dark {
+  color-scheme: dark;
+  --brand: oklch(0.74 0.06 180);
+  --brand-soft: oklch(0.3 0.025 180);
+  --accent-warm: oklch(0.72 0.09 45);
+  --accent-soft: oklch(0.3 0.02 70);
+  --ink: oklch(0.92 0.012 85);
+  --ink-soft: oklch(0.72 0.012 80);
+  --surface: oklch(0.24 0.008 60);
+  --background: oklch(0.2 0.008 60);
+  --card: oklch(0.235 0.009 60);
+  --popover: oklch(0.25 0.009 60);
+  --primary-foreground: oklch(0.18 0.01 60);
+  --muted: oklch(0.27 0.008 60);
+  --accent-foreground: oklch(0.8 0.08 45);
+  --destructive: oklch(0.65 0.13 30);
+  --border: oklch(0.32 0.01 60);
+  --input: oklch(0.32 0.01 60);
+}
+.dark .glas-zacht { background: color-mix(in oklab, var(--card) 85%, transparent); }
+.dark [class*="bg-white"] { background-color: var(--card) !important; }
+.dark .text-white { color: var(--primary-foreground) !important; }
+
+/* Geen glas, geen gradients: vlakke rustige oppervlakken */
+@utility glass {
+  background: var(--card);
+  backdrop-filter: blur(18px);
+}
+@utility glass-strong {
+  background: var(--background);
+}
+@utility app-canvas {
+  background: transparent;
+}
+
+/* KindKompas: originele zachte, glasachtige stijl (bewust anders dan de vlakke basis) */
+@utility glas-zacht {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(24px);
+}
+@utility rand-zacht {
+  border-color: rgba(255, 255, 255, 0.7) !important;
+}
+@utility schaduw-zacht {
+  box-shadow: 0 20px 45px -20px color-mix(in oklab, var(--brand) 25%, transparent);
+}
+
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    background-image: var(--app-verloop);
+    background-attachment: fixed;
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    font-weight: 700 !important;
+    letter-spacing: -0.005em;
+  }
+  body { line-height: 1.6; }
+  button, a { transition: color var(--duration-fast) var(--ease-calm), background-color var(--duration-fast) var(--ease-calm), border-color var(--duration-fast) var(--ease-calm); }
+  [class*="shadow-"] { box-shadow: none !important; }
+  [class*="border-white"] { border-color: var(--color-border) !important; }
+}
+
+@keyframes check-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+@keyframes rustig-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes vandaag-punt-in { from { opacity: 0; margin-left: -8px; } to { opacity: 1; margin-left: 0; } }
+@utility rustig-in { animation: rustig-in var(--duration-base) var(--ease-calm) both; }
+@utility home-vandaag-punt { animation: vandaag-punt-in 400ms var(--ease-calm) both; }
+
+/* Directe, rustige tikfeedback op alle knoppen en links */
+@layer base {
+  button:not(:disabled), a[href], [role="button"] { -webkit-tap-highlight-color: transparent; transition: transform 120ms var(--ease-calm), background-color 150ms var(--ease-calm), color 150ms var(--ease-calm); }
+  button:not(:disabled):active, [role="button"]:active { transform: scale(0.97); }
+  details > div { animation: rustig-in var(--duration-base) var(--ease-calm) both; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-vandaag-punt { animation: none; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  button:active, [role="button"]:active { transform: none !important; }
+}
+
+/* Home: zachte atmosferische zones */
+@utility home-sfeer {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1400px;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--brand) 9%, var(--background)) 0%, transparent 380px),
+    radial-gradient(ellipse 90% 260px at 50% 620px, color-mix(in oklab, var(--accent-warm) 7%, transparent), transparent);
+}
+@utility momentje-gloed {
+  background: radial-gradient(ellipse at 20% 0%, color-mix(in oklab, var(--accent-warm) 14%, var(--background)), color-mix(in oklab, var(--accent-soft) 60%, var(--background)));
+}
+
+/* Living Home — sfeerlaag bovenaan Home (80% rust, 20% dynamiek) */
+.living { --lh-tint: var(--brand); --lh-warm: var(--accent-warm); overflow: hidden; height: 300px;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--lh-tint) 11%, var(--background)) 0%, transparent 300px); transition: background 1.2s var(--ease-calm); }
+.living.lh-ochtend { --lh-tint: color-mix(in oklab, var(--brand) 70%, oklch(0.92 0.05 220)); }
+.living.lh-avond { --lh-tint: color-mix(in oklab, var(--accent-warm) 65%, var(--brand)); }
+.living.lh-nacht { --lh-tint: color-mix(in oklab, var(--brand) 60%, oklch(0.35 0.04 260)); }
+.living.lh-herfst { --lh-warm: color-mix(in oklab, var(--accent-warm) 85%, oklch(0.7 0.12 60)); }
+.living.lh-winter { --lh-tint: color-mix(in oklab, var(--lh-tint, var(--brand)) 75%, oklch(0.85 0.03 230)); }
+.living.lh-w-zon { background: radial-gradient(ellipse 70% 220px at 85% -40px, color-mix(in oklab, oklch(0.9 0.1 85) 40%, transparent), transparent), linear-gradient(180deg, color-mix(in oklab, var(--lh-tint) 11%, var(--background)), transparent 300px); }
+.living.lh-w-bewolkt { background: linear-gradient(180deg, color-mix(in oklab, var(--muted) 70%, var(--background)), transparent 300px); }
+.living.lh-w-regen { background: linear-gradient(180deg, color-mix(in oklab, oklch(0.75 0.04 230) 22%, var(--background)), transparent 300px); }
+.living.lh-w-onweer { background: linear-gradient(180deg, color-mix(in oklab, oklch(0.5 0.03 260) 22%, var(--background)), transparent 300px); }
+.living.lh-m-verjaardag { --lh-warm: oklch(0.78 0.11 60); }
+.lh-vormen { position: absolute; right: -24px; top: -18px; width: 230px; height: 140px; opacity: .55; }
+.lh-vorm-a { fill: color-mix(in oklab, var(--lh-tint) 22%, transparent); }
+.lh-vorm-b { fill: color-mix(in oklab, var(--lh-warm) 18%, transparent); mix-blend-mode: multiply; }
+.dark .lh-vorm-b { mix-blend-mode: screen; }
+.lh-m-wisseldag .lh-vorm-a { animation: lh-schuif 9s ease-in-out infinite alternate; }
+.lh-m-wisseldag .lh-vorm-b { animation: lh-schuif 9s ease-in-out infinite alternate-reverse; }
+@keyframes lh-schuif { to { transform: translateX(-12px); } }
+.lh-deeltjes { position: absolute; inset: 0 0 auto 0; height: 170px; mask-image: linear-gradient(180deg, #000 40%, transparent); }
+.lh-deeltjes span { position: absolute; top: -12px; display: block; }
+.lh-regen span { width: 1px; height: 12px; background: color-mix(in oklab, oklch(0.6 0.05 230) 45%, transparent); animation: lh-val 1.6s linear infinite; }
+.lh-sneeuw span { width: 4px; height: 4px; border-radius: 9999px; background: color-mix(in oklab, var(--card) 85%, oklch(0.8 0.02 230)); animation: lh-val 9s linear infinite; }
+@keyframes lh-val { to { transform: translateY(190px); } }
+.lh-confetti span { position: absolute; top: -8px; width: 5px; height: 8px; border-radius: 2px; background: var(--lh-warm); opacity: .7; animation: lh-confetti 1.8s var(--ease-calm) forwards; }
+.lh-confetti span:nth-child(odd) { background: var(--brand); }
+@keyframes lh-confetti { to { transform: translateY(150px) rotate(200deg); opacity: 0; } }
+.lh-stil *, .lh-stil { animation: none !important; }
+.lh-stil .lh-deeltjes { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .living *, .living { animation: none !important; }
+  .living .lh-deeltjes, .living .lh-confetti { display: none; }
+}
+
+/* Iconenpalet (Visuele identiteit 2.0): gedempt, harmonieus op ivoor */
+:root {
+  --ic-salie: oklch(0.55 0.05 140);
+  --ic-klei: oklch(0.58 0.09 45);
+  --ic-blauw: oklch(0.56 0.05 240);
+  --ic-lavendel: oklch(0.56 0.05 295);
+  --ic-honing: oklch(0.62 0.09 75);
+  --ic-koraal: oklch(0.62 0.09 25);
+  --ic-taupe: oklch(0.52 0.025 60);
+  --ic-blauwgrijs: oklch(0.53 0.03 230);
+  --ic-groen: oklch(0.55 0.06 155);
+}
+.dark {
+  --ic-salie: oklch(0.76 0.05 140);
+  --ic-klei: oklch(0.76 0.08 45);
+  --ic-blauw: oklch(0.76 0.05 240);
+  --ic-lavendel: oklch(0.77 0.05 295);
+  --ic-honing: oklch(0.8 0.08 75);
+  --ic-koraal: oklch(0.77 0.07 25);
+  --ic-taupe: oklch(0.74 0.02 60);
+  --ic-blauwgrijs: oklch(0.75 0.03 230);
+  --ic-groen: oklch(0.76 0.06 155);
+}
+/* Organische, zachte vorm achter iconen */
+.app-icoon-vorm { border-radius: 9999px; }
+
+/* Terug- en sluitknoppen: één duidelijk gekleurde ronde badge, overal zichtbaar. */
+.knop-kruis {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--brand) 12%, var(--background));
+  border: 1px solid color-mix(in oklab, var(--brand) 38%, transparent);
+  color: var(--brand);
+}
+.knop-kruis:hover { background: color-mix(in oklab, var(--brand) 22%, var(--background)); }
+
+/* Zoekresultaat: het gevonden item licht rustig op */
+.zoekdoel:target, .zoekdoel-aan { outline: 2px solid var(--color-brand); outline-offset: 3px; scroll-margin-top: 6rem; }
+
+/* Professionele leesbaarheid: uitsluitend binnen het eigen werkgebied. */
+.pro-cockpit {
+  --ink-soft: oklch(0.43 0.012 60);
+  --pro-link: oklch(0.43 0.04 140);
+  --pro-status: oklch(0.46 0.075 45);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.dark .pro-cockpit {
+  --ink-soft: oklch(0.78 0.012 80);
+  --pro-link: var(--brand);
+  --pro-status: var(--accent-foreground);
+}
+.pro-cockpit :is(.text-sm, input, textarea) { font-size: 1rem; }
+.pro-cockpit :is(.text-xs, .text-\[11px\]) { font-size: 0.875rem; line-height: 1.55; }
+.pro-cockpit .text-brand { color: var(--pro-link); }
+.pro-cockpit .text-accent-warm { color: var(--pro-status); }
+.pro-cockpit .pro-section-title {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+.pro-cockpit :is(.uppercase, h1, h2, h3) { letter-spacing: 0; }
+.pro-cockpit .uppercase { text-transform: none; }
+.pro-cockpit :is(p, dd, li, button, summary) { overflow-wrap: anywhere; }
+.pro-cockpit :is(input, select, textarea) { min-width: 0; max-width: 100%; }
+.pro-cockpit :is([role="tablist"], [aria-label="Dossieronderdelen"]) { max-width: 100%; }
+.pro-cockpit [aria-label="Dossieronderdelen"] button:not([aria-current]) { background: transparent; }
+.pro-cockpit .pro-dossier-context p { margin-top: 0.35rem; }
+.pro-cockpit .pro-dossier-context .pro-section-title { font-size: 1rem; }
+@media (max-width: 639px) {
+  .pro-cockpit .grid-cols-\[minmax\(0\,1fr\)_auto\] { grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
+  .pro-cockpit .grid-cols-\[minmax\(0\,1fr\)_auto\] > .items-end { align-items: flex-start; }
+}
+
+@keyframes communicatie-smiley {
+  0% { opacity: 0; transform: scale(0.85); }
+  18%, 65% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+.communicatie-smiley { animation: communicatie-smiley 1800ms var(--ease-calm) both; }
+@media (prefers-reduced-motion: reduce) { .communicatie-smiley { animation: none !important; } }
+
+/* The same care surfaces in every Agenda calendar; split days retain both parent tokens. */
+.zorg-ik { background: #E9EFE3; border: 2px solid #7F9A86; }   /* A6: kinderen bij jou */
+.zorg-ander { background: repeating-linear-gradient(135deg, #FFFFFF 0 5px, #F2ECE3 5px 7px); border: 1.5px solid #E2D8CB; }   /* A6: kinderen bij de ander, zachte strepen */
+.zorg-wissel-naar-ander { background: linear-gradient(90deg, #E9EFE3 0 50%, transparent 50%), repeating-linear-gradient(135deg, #FFFFFF 0 5px, #F2ECE3 5px 7px); border: 2px solid #7F9A86; border-right-color: #E2D8CB; }   /* A6 wisseldag: eerst bij jou (groen), daarna bij de ander (strepen) */
+.zorg-wissel-naar-ik { background: linear-gradient(90deg, transparent 0 50%, #E9EFE3 50%), repeating-linear-gradient(135deg, #FFFFFF 0 5px, #F2ECE3 5px 7px); border: 2px solid #7F9A86; border-left-color: #E2D8CB; }   /* A6 wisseldag: eerst bij de ander, daarna bij jou */
+.zorg-gemengd { background: linear-gradient(90deg, color-mix(in oklab, var(--brand) 15%, var(--background)) 50%, color-mix(in oklab, var(--accent-warm) 18%, var(--background)) 50%); border-bottom: 2px solid var(--ink-soft); }
+.zorg-onbekend { background: var(--card); border-bottom: 2px solid var(--border); }
+.zorg-wissel::before { display: none; content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in oklab, var(--ink-soft) 18%, transparent) 5px 7px); }
+.zorg-gemengd::after { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px dashed var(--ink-soft); pointer-events: none; }
+
+/* A6: warme regels in Lora cursief (begroeting, uitnodiging van Co, 'Door de ogen van je kind') */
+.lora { font-family: "Lora", Georgia, serif !important; font-style: italic; font-weight: 500 !important; letter-spacing: 0; }
+.dark body { background-image: none; }
+
+/* A6 agenda in donkere weergave: groen = bij jou, strepen = bij de ander, wisseldag half om half. */
+.dark .zorg-ik { background: color-mix(in oklab, #7F9A86 30%, var(--card)); border-color: #8FAE97; color: var(--foreground); }
+.dark .zorg-ander { background: repeating-linear-gradient(135deg, var(--card) 0 5px, color-mix(in oklab, var(--foreground) 14%, var(--card)) 5px 7px); border-color: color-mix(in oklab, var(--foreground) 25%, transparent); color: var(--foreground); }
+.dark .zorg-wissel-naar-ander { background: linear-gradient(90deg, color-mix(in oklab, #7F9A86 30%, var(--card)) 0 50%, transparent 50%), repeating-linear-gradient(135deg, var(--card) 0 5px, color-mix(in oklab, var(--foreground) 14%, var(--card)) 5px 7px); border-color: #8FAE97; border-right-color: color-mix(in oklab, var(--foreground) 25%, transparent); color: var(--foreground); }
+.dark .zorg-wissel-naar-ik { background: linear-gradient(90deg, transparent 0 50%, color-mix(in oklab, #7F9A86 30%, var(--card)) 50%), repeating-linear-gradient(135deg, var(--card) 0 5px, color-mix(in oklab, var(--foreground) 14%, var(--card)) 5px 7px); border-color: #8FAE97; border-left-color: color-mix(in oklab, var(--foreground) 25%, transparent); color: var(--foreground); }
+
+
+/* Donkere weergave: de lichte A6-blokken en vaste kleuren leesbaar houden. */
+.dark [class*="text-[#2F4A3A]"], .dark [class*="text-[#3F5747]"] { color: #A9C7B0 !important; }
+.dark [class*="text-[#6E5014]"] { color: #D8C08F !important; }
+.dark [class*="bg-[#E9EFE3]"], .dark [class*="bg-[#DCE6D2]"], .dark [class*="bg-[#DCE3D3]"] { background-color: color-mix(in oklab, #7F9A86 28%, var(--card)) !important; }
+.dark [class*="bg-[#EEE8DF]"] { background-color: color-mix(in oklab, var(--foreground) 10%, var(--card)) !important; }
+.dark [class*="divide-[#E9E1D5]"] > :not(:last-child) { border-color: color-mix(in oklab, var(--foreground) 14%, transparent) !important; }
+.dark [class*="border-[#E9E1D5]"], .dark [class*="border-[#E6DED2]"], .dark [class*="border-white/8"], .dark [class*="border-white/9"] { border-color: color-mix(in oklab, var(--foreground) 14%, transparent) !important; }
+.dark [class*="border-[#A9BCA8]"], .dark [class*="border-[#C9D6C3]"] { border-color: color-mix(in oklab, #7F9A86 55%, var(--card)) !important; }
+.dark [class*="rgba(220,230,210"] { background: color-mix(in oklab, #7F9A86 24%, var(--card)) !important; }
+.dark [class*="border-[#A9A097]"] { border-color: color-mix(in oklab, var(--foreground) 35%, transparent) !important; }
+
+/* Mobiel kader: op schermen breder dan een telefoon staat de app in een smalle kolom (max-w-md = 28rem)
+   met een lijn aan beide kanten en een iets gedempte omgeving — zo voelt het als een telefoonscherm.
+   Puur decoratief (achter de inhoud, geen klikken); de brede professional-cockpit valt erbuiten. */
+@media (min-width: 30rem) {
+  :root {
+    --kader-lijn: color-mix(in oklab, var(--foreground) 16%, transparent);
+    --kader-buiten: color-mix(in oklab, var(--foreground) 6%, transparent);
+    --kader-schaduw: color-mix(in oklab, var(--foreground) 5%, transparent);
+  }
+  body:not(:has(.pro-cockpit, .zonder-kader))::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    --l: calc(50% - 14rem);
+    --r: calc(50% + 14rem);
+    background: linear-gradient(to right,
+      var(--kader-buiten) 0, var(--kader-buiten) calc(var(--l) - 10px),
+      var(--kader-schaduw) calc(var(--l) - 10px), var(--kader-schaduw) var(--l),
+      var(--kader-lijn) var(--l), var(--kader-lijn) calc(var(--l) + 1px),
+      transparent calc(var(--l) + 1px), transparent calc(var(--r) - 1px),
+      var(--kader-lijn) calc(var(--r) - 1px), var(--kader-lijn) var(--r),
+      var(--kader-schaduw) var(--r), var(--kader-schaduw) calc(var(--r) + 10px),
+      var(--kader-buiten) calc(var(--r) + 10px), var(--kader-buiten) 100%);
+  }
+}
+
+/* Uitklappers (<details>): nooit de driehoek van de browser. Een summary zonder eigen icoon krijgt
+   dezelfde chevron als lucide (pad "m6 9 6 6 6-6"), die meedraait bij openen. */
+summary { list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary:not(:has(svg))::after {
+  content: "";
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+  margin-left: 0.35em;
+  vertical-align: -0.15em;
+  background-color: currentColor;
+  opacity: 0.6;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform 0.2s ease;
+}
+details[open] > summary:not(:has(svg))::after { transform: rotate(180deg); }
+
+/* Scrollbalk zoals op een telefoon: smal, afgerond, zonder pijltjes en in de tinten van de app.
+   (Chrome/Edge/Safari via ::-webkit-scrollbar; Firefox via de standaard-eigenschappen.) */
+:root {
+  --scroll-duim: color-mix(in oklab, var(--foreground) 22%, transparent);
+  --scroll-duim-actief: color-mix(in oklab, var(--brand) 55%, transparent);
+}
+::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
+::-webkit-scrollbar-track { background: transparent; }
+/* Weg van de afgeronde hoeken van sheets en dialogen. */
+[role="dialog"] ::-webkit-scrollbar-track,
+[role="dialog"]::-webkit-scrollbar-track,
+[role="alertdialog"]::-webkit-scrollbar-track { margin-block: 22px; }
+::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-duim);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  min-height: 40px;
+}
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active { background-color: var(--scroll-duim-actief); }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+::-webkit-scrollbar-corner { background: transparent; }
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: var(--scroll-duim) transparent; }
+}
+
+/* Eén modaal-stijl voor zelfgebouwde overlays: dezelfde onderste sheet als de Sheet-component,
+   in de telefoonkolom (max-w-md), met afgeronde bovenkant en veilige onderruimte. */
+@utility app-modal-achter {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: color-mix(in oklab, var(--ink) 32%, transparent);
+  animation: modal-achter-in 0.2s ease-out;
+}
+@utility app-modal {
+  position: relative;
+  width: 100%;
+  max-width: 28rem;
+  max-height: 90dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 28px 28px 0 0;
+  background: var(--background);
+  padding: 1.25rem 1.25rem max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1rem));
+  box-shadow: 0 -8px 30px color-mix(in oklab, var(--ink) 14%, transparent);
+  animation: modal-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes modal-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes modal-achter-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .app-modal, .app-modal-achter { animation: none; } }
+
+/* Alles wat klikbaar is krijgt de handcursor (Tailwind v4 zet knoppen standaard op "default"). */
+@layer base {
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="radio"],
+  [role="switch"],
+  [role="checkbox"],
+  [role="menuitem"],
+  [role="menuitemradio"],
+  [role="menuitemcheckbox"],
+  [role="option"],
+  a[href],
+  summary,
+  select,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  input[type="date"],
+  input[type="time"],
+  input[type="color"],
+  input[type="range"],
+  input[type="submit"],
+  input[type="button"] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"],
+  [data-disabled],
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
+}

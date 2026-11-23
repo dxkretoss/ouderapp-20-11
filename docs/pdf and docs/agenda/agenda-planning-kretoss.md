@@ -1,0 +1,34 @@
+# Agenda, care allocation and holiday integration
+
+## Delivered in this iteration
+- `/agenda` now combines calendar and holidays/special days. Calendar day/week/month and four-week cells read the same `src/lib/agenda-zorg.ts` derivation. Parent-relative colour function accepts the viewer explicitly; current demo UI is Sanne, not an authenticated account.
+- Child filters, mixed-care surfaces, accessible full-name descriptions, reusable `AgendaWissels` summary/details, 24-hour handover preparation guard and existing handover links.
+- Existing care proposal form extracted to `src/components/ZorgAfstemmen.tsx` and shared with `/zorgregeling`; ISO dates, one-off/structural proposals, location/time, requested response date, changed-days-only comparison, existing accept/alternative/decline/withdraw/history flows.
+- Existing `zorg-store` extended with date-based reading without replacing legacy fields/IDs/history. Approved temporary dates are exact-date exceptions; structural changes start at their approved date. No new proposal store.
+- `AgendaVakanties` provides Vacation / Special days tabs; existing `vakantie-store` remains the source. Proposals support dates, children, allocation blocks, time/location, destination, optional response date, yearly/alternating special dates and amendments/cancellation. Pending revisions retain the confirmed fields on the same record. Declining amendments restores confirmed fields, and source history retains the proposal.
+- Official regional school-calendar data through 2027–28; autumn/spring marked advisory. Existing dynamic special-day calculations and birthdays read child profiles. Calendar dates never create agreements, reminders or appointments automatically.
+- Official government travel-consent page and PDF download on that page, document checklist, no fabricated form or passport storage. In-app holiday acceptance never certifies legal travel consent.
+
+## Existing entry points deliberately retained
+The standalone Verdeling van de week and Vakanties & bijzondere dagen entries were removed from Menu at the owner's explicit request. Menu has one Agenda entry and keeps the holiday response badge there; device recent links are mapped to Agenda without changing storage keys. `/zorgregeling` forwards the source proposal/child and change action to Agenda. `/planning` forwards holiday creation to Agenda; its previous practical panels remain reachable through “Eerdere planningsonderdelen bekijken” inside Agenda (`/planning?eerder=true`) to avoid discarding working features. VerdeelHulp is contextual in Agenda; existing task/expense/packing links remain. No source data was deleted.
+
+## Remaining work / external blockers
+1. Authenticated family storage, safe viewer identity and two parent accounts: currently no backend is connected, demo care/holiday stores remain session-only. Own-family school region stays on `StartKind.schoolRegio` in the existing device source. Own-family vacation sending is unavailable, not simulated. Do not use demo stores for real families.
+2. Own-family per-child schedules and proposals: `start-store.regeling` is presently family-wide; `zorg-store.KindId` is still the demo IDs Emma/Noah. Support actual child IDs within the existing source architecture, migrate explicitly, enforce separately approved permissions. No legal role or self-reported authority may grant rights.
+3. Replace demo sender/actor defaults with verified session identity and enforce recipient-only approval server-side. Function arguments alone are not access control. Test account reversal visually using two authenticated accounts.
+4. Complete source reconciliation for Home/Activities and legacy day-number consumers: new ISO care fields must be read consistently everywhere. Their existing pages were intentionally not changed in this UI task. Do not add duplicate notifications or copy proposals.
+5. School exceptions currently reuse Agenda’s school-appointment form; they do not replace official calendar periods. Add school-specific override semantics on existing child profiles. Demo region selection currently uses the shared existing demo region, unlike own-family per-child settings.
+6. Intraday special allocations are shown as split days with exact time labels. Full timed-transition derivation, overlaps of individual blocks (including custom blocks), and matching actual child-scoped handover records still need completion. The current overlap guard is conservative: differing allocations from multiple approved periods flag overlap rather than silently selecting a winner.
+7. Official PDF is downloaded at the government source. Automatic prefill is not implemented; verified authority-holder data and secure document permissions must exist first. Keep legal permission distinct from app coordination.
+8. Whole-app neutral parent terminology is not completed; this iteration changes Agenda and shared planning presentation only. Other modules were explicitly outside scope.
+
+## Verification
+236 automated tests passed after initial integration, including existing agenda recurrence, attendance, proposals and privacy tests. Added concrete tests in `agenda-zorg.test.ts` cover perspective reversal, mixed-child filtering, approved-only temporary/structural changes, refusal, first/second Christmas day, annual alternating years, return to ordinary care, preservation after rejected amendment, conflicting periods, regional data and 24-hour preparation.
+Browser checked at 390×844 and 1280×1800: calendar, month, care form, vacation creation, same-source readback on `/vakantie/$id`, no horizontal overflow on the initial mobile view and no page exceptions. No genuine linked-account test was possible. No AI was used to create suggestions in these tests.
+Additional checks: Menu has no standalone care/holiday entries; legacy links open Agenda with the correct source proposal and child, recipient acceptance works in the demo and a submitted care proposal reads back from the existing source. The four-week calendar now shows weekday headers plus each week's date range; opening 31 March from the cross-month row opens Monday 31 March. Mobile element screenshot checked with no horizontal overflow.
+
+## Official sources
+- https://www.rijksoverheid.nl/themas/onderwijs/schoolvakanties/overzicht-schoolvakanties-per-schooljaar/overzicht-schoolvakanties-2026-2027
+- https://www.rijksoverheid.nl/themas/onderwijs/schoolvakanties/overzicht-schoolvakanties-per-schooljaar/overzicht-schoolvakanties-2027-2028
+- https://www.rijksoverheid.nl/themas/onderwijs/schoolvakanties/vaststellen-data-schoolvakanties
+- https://www.rijksoverheid.nl/documenten/2014/02/06/formulier-toestemming-reizen-met-minderjarige-naar-het-buitenland

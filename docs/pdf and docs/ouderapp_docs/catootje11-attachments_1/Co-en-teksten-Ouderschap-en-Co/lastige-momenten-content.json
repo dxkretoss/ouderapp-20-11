@@ -1,0 +1,1785 @@
+{
+  "version": "2026-11-12",
+  "language": "nl",
+  "topics": [
+    {
+      "index": 0,
+      "name": "Overdracht",
+      "name_en": "Handover"
+    },
+    {
+      "index": 1,
+      "name": "Mijn kind vertelt iets",
+      "name_en": "My child tells me something"
+    },
+    {
+      "index": 2,
+      "name": "Als ik boos ben",
+      "name_en": "When I am angry"
+    },
+    {
+      "index": 3,
+      "name": "Praten met de ander",
+      "name_en": "Talking with the other parent"
+    },
+    {
+      "index": 4,
+      "name": "Voor mezelf",
+      "name_en": "For myself"
+    },
+    {
+      "index": 5,
+      "name": "Bijzondere momenten en veranderingen",
+      "name_en": "Special moments and changes"
+    }
+  ],
+  "cards": [
+    {
+      "id": 1,
+      "topic_index": 0,
+      "topic": "Overdracht",
+      "question": "Hoe zet ik mijn frustratie opzij tijdens de overdracht?",
+      "short_answer": "De overdracht is een kort moment voor je kind. Het is niet het moment om iets uit te praten. Houd het kort, vriendelijk en praktisch.",
+      "actions": [
+        "Bedenk vooraf één zin, bijvoorbeeld: 'Hoi, hier is de tas. Fijn weekend.'",
+        "Adem langzaam uit voordat je aankomt.",
+        "Bewaar de rest voor een bericht in de app.",
+        "Kijk naar je kind, niet naar de ander.",
+        "Neem na de overdracht even een moment voor jezelf."
+      ],
+      "say": [
+        "“Hoi. Hier is de tas met de voetbalspullen. Tot zondag.”",
+        "“Dat bespreek ik liever later in de app.”"
+      ],
+      "avoid": [
+        "“We moeten het nog even hebben over…”",
+        "“Je bent wéér te laat.”"
+      ],
+      "remember": "Je kind voelt de spanning. Een rustige overdracht helpt je kind, ook als het jou moeite kost.",
+      "get_help": null,
+      "co_action": "verhaal",
+      "app_links": "Co: Even je verhaal kwijt. Ook in Mee met de wissel.",
+      "keywords": [
+        "discussie",
+        "ruzie",
+        "overdracht",
+        "wissel"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 2,
+      "topic_index": 0,
+      "topic": "Overdracht",
+      "question": "Wat doe ik als de ander bij de overdracht een discussie begint?",
+      "short_answer": "Je hoeft niet te reageren of te winnen. Je mag het gesprek rustig beëindigen.",
+      "actions": [
+        "Houd het kort en herhaal één rustige zin.",
+        "Loop weg als het oploopt. Je kind gaat voor.",
+        "Laat het onderwerp liggen voor de app.",
+        "Kies bij vaste spanning een neutrale plek of overdracht via school."
+      ],
+      "say": [
+        "“Ik snap dat je hier iets van vindt. Laten we dat in de app bespreken.”",
+        "“Ik ga nu, de kinderen wachten.”"
+      ],
+      "avoid": [
+        "“Daar ga ik nu niet op in, dat weet je best.”",
+        "Een antwoord op elk verwijt."
+      ],
+      "remember": "Een gesprek dat nu niet kan, kan later. Je kind hoeft het niet te horen.",
+      "get_help": "Je je niet veilig voelt. Kies een neutrale plek, overdracht via school of met een derde. Bij direct gevaar: bel 112.",
+      "co_action": "afspraken",
+      "app_links": "Co: Denk mee over afspraken. Ook bij Houvast: Overdracht voorbereiden.",
+      "keywords": [
+        "veilig",
+        "bang",
+        "zorgen",
+        "gevaar",
+        "slaan",
+        "discussie",
+        "ruzie",
+        "overdracht",
+        "wissel"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 3,
+      "topic_index": 0,
+      "topic": "Overdracht",
+      "question": "Mijn kind wil niet mee bij de overdracht, huilt of klampt zich vast. Wat doe ik?",
+      "short_answer": "Kinderen reageren vaak op de overgang zelf, niet op de ander. Blijf rustig, kort en voorspelbaar.",
+      "actions": [
+        "Houd het afscheid kort en liefdevol.",
+        "Zeg wanneer je kind je weer ziet.",
+        "Laat je kind niet merken dat jij ook verdrietig of boos bent.",
+        "Geef een vertrouwd voorwerp mee.",
+        "Bespreek later met de ander een vaste routine."
+      ],
+      "say": [
+        "“Ik hou van je. Zondag zie ik je weer. Ik ben er gewoon.”"
+      ],
+      "avoid": [
+        "“Je hoeft niet als je niet wilt.”",
+        "“Ik ga je ook zo missen.” (op het moment van afscheid)"
+      ],
+      "remember": "Een afscheid dat vaak terugkomt, wordt meestal makkelijker met een vaste routine.",
+      "get_help": "Je kind lang heel verdrietig blijft of het erger wordt. Praat met de huisarts of de school.",
+      "co_action": "doen",
+      "app_links": "Co: Wat kan ik doen?",
+      "keywords": [
+        "huil",
+        "klampt",
+        "niet mee",
+        "wil niet",
+        "weigert"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 4,
+      "topic_index": 0,
+      "topic": "Overdracht",
+      "question": "De overdracht ging mis en ik voel me kwaad. Wat nu?",
+      "short_answer": "Even stoppen voordat je iets doet. Je hoeft nu niets te sturen of te beslissen.",
+      "actions": [
+        "Adem langzaam uit.",
+        "Schrijf het op voor jezelf, niet naar de ander.",
+        "Wacht met reageren tot morgen.",
+        "Kies daarna één punt voor een kort bericht."
+      ],
+      "say": [
+        "“Ik wil hier graag later op terugkomen.”"
+      ],
+      "avoid": [
+        "Een lang bericht direct na de overdracht."
+      ],
+      "remember": "Een bericht verstuur je in een minuut. De gevolgen duren vaak langer.",
+      "get_help": null,
+      "co_action": "verhaal",
+      "app_links": "Co: Even je verhaal kwijt. Ook de flow Na een heftig moment.",
+      "keywords": [
+        "boos",
+        "woede",
+        "kwaad",
+        "schreeuw",
+        "ontplof",
+        "gillen",
+        "razend",
+        "bericht",
+        "app",
+        "whatsapp",
+        "sms",
+        "appje",
+        "discussie",
+        "ruzie",
+        "overdracht",
+        "wissel"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 5,
+      "topic_index": 1,
+      "topic": "Mijn kind vertelt iets",
+      "question": "Mijn kind komt thuis met een negatief verhaal over de andere ouder. Wat zeg ik?",
+      "short_answer": "Luister rustig, benoem wat je kind voelt en kies geen kant. Je hoeft het verhaal niet te bevestigen of te weerleggen.",
+      "actions": [
+        "Luister zonder te onderbreken of te oordelen.",
+        "Benoem het gevoel: 'Dat klinkt vervelend.'",
+        "Stel een open vraag: 'Wat wil je dat ik weet?'",
+        "Zeg dat je kind van beide ouders mag houden.",
+        "Praat bij zorgen later rustig met de andere ouder, zonder je kind erbij."
+      ],
+      "say": [
+        "“Dat klinkt echt vervelend. Fijn dat je het me vertelt.”",
+        "“Ik snap dat je dat lastig vond.”"
+      ],
+      "avoid": [
+        "“Zo is hij nou eenmaal.”",
+        "“Dat had ik je wel kunnen vertellen.”"
+      ],
+      "remember": "Een kind vertelt vaak wat het op dat moment voelt. Het is niet altijd het hele verhaal, en jij hoeft niet te beslissen wie gelijk heeft.",
+      "get_help": "Je kind iets vertelt waar je je zorgen over maakt, bijvoorbeeld over veiligheid. Praat met een professional of bel Veilig Thuis: 0800-2000. Bij direct gevaar: 112.",
+      "co_action": "doen",
+      "app_links": "Co: Wat kan ik doen? Zie ook kaart 40.",
+      "keywords": [
+        "veilig",
+        "bang",
+        "zorgen",
+        "gevaar",
+        "slaan",
+        "negatief",
+        "slecht",
+        "zegt",
+        "vertelt"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 6,
+      "topic_index": 1,
+      "topic": "Mijn kind vertelt iets",
+      "question": "Mijn kind zegt iets negatiefs over mij, en zegt dat de andere ouder dat zei. Wat doe ik?",
+      "short_answer": "Blijf kalm en bevestig wat je kind voelt. Je hoeft jezelf niet te verdedigen tegenover je kind.",
+      "actions": [
+        "Vraag wat je kind hoorde en hoe dat voelde.",
+        "Zeg in je eigen woorden wat je voelt: 'Ik hou van je.'",
+        "Praat niet slecht terug.",
+        "Bespreek het later met de andere ouder, als dat nodig is."
+      ],
+      "say": [
+        "“Wat vervelend om te horen. Ik hou van je, wat er ook gezegd wordt.”"
+      ],
+      "avoid": [
+        "“Dat zegt meer over je moeder dan over mij.”",
+        "“Wat zei ze nog meer?”"
+      ],
+      "remember": "Wat een kind overbrengt klinkt vaak anders dan het bedoeld was.",
+      "get_help": null,
+      "co_action": "verhaal",
+      "app_links": "Co: Even je verhaal kwijt.",
+      "keywords": [
+        "negatief",
+        "slecht",
+        "zegt",
+        "vertelt"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 7,
+      "topic_index": 1,
+      "topic": "Mijn kind vertelt iets",
+      "question": "Mijn kind vraagt wie er schuld heeft aan de scheiding.",
+      "short_answer": "Kinderen hebben vooral nodig te horen dat het niet hun schuld is en dat beide ouders van ze houden.",
+      "actions": [
+        "Houd het eenvoudig en eerlijk.",
+        "Geef geen ouder de schuld.",
+        "Zeg dat het een beslissing van volwassenen is.",
+        "Pas je uitleg aan op de leeftijd.",
+        "Laat ruimte voor vragen later."
+      ],
+      "say": [
+        "“Dit is iets tussen papa en mama. Het is niet jouw schuld. We houden allebei van je.”"
+      ],
+      "avoid": [
+        "“Vraag dat maar aan je vader.”",
+        "Details over de relatie."
+      ],
+      "remember": "Je hoeft niet alle antwoorden te hebben. 'Dat vind ik ook moeilijk' is ook een antwoord.",
+      "get_help": null,
+      "co_action": "doen",
+      "app_links": "Co: Wat kan ik doen?",
+      "keywords": [
+        "schuld",
+        "schuldig"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 8,
+      "topic_index": 1,
+      "topic": "Mijn kind vertelt iets",
+      "question": "Mijn kind is verdrietig of boos na een wisseling. Is dat normaal?",
+      "short_answer": "Veel kinderen hebben na een overgang tijd nodig om te landen. Geef rust en voorspelbaarheid.",
+      "actions": [
+        "Plan het eerste uur rustig.",
+        "Stel geen vragen over de andere ouder.",
+        "Houd vaste routines aan.",
+        "Bied aan om te praten, maar dwing het niet.",
+        "Houd bij hoe lang het duurt."
+      ],
+      "say": [
+        "“Ik ben blij dat je er weer bent. We doen het rustig aan.”"
+      ],
+      "avoid": [
+        "“Wat hebben jullie allemaal gedaan?” (direct bij binnenkomst)",
+        "“Was het niet leuk daar?”"
+      ],
+      "remember": "Een kind heeft tijd nodig. Dat is geen teken dat er iets mis is.",
+      "get_help": "Het lang duurt of erger wordt. Praat met de huisarts of de school.",
+      "co_action": "praten",
+      "app_links": "Co: Even praten. Ook bij Houvast: Even terugkijken na de wissel.",
+      "keywords": [
+        "huil",
+        "klampt",
+        "niet mee",
+        "wil niet",
+        "weigert",
+        "verdrietig",
+        "na de wissel",
+        "thuiskomen"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 9,
+      "topic_index": 2,
+      "topic": "Als ik boos ben",
+      "question": "Ik voel me boos over de andere ouder als mijn kind bij mij is. Wat moet ik onthouden?",
+      "short_answer": "Je mag boos zijn. Je kind hoeft het alleen niet te dragen. Geef je boosheid een andere plek.",
+      "actions": [
+        "Zoek een eigen plek: een vriend, een dagboek of Co.",
+        "Praat niet over de andere ouder terwijl je kind in de buurt is.",
+        "Kies een vast moment voor jezelf om het kwijt te kunnen.",
+        "Doe iets leuks met je kind.",
+        "Blijft de boosheid groot? Praat met de huisarts of een professional."
+      ],
+      "say": [
+        "“Ik heb het even moeilijk, maar dat komt niet door jou. Het komt goed.”"
+      ],
+      "avoid": [
+        "“Je vader maakt me gek.”",
+        "Telefoongesprekken over de ander waar je kind bij is."
+      ],
+      "remember": "Kinderen leren van hoe je met moeilijke gevoelens omgaat, niet alleen van wat je zegt.",
+      "get_help": "Je voelt dat je de controle verliest. Zoek hulp bij de huisarts of het sociaal wijkteam.",
+      "co_action": "verhaal",
+      "app_links": "Co: Even je verhaal kwijt.",
+      "keywords": [
+        "boos",
+        "woede",
+        "kwaad",
+        "schreeuw",
+        "ontplof",
+        "gillen",
+        "razend"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 10,
+      "topic_index": 2,
+      "topic": "Als ik boos ben",
+      "question": "Hoe voorkom ik dat ik slecht over de andere ouder praat tegen mijn kind?",
+      "short_answer": "Een simpele regel: wat je over de ander zegt, zeg je alsof die erbij staat.",
+      "actions": [
+        "Ken je triggers, bijvoorbeeld na een bericht of een overdracht.",
+        "Bedenk vooraf een neutrale zin.",
+        "Als het toch gebeurt, herstel het rustig: 'Dat had ik niet zo moeten zeggen.'",
+        "Praat met een volwassene over je frustratie."
+      ],
+      "say": [
+        "“Dat is iets tussen papa en mij. Jij hoeft je daar niet druk om te maken.”"
+      ],
+      "avoid": [
+        "“Je moeder heeft ons gezin kapotgemaakt.”",
+        "Zuchten of met je ogen rollen als de ander ter sprake komt."
+      ],
+      "remember": "Een kind hoort vaak meer dan je denkt, ook als je zacht praat.",
+      "get_help": null,
+      "co_action": "doen",
+      "app_links": "Co: Wat kan ik doen? Na een heftig moment, stap 2: Goedmaken.",
+      "keywords": [
+        "boos",
+        "woede",
+        "kwaad",
+        "schreeuw",
+        "ontplof",
+        "gillen",
+        "razend",
+        "negatief",
+        "slecht",
+        "zegt",
+        "vertelt"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 11,
+      "topic_index": 2,
+      "topic": "Als ik boos ben",
+      "question": "Ik wil alles uitschreeuwen. Wat kan ik nu doen?",
+      "short_answer": "Dit gevoel gaat voorbij. Je hoeft nu niets te beslissen.",
+      "actions": [
+        "Adem vijf keer langzaam uit.",
+        "Leg je telefoon even neer en kijk om je heen: noem vijf dingen die je ziet.",
+        "Loop een rondje of beweeg even.",
+        "Stuur niets.",
+        "Praat daarna met iemand die je vertrouwt."
+      ],
+      "say": [
+        "“Dit is een moeilijk moment. Het hoeft nu niet opgelost.”"
+      ],
+      "avoid": [
+        "Iets wat je per bericht of telefoon direct naar de ander stuurt."
+      ],
+      "remember": "Een bericht dat je later niet had willen sturen, kun je niet terughalen.",
+      "get_help": null,
+      "co_action": "stoppen",
+      "app_links": "Even stoppen (de kaart bovenaan).",
+      "keywords": [
+        "boos",
+        "woede",
+        "kwaad",
+        "schreeuw",
+        "ontplof",
+        "gillen",
+        "razend"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 12,
+      "topic_index": 2,
+      "topic": "Als ik boos ben",
+      "question": "Hoe ga ik om met een scherp bericht van de andere ouder?",
+      "short_answer": "Je hoeft niet meteen te antwoorden. Wacht, lees het nog eens en antwoord kort op wat nodig is.",
+      "actions": [
+        "Wacht een paar uur of tot morgen.",
+        "Zoek de feiten: wat vraagt de ander echt?",
+        "Antwoord kort, informatief, vriendelijk en duidelijk.",
+        "Reageer niet op toon of verwijten.",
+        "Gebruik Co als je hulp wilt."
+      ],
+      "say": [
+        "“Bedankt voor je bericht. Zaterdag kan ik niet, zondag wel. Laat je het me voor woensdag weten?”"
+      ],
+      "avoid": [
+        "“Waarom doe je altijd zo?”",
+        "Een antwoord dat punt voor punt alles weerlegt."
+      ],
+      "remember": "Een antwoord hoeft niet alles te weerleggen.",
+      "get_help": null,
+      "co_action": "bericht",
+      "app_links": "Co: Een bericht schrijven. Bij Houvast: Even wachten bij een fel bericht.",
+      "keywords": [
+        "bericht",
+        "app",
+        "whatsapp",
+        "sms",
+        "appje"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 13,
+      "topic_index": 3,
+      "topic": "Praten met de ander",
+      "question": "Hoe begin ik een lastig gesprek met de andere ouder?",
+      "short_answer": "Begin klein, kort en concreet. Kies het juiste moment en de juiste plek, bijvoorbeeld de app.",
+      "actions": [
+        "Kies één onderwerp.",
+        "Zeg wat je wilt en vraag wat de ander ziet.",
+        "Verwacht niet dat het meteen is opgelost.",
+        "Geef een datum waarop je een antwoord nodig hebt."
+      ],
+      "say": [
+        "“Ik wil graag iets over de vakantie bespreken. Wanneer past het jou om daarop te reageren?”"
+      ],
+      "avoid": [
+        "“We moeten praten.”",
+        "Drie onderwerpen in één bericht."
+      ],
+      "remember": "Je hoeft het niet in één keer op te lossen.",
+      "get_help": null,
+      "co_action": "bericht",
+      "app_links": "Co: Een bericht schrijven. Bij Houvast: Voorbereiden op een gesprek.",
+      "keywords": [],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 14,
+      "topic_index": 3,
+      "topic": "Praten met de ander",
+      "question": "De andere ouder reageert niet of laat me wachten. Wat kan ik doen?",
+      "short_answer": "Vraag helder en geef een datum. Blijft het stil, zoek dan een praktische oplossing.",
+      "actions": [
+        "Stel één duidelijke vraag.",
+        "Geef een uiterste datum.",
+        "Bied twee opties aan.",
+        "Gebruik 'Snel iets afstemmen' alleen bij dringende zaken.",
+        "Blijft het structureel stil? Denk aan een mediator."
+      ],
+      "say": [
+        "“Laat je het me voor woensdag weten? Dan kan ik het goed plannen.”"
+      ],
+      "avoid": [
+        "“Als ik niks hoor, beslis ik het zelf.”",
+        "Hetzelfde bericht drie keer sturen."
+      ],
+      "remember": "Stilte is niet altijd onwil. Soms heeft iemand tijd nodig.",
+      "get_help": null,
+      "co_action": "bericht",
+      "app_links": "Co: Een bericht schrijven.",
+      "keywords": [
+        "te laat",
+        "laat",
+        "niet komen",
+        "komt niet",
+        "opdagen",
+        "wachten",
+        "reageert niet",
+        "geen antwoord",
+        "stil"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 15,
+      "topic_index": 3,
+      "topic": "Praten met de ander",
+      "question": "Ik voel me niet gehoord. Wat kan ik doen?",
+      "short_answer": "Zoek één zin die zegt wat je nodig hebt, zonder verwijt.",
+      "actions": [
+        "Schrijf op wat je nodig hebt.",
+        "Gebruik 'ik' in plaats van 'jij'.",
+        "Vraag om een kort gesprek, eventueel met een mediator.",
+        "Deel het ook met iemand die je vertrouwt."
+      ],
+      "say": [
+        "“Ik merk dat ik hier moeite mee heb. Het zou mij helpen als…”"
+      ],
+      "avoid": [
+        "“Jij luistert nooit.”"
+      ],
+      "remember": "Gehoord worden begint vaak met zelf duidelijk zijn.",
+      "get_help": null,
+      "co_action": "verhaal",
+      "app_links": "Co: Even je verhaal kwijt.",
+      "keywords": [
+        "gehoord",
+        "luistert niet"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 16,
+      "topic_index": 4,
+      "topic": "Voor mezelf",
+      "question": "Ik red het even niet. Waar kan ik terecht?",
+      "short_answer": "Hulp vragen is geen falen. Je hoeft dit niet alleen te doen.",
+      "actions": [
+        "Praat met iemand die je vertrouwt.",
+        "Maak een afspraak met de huisarts.",
+        "Vraag bij je gemeente naar het sociaal wijkteam of het ouder- en kindteam.",
+        "Heb je gedachten om jezelf iets aan te doen? Bel 113, dag en nacht. Bij direct gevaar: 112."
+      ],
+      "say": [
+        "“Ik heb het zwaar en ik wil hulp. Kun je met me meedenken?”"
+      ],
+      "avoid": [
+        "“Het gaat wel.” (als het niet zo is)"
+      ],
+      "remember": "Een rustige ouder helpt een kind meer dan een perfecte ouder.",
+      "get_help": "Je gedachten hebt aan zelfbeschadiging. Bel 113 of de huisarts. Bij acuut gevaar: 112.",
+      "co_action": "verhaal",
+      "app_links": "Co: Even je verhaal kwijt. Veiligheid & hulp.",
+      "keywords": [
+        "te veel",
+        "red het niet",
+        "kapot",
+        "op"
+      ],
+      "is_new": false,
+      "reviewed_at": null
+    },
+    {
+      "id": 17,
+      "topic_index": 0,
+      "topic": "Overdracht",
+      "question": "De ander is te laat of komt niet opdagen. Wat doe ik?",
+      "short_answer": "Zorg eerst voor je kind. Het gesprek over afspraken komt later, rustig en in de app.",
+      "actions": [
+        "Wacht een vaste tijd, bijvoorbeeld een kwartier, en stuur dan één kort bericht.",
+        "Leg je kind uit wat er gebeurt, zonder oordeel.",
+        "Doe daarna iets gewoons samen.",
+        "Noteer de datum, zonder er een dossier van te maken.",
+        "Gebeurt het vaker? Stel een vaste afspraak voor, bijvoorbeeld een sms bij vertraging."
+      ],
+      "say": [
+        "Tegen je kind: “Mama is wat later. We wachten nog even, daarna gaan we een boek lezen.” Tegen de ander: “We wachten tot 17:15. Laat je weten hoe laat je er bent?”"
+      ],
+      "avoid": [
+        "“Zie je wel, hij komt nooit op tijd.”",
+        "“Je vader vindt andere dingen belangrijker.”"
+      ],
+      "remember": "Je kind leert van hoe jij met teleurstelling omgaat.",
+      "get_help": "Het vaak gebeurt en je samen niet verder komt. Een mediator kan helpen met vaste afspraken.",
+      "co_action": "bericht",
+      "app_links": "Co: Een bericht schrijven. Bij het wisselmoment in de agenda.",
+      "keywords": [
+        "te laat",
+        "laat",
+        "niet komen",
+        "komt niet",
+        "opdagen",
+        "wachten"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 18,
+      "topic_index": 0,
+      "topic": "Overdracht",
+      "question": "De nieuwe partner van de ander is bij de overdracht. Hoe ga ik daarmee om?",
+      "short_answer": "Dat kan pijn doen. Voor je kind helpt het als jij beleefd en kort blijft, wat je er ook van vindt.",
+      "actions": [
+        "Groet kort en vriendelijk.",
+        "Bespreek zaken alleen met de andere ouder.",
+        "Bedenk vooraf wat je wel en niet wilt bespreken waar de partner bij is.",
+        "Spreek met de ander af hoe jullie dit willen, bijvoorbeeld de eerste tijd zonder partner.",
+        "Kijk wat je ouderschapsplan zegt over een nieuwe partner."
+      ],
+      "say": [
+        "“Hoi.”",
+        "“Kunnen we het wisselen de komende tijd met z'n tweeën doen? Dat is voor mij nu makkelijker.”"
+      ],
+      "avoid": [
+        "Opmerkingen over de partner waar je kind bij is."
+      ],
+      "remember": "Hoe jij nu reageert, bepaalt mee hoe vrij je kind zich voelt bij de ander.",
+      "get_help": null,
+      "co_action": "verhaal",
+      "app_links": "Co: Even je verhaal kwijt. Zie ook kaart 26 en 34.",
+      "keywords": [
+        "vriend",
+        "vriendin",
+        "partner",
+        "relatie",
+        "nieuwe"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 19,
+      "topic_index": 0,
+      "topic": "Overdracht",
+      "question": "Er is iets belangrijks vergeten, zoals medicijnen of schoolspullen. Wat nu?",
+      "short_answer": "Dat gebeurt in twee huizen. Los het praktisch op en voorkom het de volgende keer met een vaste lijst.",
+      "actions": [
+        "Kijk eerst wat je kind vandaag nodig heeft.",
+        "Stuur één praktisch bericht, zonder verwijt.",
+        "Bied aan het te halen of te brengen als dat kan.",
+        "Zet het op de vaste lijst in Mee met de wissel.",
+        "Bij medicijnen: spreek af dat er in beide huizen een voorraad is."
+      ],
+      "say": [
+        "“De puffer van Noah ligt nog bij jou. Kan ik hem om 18:00 ophalen?”"
+      ],
+      "avoid": [
+        "“Je vergeet ook altijd alles.”"
+      ],
+      "remember": "Een lijst voorkomt meer discussie dan een verwijt.",
+      "get_help": "Je kind medicijnen mist die nodig zijn. Bel de huisarts of apotheek voor advies.",
+      "co_action": "bericht",
+      "app_links": "Mee met de wissel: vaste dingen. Co: Een bericht schrijven.",
+      "keywords": [
+        "vergeten",
+        "medicijn",
+        "spullen",
+        "tas"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 20,
+      "topic_index": 1,
+      "topic": "Mijn kind vertelt iets",
+      "question": "Mijn kind lijkt zich schuldig te voelen als het het fijn heeft bij de ander. Wat doe ik?",
+      "short_answer": "Je kind wil jou niet kwetsen. Geef het zichtbaar toestemming om van beide huizen te genieten.",
+      "actions": [
+        "Vraag met echte interesse naar iets leuks bij de ander.",
+        "Laat merken dat het jou blij maakt als je kind het fijn heeft.",
+        "Laat je eigen gemis niet bij je kind liggen.",
+        "Vertel niet hoe stil het huis was zonder je kind."
+      ],
+      "say": [
+        "“Wat leuk dat jullie naar het strand zijn geweest. Vertel eens.”",
+        "“Je mag het overal fijn hebben.”"
+      ],
+      "avoid": [
+        "“Ik was zo alleen dit weekend.”",
+        "“Bij mij is het toch ook leuk?”"
+      ],
+      "remember": "Een kind dat niet hoeft te kiezen, heeft meer ruimte om gewoon kind te zijn.",
+      "get_help": null,
+      "co_action": "praten",
+      "app_links": "Co: Even praten.",
+      "keywords": [
+        "verdrietig",
+        "na de wissel",
+        "thuiskomen"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 21,
+      "topic_index": 1,
+      "topic": "Mijn kind vertelt iets",
+      "question": "Mijn kind wil niet naar de andere ouder. Wat doe ik?",
+      "short_answer": "Neem het gevoel serieus, maar de afspraak blijft staan. Zoek eerst uit wat erachter zit.",
+      "actions": [
+        "Vraag rustig wat je kind lastig vindt.",
+        "Zeg dat je het snapt en dat de afspraak blijft.",
+        "Bespreek het zonder je kind met de andere ouder.",
+        "Kijk samen wat kan helpen, zoals een vast ritueel of een kortere eerste dag.",
+        "Maak het gesprek met je kind niet tot een keuze."
+      ],
+      "say": [
+        "“Ik hoor dat je het lastig vindt. Papa verheugt zich op je. Wat zou het makkelijker maken?”"
+      ],
+      "avoid": [
+        "“Je hoeft niet als je niet wilt.”",
+        "“Ik snap het wel, bij hem is het ook niet leuk.”"
+      ],
+      "remember": "Het ouderschapsplan blijft leidend, ook als het even moeilijk is.",
+      "get_help": "Het lang aanhoudt, je kind bang lijkt of iets vertelt wat je zorgen geeft. Praat met de huisarts, een kindercoach of Veilig Thuis: 0800-2000.",
+      "co_action": "doen",
+      "app_links": "Co: Wat kan ik doen? Ouderschapsplan bekijken.",
+      "keywords": [
+        "huil",
+        "klampt",
+        "niet mee",
+        "wil niet",
+        "weigert"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 22,
+      "topic_index": 1,
+      "topic": "Mijn kind vertelt iets",
+      "question": "Mijn kind brengt berichten over tussen ons, of vraagt me iets geheim te houden.",
+      "short_answer": "Boodschappen tussen ouders horen niet bij een kind. Haal je kind er rustig uit en regel het zelf met de ander.",
+      "actions": [
+        "Bedank je kind en zeg dat jij het verder regelt.",
+        "Stuur zelf een bericht aan de andere ouder.",
+        "Vraag je kind nooit iets door te geven of te verzwijgen.",
+        "Bij een geheim: luister, en zeg dat volwassenen soms iets moeten weten om goed te zorgen."
+      ],
+      "say": [
+        "“Fijn dat je het zegt. Dit regel ik zelf met mama, jij hoeft dat niet te doen.”"
+      ],
+      "avoid": [
+        "“Zeg maar tegen je vader dat…”",
+        "“Dit hoeft mama niet te weten.”"
+      ],
+      "remember": "Een kind dat niets hoeft over te brengen, kan bij allebei gewoon thuis zijn.",
+      "get_help": null,
+      "co_action": "bericht",
+      "app_links": "Berichten. Co: Een bericht schrijven.",
+      "keywords": [
+        "geheim",
+        "doorgeven",
+        "boodschap"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 23,
+      "topic_index": 1,
+      "topic": "Mijn kind vertelt iets",
+      "question": "Mijn kind wil zelf kiezen waar het woont of anders verdeeld worden.",
+      "short_answer": "Een ouder kind mag meepraten. De beslissing nemen jullie samen als ouders, met het belang van je kind voorop.",
+      "actions": [
+        "Luister naar de reden, zonder meteen te reageren.",
+        "Zeg dat je het serieus neemt en het met de andere ouder bespreekt.",
+        "Bespreek het eerst samen als ouders.",
+        "Kijk naar wat je ouderschapsplan zegt over evaluatie en de wensen van je kind.",
+        "Kom je er samen niet uit? Vraag een mediator of kindbehartiger."
+      ],
+      "say": [
+        "“Goed dat je dit zegt. Papa en ik gaan erover praten en komen er bij je op terug.”"
+      ],
+      "avoid": [
+        "“Dan kom je toch gewoon bij mij wonen.”",
+        "“Waarom wil je niet meer naar mama?”"
+      ],
+      "remember": "Meepraten is iets anders dan moeten kiezen.",
+      "get_help": null,
+      "co_action": "doen",
+      "app_links": "Voorstel doen, met de notitie 'Het ouderschapsplan blijft leidend'. Co: Wat kan ik doen?",
+      "keywords": [
+        "kiezen",
+        "wonen"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 24,
+      "topic_index": 1,
+      "topic": "Mijn kind vertelt iets",
+      "question": "Mijn kind speelt ons tegen elkaar uit.",
+      "short_answer": "Dat is voor kinderen in twee huizen heel gewoon. Het werkt minder als jullie elkaar even checken.",
+      "actions": [
+        "Reageer niet direct op 'bij papa mag het wel'.",
+        "Check het rustig bij de andere ouder.",
+        "Spreek een paar huisregels af die in beide huizen gelden.",
+        "Accepteer dat andere regels in het andere huis mogen."
+      ],
+      "say": [
+        "Tegen je kind: “Bij papa gaat het misschien anders. Hier is het zo.” Tegen de ander: “Emma zegt dat ze bij jou tot tien op mag. Klopt dat? Dan weet ik het.”"
+      ],
+      "avoid": [
+        "“Dat mag van papa? Typisch.”"
+      ],
+      "remember": "Twee huizen met andere regels is niet erg. Twee ouders die elkaar niet checken wel.",
+      "get_help": null,
+      "co_action": "bericht",
+      "app_links": "Co: Een bericht schrijven.",
+      "keywords": [
+        "uitspelen",
+        "mag wel",
+        "regels"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 25,
+      "topic_index": 2,
+      "topic": "Als ik boos ben",
+      "question": "Ik krijg 's avonds of in het weekend steeds berichten. Moet ik reageren?",
+      "short_answer": "Nee. Je mag zelf bepalen wanneer je reageert, behalve als het echt dringend is.",
+      "actions": [
+        "Zet stille uren aan in Rustmodus.",
+        "Kies één vast moment per dag om berichten te lezen.",
+        "Laat weten wanneer je reageert, zonder uitleg.",
+        "Spreek af wat dringend is, bijvoorbeeld ziekte of ophalen."
+      ],
+      "say": [
+        "“Ik lees berichten elke dag rond 18:00. Is het dringend, gebruik dan 'Snel iets afstemmen'.”"
+      ],
+      "avoid": [
+        "“Kun je me eens met rust laten?”"
+      ],
+      "remember": "Een rustig moment om te antwoorden geeft een rustiger antwoord.",
+      "get_help": null,
+      "co_action": "algemeen",
+      "app_links": "Rustmodus. Bij Houvast: Berichten één keer per dag.",
+      "keywords": [
+        "bericht",
+        "app",
+        "whatsapp",
+        "sms",
+        "appje"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 26,
+      "topic_index": 2,
+      "topic": "Als ik boos ben",
+      "question": "De ander heeft een nieuwe partner en dat doet me pijn.",
+      "short_answer": "Dat is een begrijpelijk gevoel. Het is van jou, en het hoeft niet via je kind te lopen.",
+      "actions": [
+        "Geef jezelf tijd. Pijn, jaloezie of verdriet mag er zijn.",
+        "Praat erover met een volwassene, niet met je kind.",
+        "Vraag je kind niet uit over de nieuwe partner.",
+        "Laat je kind merken dat het de partner aardig mag vinden.",
+        "Kijk wat jullie in het ouderschapsplan afspraken over een nieuwe relatie."
+      ],
+      "say": [
+        "Tegen je kind: “Het is fijn als je het daar leuk hebt.”"
+      ],
+      "avoid": [
+        "“Wat is ze voor iemand?”",
+        "“Je hoeft haar niet aardig te vinden, hoor.”"
+      ],
+      "remember": "Je kind kan van een extra volwassene houden zonder minder van jou te houden.",
+      "get_help": "Het gevoel je dagelijks bezighoudt. De huisarts kan je verwijzen naar een praktijkondersteuner.",
+      "co_action": "verhaal",
+      "app_links": "Co: Even je verhaal kwijt. Zie ook kaart 18 en 34.",
+      "keywords": [
+        "vriend",
+        "vriendin",
+        "partner",
+        "relatie",
+        "nieuwe"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 27,
+      "topic_index": 3,
+      "topic": "Praten met de ander",
+      "question": "Ik vroeg een wijziging en de ander gaat niet akkoord. Wat nu?",
+      "short_answer": "Dan blijft de afspraak uit jullie ouderschapsplan gelden. De ander mag nee zeggen, ook zonder reden.",
+      "actions": [
+        "Lees de reactie en wacht even met antwoorden.",
+        "Kijk of er een ander voorstel mogelijk is.",
+        "Accepteer het als het niet lukt. De gewone regeling geldt.",
+        "Gaat het vaker mis? Jullie plan noemt vaak een mediator om in te schakelen."
+      ],
+      "say": [
+        "“Helder, dan houden we het zoals het is.”",
+        "“Zou het wel lukken als ik zondag om 12:00 terugbreng?”"
+      ],
+      "avoid": [
+        "“Ik doe ook nooit meer iets voor jou.”"
+      ],
+      "remember": "Een afspraak geldt tot jullie samen een nieuwe maken.",
+      "get_help": "Jullie het vaker niet eens worden. Een mediator kan helpen. De rechter is de laatste stap.",
+      "co_action": "afspraken",
+      "app_links": "Op het voorstel zelf: 'Het ouderschapsplan blijft leidend'. Co: Denk mee.",
+      "keywords": [
+        "vakantie",
+        "reis",
+        "buitenland",
+        "kerst",
+        "feestdag",
+        "sinterklaas",
+        "oud en nieuw",
+        "nee",
+        "akkoord",
+        "wijziging",
+        "ruilen"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 28,
+      "topic_index": 3,
+      "topic": "Praten met de ander",
+      "question": "We krijgen steeds discussie over kosten. Hoe voorkom ik dat?",
+      "short_answer": "Spreek vooraf af wat gedeeld wordt en wat niet. Discussie ontstaat vaak achteraf.",
+      "actions": [
+        "Stel een budget voor vóór een grote uitgave.",
+        "Voeg de bon toe aan de uitgave.",
+        "Kies bij de uitgave van welke rekening het betaald is.",
+        "Spreek een grens af, bijvoorbeeld: boven € 50 eerst overleggen.",
+        "Houd geld en zorgafspraken uit elkaar."
+      ],
+      "say": [
+        "“Noah heeft nieuwe voetbalschoenen nodig, ongeveer € 60. Zullen we die delen?”"
+      ],
+      "avoid": [
+        "“Jij betaalt nooit iets.”",
+        "Geld bespreken bij de overdracht."
+      ],
+      "remember": "Vooraf afspreken kost minder dan achteraf ruziemaken.",
+      "get_help": null,
+      "co_action": "algemeen",
+      "app_links": "Kosten: budget voorstellen, betaald van, Nog kopen.",
+      "keywords": [
+        "geld",
+        "kosten",
+        "alimentatie",
+        "betaal",
+        "bijdrage",
+        "rekening"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 29,
+      "topic_index": 3,
+      "topic": "Praten met de ander",
+      "question": "De ouderbijdrage wordt niet of niet op tijd betaald.",
+      "short_answer": "Houd het zakelijk. Wijs op de afspraak en de datum, zonder er een ruzie van te maken.",
+      "actions": [
+        "Stuur één kort, feitelijk bericht.",
+        "Noteer data en bedragen voor jezelf.",
+        "Vraag of er iets speelt, en of een andere betaaldatum helpt.",
+        "Betrek je kind er nooit bij.",
+        "Blijft betaling uit? Een jurist of het LBIO kan uitleggen wat je kunt doen."
+      ],
+      "say": [
+        "“De bijdrage voor november heb ik nog niet ontvangen. Wil je die deze week overmaken?”"
+      ],
+      "avoid": [
+        "“Dan kan Emma niet op zwemles, door jou.”"
+      ],
+      "remember": "Geld is een zaak tussen volwassenen.",
+      "get_help": "Het blijft uitblijven. Vraag een jurist of het LBIO om informatie. Dit is geen juridisch advies.",
+      "co_action": "algemeen",
+      "app_links": "Kosten: ouderbijdrage bijhouden. Herinnering in januari voor de jaarlijkse indexering.",
+      "keywords": [
+        "geld",
+        "kosten",
+        "alimentatie",
+        "betaal",
+        "bijdrage",
+        "rekening"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 30,
+      "topic_index": 3,
+      "topic": "Praten met de ander",
+      "question": "Er moet iets groots besloten worden, zoals school, een behandeling of een reis naar het buitenland.",
+      "short_answer": "Bij gezamenlijk gezag beslissen jullie dit samen. Geef de ander op tijd alle informatie.",
+      "actions": [
+        "Zet het in de app als 'Overleg nodig', met de feiten en een datum.",
+        "Deel informatie van school of zorgverlener met de ander.",
+        "Vraag wat de ander nodig heeft om te beslissen.",
+        "Leg het besluit vast als jullie het eens zijn.",
+        "Voor een reis naar het buitenland: vraag op tijd schriftelijke toestemming."
+      ],
+      "say": [
+        "“De orthodontist adviseert een beugel. Ik heb het advies erbij gezet. Kunnen we voor vrijdag beslissen?”"
+      ],
+      "avoid": [
+        "“Ik heb het al geregeld.”"
+      ],
+      "remember": "Op tijd informeren voorkomt het gevoel van gepasseerd worden.",
+      "get_help": "Jullie het niet eens worden. Een mediator kan helpen. Vraag bij juridische twijfel een jurist.",
+      "co_action": "algemeen",
+      "app_links": "Overleg nodig. Documenten: toestemmingsformulier reizen.",
+      "keywords": [
+        "vakantie",
+        "reis",
+        "buitenland",
+        "school",
+        "ouderavond",
+        "optreden",
+        "rapport"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 31,
+      "topic_index": 4,
+      "topic": "Voor mezelf",
+      "question": "Het huis is zo stil als de kinderen bij de ander zijn.",
+      "short_answer": "Dat gemis is normaal, vooral in het begin. Deze tijd mag ook van jou zijn.",
+      "actions": [
+        "Plan iets voor de eerste avond, ook als het klein is.",
+        "Maak een vast ritueel, bijvoorbeeld een wandeling of iemand bellen.",
+        "Laat de kamer van je kind gewoon zoals hij is.",
+        "Bel of app je kind volgens de afspraak, niet vaker om jezelf gerust te stellen.",
+        "Zoek mensen op die je energie geven."
+      ],
+      "say": [
+        "Tegen je kind: “Fijne dagen. Ik zie je dinsdag.”"
+      ],
+      "avoid": [
+        "“Ik ga je zo missen, het is hier zo leeg zonder jou.”"
+      ],
+      "remember": "Je kind gaat makkelijker als het weet dat jij je redt.",
+      "get_help": "Het gemis je lange tijd neerslachtig maakt. Praat met de huisarts.",
+      "co_action": "praten",
+      "app_links": "Co: Even praten. Bij Houvast: Even terugkijken na de wissel.",
+      "keywords": [
+        "alleen",
+        "stil",
+        "mis",
+        "leeg",
+        "te veel",
+        "red het niet",
+        "kapot",
+        "op"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 32,
+      "topic_index": 4,
+      "topic": "Voor mezelf",
+      "question": "De eerste feestdagen of vakantie zonder mijn kind.",
+      "short_answer": "Het eerste jaar is vaak het moeilijkst. Plan vooraf hoe je deze dagen voor jezelf invult.",
+      "actions": [
+        "Kijk ruim van tevoren in de agenda wanneer je kind bij de ander is.",
+        "Plan iets met mensen die je goed doen.",
+        "Maak een eigen moment met je kind, voor of na de feestdag.",
+        "Bel op het afgesproken moment en houd het kort en warm.",
+        "Wees mild voor jezelf als het zwaar is."
+      ],
+      "say": [
+        "“Wij vieren kerst op 27 december, met z'n tweeën. Daar verheug ik me op.”"
+      ],
+      "avoid": [
+        "“Ik zit met kerst helemaal alleen.”"
+      ],
+      "remember": "Een feest op een andere dag is voor een kind net zo echt.",
+      "get_help": null,
+      "co_action": "praten",
+      "app_links": "Agenda: vakanties. Herinnering vooraf. Co: Even praten.",
+      "keywords": [
+        "kerst",
+        "feestdag",
+        "sinterklaas",
+        "oud en nieuw",
+        "alleen",
+        "stil",
+        "mis",
+        "leeg"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 33,
+      "topic_index": 4,
+      "topic": "Voor mezelf",
+      "question": "Ik voel me schuldig tegenover mijn kind door de scheiding.",
+      "short_answer": "Schuldgevoel laat zien dat je kind je veel waard is. Wat je kind vooral nodig heeft, is een ouder die er nu is.",
+      "actions": [
+        "Houd vaste regels en routines aan, ook als je je schuldig voelt.",
+        "Compenseer niet met cadeaus of minder grenzen.",
+        "Vertel je kind dat het mag laten zien wat het voelt.",
+        "Praat over je eigen schuldgevoel met een volwassene."
+      ],
+      "say": [
+        "“Het is een grote verandering. Je mag me alles vragen.”"
+      ],
+      "avoid": [
+        "“Het spijt me dat ik je leven heb verpest.”"
+      ],
+      "remember": "Een kind heeft meer aan een ouder die er is dan aan een ouder die alles goedmaakt.",
+      "get_help": null,
+      "co_action": "verhaal",
+      "app_links": "Co: Even je verhaal kwijt. Na een heftig moment, stap 1: Rust.",
+      "keywords": [
+        "schuld",
+        "schuldig"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 34,
+      "topic_index": 5,
+      "topic": "Bijzondere momenten en veranderingen",
+      "question": "Ik heb een nieuwe partner. Wanneer en hoe vertel ik dat mijn kind?",
+      "short_answer": "Neem de tijd en vertel het eerst aan de andere ouder. Zo hoort je kind het niet via een omweg.",
+      "actions": [
+        "Wacht tot de relatie stabiel is.",
+        "Vertel het eerst aan de andere ouder, zoals veel ouderschapsplannen afspreken.",
+        "Spreek samen af wanneer en hoe je kind het hoort.",
+        "Laat de eerste kennismaking kort en ontspannen zijn, op neutraal terrein.",
+        "Geef je kind tijd en de ruimte om er iets van te vinden."
+      ],
+      "say": [
+        "Tegen de ander: “Ik wil je iets vertellen voordat de kinderen het horen.” Tegen je kind: “Ik heb iemand leren kennen die ik leuk vind. Jij blijft voor mij het belangrijkste.”"
+      ],
+      "avoid": [
+        "“Dit is je nieuwe moeder.”",
+        "“Je hoeft het niet aan papa te vertellen.”"
+      ],
+      "remember": "Termen als papa en mama blijven voor de ouders, tenzij jullie samen iets anders afspreken.",
+      "get_help": null,
+      "co_action": "doen",
+      "app_links": "Co: Wat kan ik doen? Ouderschapsplan bekijken.",
+      "keywords": [
+        "vriend",
+        "vriendin",
+        "partner",
+        "relatie",
+        "nieuwe"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 35,
+      "topic_index": 5,
+      "topic": "Bijzondere momenten en veranderingen",
+      "question": "Mijn kind gaat met de andere ouder op vakantie. Hoe regel ik dat goed?",
+      "short_answer": "Spreek de praktische zaken vooraf af. Dan kan je kind zonder zorgen gaan.",
+      "actions": [
+        "Zet de vakantie in de agenda volgens jullie verdeling.",
+        "Vraag het adres en een telefoonnummer voor noodgevallen.",
+        "Geef paspoort, zorgpas en medicijnen mee via Mee met de wissel.",
+        "Regel bij een reis naar het buitenland op tijd de toestemming.",
+        "Spreek af wanneer jullie bellen of videobellen."
+      ],
+      "say": [
+        "“Fijne vakantie. Zullen we zondagavond even videobellen?”"
+      ],
+      "avoid": [
+        "“Bel me als je me mist, dan kom ik je halen.”"
+      ],
+      "remember": "Je kind geniet meer als het weet dat jij het goed vindt.",
+      "get_help": null,
+      "co_action": "algemeen",
+      "app_links": "Agenda: vakanties. Mee met de wissel: sjabloon Vakantie. Documenten.",
+      "keywords": [
+        "vakantie",
+        "reis",
+        "buitenland"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 36,
+      "topic_index": 5,
+      "topic": "Bijzondere momenten en veranderingen",
+      "question": "De verjaardag van mijn kind. Hoe vieren we dat?",
+      "short_answer": "Kijk eerst wat jullie hebben afgesproken. Het belangrijkste is dat je kind de dag als feest ervaart.",
+      "actions": [
+        "Kijk in het ouderschapsplan of jullie samen vieren of apart.",
+        "Stem cadeaus af, zodat je kind niet twee keer hetzelfde krijgt.",
+        "Viert de ander het die dag? Plan je eigen feest een dag ervoor of erna.",
+        "Maak de dag niet tot een wedstrijd wie het mooiste feest geeft."
+      ],
+      "say": [
+        "Tegen de ander: “Ik wil Emma een fiets geven. Wat had jij in gedachten?”"
+      ],
+      "avoid": [
+        "“Bij mij krijg je wel een echt feest.”"
+      ],
+      "remember": "Twee feestjes zijn voor een kind vaak gewoon twee keer feest.",
+      "get_help": null,
+      "co_action": "algemeen",
+      "app_links": "Agenda: samen vieren. Herinnering twee weken vooraf.",
+      "keywords": [
+        "verjaardag",
+        "jarig",
+        "feest"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 37,
+      "topic_index": 5,
+      "topic": "Bijzondere momenten en veranderingen",
+      "question": "Moederdag, Vaderdag of de verjaardag van de andere ouder komt eraan.",
+      "short_answer": "Help je kind iets te maken of te kopen voor de andere ouder. Dat geeft je kind ruimte om van allebei te houden.",
+      "actions": [
+        "Kijk een week van tevoren in de agenda.",
+        "Help met knutselen of een kaart, ook als het je moeite kost.",
+        "Kijk of jullie plan afspreekt dat je kind die dag bij de jarige ouder is.",
+        "Laat je kind zelf kiezen wat het geeft."
+      ],
+      "say": [
+        "“Zondag is het Vaderdag. Zullen we samen iets voor papa maken?”"
+      ],
+      "avoid": [
+        "“Dat moet hij zelf maar regelen.”"
+      ],
+      "remember": "Wat je nu voor de ander doet, doe je eigenlijk voor je kind.",
+      "get_help": null,
+      "co_action": "algemeen",
+      "app_links": "Bij Houvast: Bijzondere dagen van de andere ouder.",
+      "keywords": [
+        "verjaardag",
+        "jarig",
+        "feest",
+        "moederdag",
+        "vaderdag"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 38,
+      "topic_index": 5,
+      "topic": "Bijzondere momenten en veranderingen",
+      "question": "De andere ouder of ik ga verhuizen.",
+      "short_answer": "Een verhuizing raakt de afspraken. Overleg vooraf, ook als het ouderschapsplan het toestaat.",
+      "actions": [
+        "Bespreek het plan op tijd met de andere ouder.",
+        "Kijk wat er verandert aan reistijd, school en wisselmomenten.",
+        "Pas samen de afspraken aan en leg ze vast.",
+        "Betrek je kind bij praktische keuzes, zoals de inrichting van een kamer.",
+        "Wil een ouder ver weg verhuizen? Dan is samen overleggen extra belangrijk. Vraag bij twijfel een jurist."
+      ],
+      "say": [
+        "“Ik wil je iets vertellen over een mogelijke verhuizing. Kunnen we kijken wat dat betekent voor de wissels?”"
+      ],
+      "avoid": [
+        "“Ik heb al getekend, het is geregeld.”"
+      ],
+      "remember": "Een verhuizing mag de afgesproken omgang niet in de weg zitten.",
+      "get_help": "Jullie het niet eens worden. Een mediator kan helpen. De rechter is de laatste stap.",
+      "co_action": "algemeen",
+      "app_links": "Overleg nodig. Ouderschapsplan bekijken. Agenda wordt daarna bijgewerkt.",
+      "keywords": [
+        "verhuis",
+        "verhuizen",
+        "ander huis"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 39,
+      "topic_index": 5,
+      "topic": "Bijzondere momenten en veranderingen",
+      "question": "We gaan allebei naar een ouderavond of optreden.",
+      "short_answer": "Je kind vindt het fijn als jullie er allebei zijn. Een beleefde groet is genoeg.",
+      "actions": [
+        "Spreek vooraf af wie wat vraagt bij een gesprek op school.",
+        "Groet elkaar kort en vriendelijk.",
+        "Ga zitten waar het voor jou prettig is.",
+        "Bespreek na afloop alleen het nodige, in de app."
+      ],
+      "say": [
+        "“Hoi. Zal ik de vragen over rekenen stellen en jij die over de toets?”"
+      ],
+      "avoid": [
+        "Onderlinge zaken bespreken met de leerkracht erbij."
+      ],
+      "remember": "Voor je kind telt vooral dat jullie er allebei zijn.",
+      "get_help": null,
+      "co_action": "algemeen",
+      "app_links": "Agenda: samen aanwezig. Bij Houvast: Voorbereiden op een gesprek.",
+      "keywords": [
+        "school",
+        "ouderavond",
+        "optreden",
+        "rapport"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    },
+    {
+      "id": 40,
+      "topic_index": 5,
+      "topic": "Bijzondere momenten en veranderingen",
+      "question": "Ik maak me zorgen over hoe het bij de andere ouder gaat.",
+      "short_answer": "Neem je zorg serieus en kijk naar feiten. Bij acuut gevaar handel je meteen. In andere gevallen bespreek je het eerst met de ander of met een professional.",
+      "actions": [
+        "Schrijf op wat je ziet of hoort, met datum, zonder het in te vullen.",
+        "Vraag je kind niet uit en laat het niets voor je controleren.",
+        "Bespreek een zorg rustig met de andere ouder, als dat veilig kan.",
+        "Vraag advies aan de huisarts, school of Veilig Thuis."
+      ],
+      "say": [
+        "“Ik maak me zorgen over Noah. Kunnen we samen kijken wat er speelt?”"
+      ],
+      "avoid": [
+        "Tegen je kind: “Let jij eens op wat papa doet.”"
+      ],
+      "remember": "Een zorg delen is iets anders dan een beschuldiging.",
+      "get_help": "Je je zorgen maakt over de veiligheid van je kind. Bel Veilig Thuis: 0800-2000, ook voor advies. Bij direct gevaar: 112.",
+      "co_action": "doen",
+      "app_links": "Veiligheid & hulp. Co: Wat kan ik doen?",
+      "keywords": [
+        "veilig",
+        "bang",
+        "zorgen",
+        "gevaar",
+        "slaan"
+      ],
+      "is_new": true,
+      "reviewed_at": null
+    }
+  ],
+  "search": {
+    "synonyms": [
+      {
+        "words": [
+          "boos",
+          "woede",
+          "kwaad",
+          "schreeuw",
+          "ontplof",
+          "gillen",
+          "razend"
+        ],
+        "cards": [
+          11,
+          4,
+          9,
+          10
+        ],
+        "meaning_en": "anger"
+      },
+      {
+        "words": [
+          "bericht",
+          "app",
+          "whatsapp",
+          "sms",
+          "appje"
+        ],
+        "cards": [
+          12,
+          25,
+          4
+        ],
+        "meaning_en": "messages"
+      },
+      {
+        "words": [
+          "te laat",
+          "laat",
+          "niet komen",
+          "komt niet",
+          "opdagen",
+          "wachten"
+        ],
+        "cards": [
+          17,
+          14
+        ],
+        "meaning_en": "late / no-show"
+      },
+      {
+        "words": [
+          "huil",
+          "klampt",
+          "niet mee",
+          "wil niet",
+          "weigert"
+        ],
+        "cards": [
+          3,
+          21,
+          8
+        ],
+        "meaning_en": "child refuses or cries"
+      },
+      {
+        "words": [
+          "vriend",
+          "vriendin",
+          "partner",
+          "relatie",
+          "nieuwe"
+        ],
+        "cards": [
+          18,
+          26,
+          34
+        ],
+        "meaning_en": "new partner"
+      },
+      {
+        "words": [
+          "geld",
+          "kosten",
+          "alimentatie",
+          "betaal",
+          "bijdrage",
+          "rekening"
+        ],
+        "cards": [
+          28,
+          29
+        ],
+        "meaning_en": "money, costs, alimony"
+      },
+      {
+        "words": [
+          "vakantie",
+          "reis",
+          "buitenland"
+        ],
+        "cards": [
+          35,
+          27,
+          30
+        ],
+        "meaning_en": "holiday, travel abroad"
+      },
+      {
+        "words": [
+          "verjaardag",
+          "jarig",
+          "feest"
+        ],
+        "cards": [
+          36,
+          37
+        ],
+        "meaning_en": "birthdays"
+      },
+      {
+        "words": [
+          "moederdag",
+          "vaderdag"
+        ],
+        "cards": [
+          37
+        ],
+        "meaning_en": "Mother's/Father's Day"
+      },
+      {
+        "words": [
+          "kerst",
+          "feestdag",
+          "sinterklaas",
+          "oud en nieuw"
+        ],
+        "cards": [
+          32,
+          27
+        ],
+        "meaning_en": "holidays like Christmas"
+      },
+      {
+        "words": [
+          "verhuis",
+          "verhuizen",
+          "ander huis"
+        ],
+        "cards": [
+          38
+        ],
+        "meaning_en": "moving house"
+      },
+      {
+        "words": [
+          "school",
+          "ouderavond",
+          "optreden",
+          "rapport"
+        ],
+        "cards": [
+          39,
+          30
+        ],
+        "meaning_en": "school events"
+      },
+      {
+        "words": [
+          "schuld",
+          "schuldig"
+        ],
+        "cards": [
+          7,
+          33
+        ],
+        "meaning_en": "guilt, blame"
+      },
+      {
+        "words": [
+          "alleen",
+          "stil",
+          "mis",
+          "leeg"
+        ],
+        "cards": [
+          31,
+          32
+        ],
+        "meaning_en": "loneliness, missing the child"
+      },
+      {
+        "words": [
+          "veilig",
+          "bang",
+          "zorgen",
+          "gevaar",
+          "slaan"
+        ],
+        "cards": [
+          40,
+          5,
+          2
+        ],
+        "meaning_en": "safety concerns"
+      },
+      {
+        "words": [
+          "vergeten",
+          "medicijn",
+          "spullen",
+          "tas"
+        ],
+        "cards": [
+          19
+        ],
+        "meaning_en": "forgotten items, medicine"
+      },
+      {
+        "words": [
+          "kiezen",
+          "wonen"
+        ],
+        "cards": [
+          23
+        ],
+        "meaning_en": "child wants to choose where to live"
+      },
+      {
+        "words": [
+          "geheim",
+          "doorgeven",
+          "boodschap"
+        ],
+        "cards": [
+          22
+        ],
+        "meaning_en": "child as messenger, secrets"
+      },
+      {
+        "words": [
+          "negatief",
+          "slecht",
+          "zegt",
+          "vertelt"
+        ],
+        "cards": [
+          5,
+          6,
+          10
+        ],
+        "meaning_en": "negative talk about a parent"
+      },
+      {
+        "words": [
+          "reageert niet",
+          "geen antwoord",
+          "stil"
+        ],
+        "cards": [
+          14
+        ],
+        "meaning_en": "no reply"
+      },
+      {
+        "words": [
+          "gehoord",
+          "luistert niet"
+        ],
+        "cards": [
+          15
+        ],
+        "meaning_en": "not feeling heard"
+      },
+      {
+        "words": [
+          "nee",
+          "akkoord",
+          "wijziging",
+          "ruilen"
+        ],
+        "cards": [
+          27
+        ],
+        "meaning_en": "proposal rejected"
+      },
+      {
+        "words": [
+          "te veel",
+          "red het niet",
+          "kapot",
+          "op"
+        ],
+        "cards": [
+          16,
+          31
+        ],
+        "meaning_en": "overwhelmed"
+      },
+      {
+        "words": [
+          "uitspelen",
+          "mag wel",
+          "regels"
+        ],
+        "cards": [
+          24
+        ],
+        "meaning_en": "child plays parents off"
+      },
+      {
+        "words": [
+          "discussie",
+          "ruzie",
+          "overdracht",
+          "wissel"
+        ],
+        "cards": [
+          2,
+          1,
+          4
+        ],
+        "meaning_en": "conflict at handover"
+      },
+      {
+        "words": [
+          "verdrietig",
+          "na de wissel",
+          "thuiskomen"
+        ],
+        "cards": [
+          8,
+          20
+        ],
+        "meaning_en": "child upset after handover"
+      }
+    ],
+    "frequent_searches": [
+      {
+        "label_nl": "Ik ben heel boos",
+        "label_en": "I am really angry",
+        "query": "ik ben heel boos"
+      },
+      {
+        "label_nl": "Scherp bericht",
+        "label_en": "Sharp message",
+        "query": "scherp bericht"
+      },
+      {
+        "label_nl": "Kind wil niet mee",
+        "label_en": "Child refuses to go",
+        "query": "kind wil niet mee"
+      },
+      {
+        "label_nl": "Te laat bij de wissel",
+        "label_en": "Late at handover",
+        "query": "te laat bij de wissel"
+      },
+      {
+        "label_nl": "Nieuwe partner",
+        "label_en": "New partner",
+        "query": "nieuwe partner"
+      },
+      {
+        "label_nl": "Discussie over geld",
+        "label_en": "Argument about money",
+        "query": "discussie over geld"
+      }
+    ],
+    "anger_words_show_pause_first": [
+      "boos",
+      "woede",
+      "kwaad",
+      "schreeuw",
+      "ontplof",
+      "razend"
+    ],
+    "scoring": {
+      "full_query_in_question_or_short_answer": 6,
+      "word_in_question": 3,
+      "word_in_short_answer": 1,
+      "synonym_match_by_position": [
+        5,
+        4,
+        3,
+        2
+      ],
+      "max_results": 5,
+      "min_word_length": 3
+    }
+  },
+  "co_actions": {
+    "verhaal": "Even je verhaal kwijt bij Co (talk it out)",
+    "doen": "Wat kan ik doen? (what can I do)",
+    "praten": "Even praten (just talk)",
+    "bericht": "Een bericht schrijven met Co (write a message)",
+    "afspraken": "Denk mee over afspraken (think along about agreements)",
+    "stoppen": "Open Even stoppen (pause screen)",
+    "algemeen": "Praat erover met Co (talk about it)"
+  }
+}

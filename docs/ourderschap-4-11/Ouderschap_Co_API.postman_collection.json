@@ -1,0 +1,810 @@
+{
+  "info": {
+    "name": "Ouderschap & Co — Mobile & Web API Collection",
+    "_postman_id": "a7b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d",
+    "description": "Complete API and Supabase Edge Functions collection for Ouderschap & Co co-parenting application (Web, iOS, and Android).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://hbimbzwcdmhnxxdbbugw.supabase.co",
+      "type": "string"
+    },
+    {
+      "key": "anonKey",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhiaW1iendjZG1obnh4ZGJidWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3MTExMzMsImV4cCI6MjEwNzI4NzEzM30.DzpkFReW44YAjKrMl1EOYt3LipcCf6Ec-NfdxIdlaJQ",
+      "type": "string"
+    },
+    {
+      "key": "sessionToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "functionsUrl",
+      "value": "https://hbimbzwcdmhnxxdbbugw.supabase.co/functions/v1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication (Custom Engine)",
+      "item": [
+        {
+          "name": "Custom RPC: Sign Up (Register)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.session && res.session.token) {",
+                  "  pm.collectionVariables.set('sessionToken', res.session.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"p_email\": \"ouder@voorbeeld.nl\",\n  \"p_password\": \"SecurePassword123!\",\n  \"p_name\": \"Sanne de Vries\",\n  \"p_usage_mode\": \"together\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/rpc/custom_signup",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "v1", "rpc", "custom_signup"]
+            }
+          }
+        },
+        {
+          "name": "Custom RPC: Sign In (Login)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.session && res.session.token) {",
+                  "  pm.collectionVariables.set('sessionToken', res.session.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"p_email\": \"ouder@voorbeeld.nl\",\n  \"p_password\": \"SecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/rpc/custom_login",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "v1", "rpc", "custom_login"]
+            }
+          }
+        },
+        {
+          "name": "Custom RPC: Verify Email (6-Digit Code)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"p_email\": \"ouder@voorbeeld.nl\",\n  \"p_code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/rpc/custom_verify_email",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "v1", "rpc", "custom_verify_email"]
+            }
+          }
+        },
+        {
+          "name": "Custom RPC: Resend Verification Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"p_email\": \"ouder@voorbeeld.nl\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/rpc/custom_resend_verification",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "v1", "rpc", "custom_resend_verification"]
+            }
+          }
+        },
+        {
+          "name": "Custom RPC: Request Password Reset Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"p_email\": \"ouder@voorbeeld.nl\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/rpc/custom_request_password_reset",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "v1", "rpc", "custom_request_password_reset"]
+            }
+          }
+        },
+        {
+          "name": "Custom RPC: Submit New Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"p_email\": \"ouder@voorbeeld.nl\",\n  \"p_token\": \"123456\",\n  \"p_new_password\": \"NewSecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/rpc/custom_reset_password",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "v1", "rpc", "custom_reset_password"]
+            }
+          }
+        },
+        {
+          "name": "Custom RPC: Validate Session Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"p_token\": \"{{sessionToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/rpc/custom_get_current_user",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "v1", "rpc", "custom_get_current_user"]
+            }
+          }
+        },
+        {
+          "name": "Custom RPC: Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"p_token\": \"{{sessionToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/rpc/custom_logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "v1", "rpc", "custom_logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Edge Functions (All Business Logic)",
+      "item": [
+        {
+          "name": "create-profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sanne\",\n  \"usage_mode\": \"together\"\n}"
+            },
+            "url": {
+              "raw": "{{functionsUrl}}/create-profile",
+              "host": [
+                "{{functionsUrl}}"
+              ],
+              "path": [
+                "create-profile"
+              ]
+            }
+          }
+        },
+        {
+          "name": "send-invitation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"toEmail\": \"joris@voorbeeld.nl\",\n  \"childIds\": [\n    \"d8b2c4e6-1234-5678-90ab-cdef12345678\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{functionsUrl}}/send-invitation",
+              "host": [
+                "{{functionsUrl}}"
+              ],
+              "path": [
+                "send-invitation"
+              ]
+            }
+          }
+        },
+        {
+          "name": "accept-invitation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"32_character_invitation_token\"\n}"
+            },
+            "url": {
+              "raw": "{{functionsUrl}}/accept-invitation",
+              "host": [
+                "{{functionsUrl}}"
+              ],
+              "path": [
+                "accept-invitation"
+              ]
+            }
+          }
+        },
+        {
+          "name": "ai-coach (Tone Rewriter)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Je bent alweer te laat met de spullen van Emma!\"\n}"
+            },
+            "url": {
+              "raw": "{{functionsUrl}}/ai-coach",
+              "host": [
+                "{{functionsUrl}}"
+              ],
+              "path": [
+                "ai-coach"
+              ]
+            }
+          }
+        },
+        {
+          "name": "ai-assistant (Intent Classifier)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Ik wil zwemles voor Emma inplannen volgende week woensdag om 14:00\"\n}"
+            },
+            "url": {
+              "raw": "{{functionsUrl}}/ai-assistant",
+              "host": [
+                "{{functionsUrl}}"
+              ],
+              "path": [
+                "ai-assistant"
+              ]
+            }
+          }
+        },
+        {
+          "name": "send-notification (Push to iOS & Android)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientId\": \"parent-uuid\",\n  \"title\": \"Nieuw bericht van Joris\",\n  \"body\": \"Heb je de gymkleren ingepakt?\",\n  \"data\": {\n    \"screen\": \"berichten\",\n    \"conversationId\": \"conv-123\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{functionsUrl}}/send-notification",
+              "host": [
+                "{{functionsUrl}}"
+              ],
+              "path": [
+                "send-notification"
+              ]
+            }
+          }
+        },
+        {
+          "name": "log-audit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"section\": \"agenda\",\n  \"itemId\": \"event-456\",\n  \"action\": \"gewijzigd\",\n  \"itemLabel\": \"Tandartscontrole Emma\"\n}"
+            },
+            "url": {
+              "raw": "{{functionsUrl}}/log-audit",
+              "host": [
+                "{{functionsUrl}}"
+              ],
+              "path": [
+                "log-audit"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Profiles & Children",
+      "item": [
+        {
+          "name": "Get Current Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/profiles?select=*&limit=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "profiles"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "*"
+                },
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Children",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/children?select=*",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "children"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Child",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Emma\",\n  \"last_name\": \"van der Berg\",\n  \"date_of_birth\": \"2018-04-12\",\n  \"school\": \"De Regenboog\",\n  \"medical_notes\": \"Geen allergieën\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/children",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "children"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Expenses & Costs",
+      "item": [
+        {
+          "name": "List Expenses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/expenses?select=*&order=date.desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "expenses"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "*"
+                },
+                {
+                  "key": "order",
+                  "value": "date.desc"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Expense",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 65.5,\n  \"description\": \"Nieuwe winterlaarzen\",\n  \"category\": \"kleding\",\n  \"date\": \"2026-10-15\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/expenses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "expenses"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Messaging & Chat",
+      "item": [
+        {
+          "name": "List Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/conversations?select=*",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "conversations"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Messages in Conversation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/messages?select=*&order=created_at.asc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "*"
+                },
+                {
+                  "key": "order",
+                  "value": "created_at.asc"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anonKey}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversation_id\": \"conv-uuid\",\n  \"content\": \"Hoi Joris, heb je de gymkleren klaargelegd?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "messages"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

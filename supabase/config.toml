@@ -1,0 +1,83 @@
+# Supabase CLI config (only the parts this repo relies on).
+# Every function verifies the custom session itself (x-session-token header), so the
+# gateway JWT check is disabled for all of them. Deploy with --no-verify-jwt as well.
+project_id = "ouderapp"
+
+[functions.accept-invitation]
+verify_jwt = false
+
+[functions.ai-assistant]
+verify_jwt = false
+
+[functions.ai-coach]
+verify_jwt = false
+
+[functions.auth-login]
+verify_jwt = false
+
+[functions.auth-reset-password]
+verify_jwt = false
+
+[functions.auth-signup]
+verify_jwt = false
+
+[functions.co-assistant]
+verify_jwt = false
+
+[functions.create-profile]
+verify_jwt = false
+
+[functions.custom-auth]
+verify_jwt = false
+
+[functions.log-audit]
+verify_jwt = false
+
+[functions.manage-admin]
+verify_jwt = false
+
+[functions.manage-agreements]
+verify_jwt = false
+
+[functions.manage-caregivers]
+verify_jwt = false
+
+[functions.manage-children]
+verify_jwt = false
+
+[functions.manage-documents]
+verify_jwt = false
+
+[functions.manage-expenses]
+verify_jwt = false
+
+[functions.manage-handover]
+verify_jwt = false
+
+[functions.manage-messages]
+verify_jwt = false
+
+[functions.manage-moments]
+verify_jwt = false
+
+[functions.manage-profile]
+verify_jwt = false
+
+[functions.manage-still-needed]
+verify_jwt = false
+
+[functions.manage-tasks]
+verify_jwt = false
+
+[functions.manage-vacations]
+verify_jwt = false
+
+[functions.send-invitation]
+verify_jwt = false
+
+[functions.send-notification]
+verify_jwt = false
+
+[functions.send-verification-email]
+verify_jwt = false
+

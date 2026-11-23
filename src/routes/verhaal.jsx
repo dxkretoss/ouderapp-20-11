@@ -1,0 +1,339 @@
+import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@/lib/server-fn";
+import { Clock, Heart, Mic, PenLine, Smile, Square } from "lucide-react";
+import { zetSpraakOm } from "@/lib/assistent.functions";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { z } from "zod";
+import { momenten } from "@/lib/lastige-momenten";
+import { AppShell, PageHeader } from "@/components/AppShell";
+import { AppIcon } from "@/components/AppIcon";
+import { CoBadge } from "@/components/CoBadge";
+import { CoPrivacy } from "@/components/CoPrivacy";
+import { HulpKaart } from "@/components/Onveilig";
+import { Button } from "@/components/ui/button";
+import { leeftijdTekst, useStart } from "@/lib/start-store";
+import { kinderen as demoKinderen } from "@/lib/demo-data";
+import { useVakanties } from "@/lib/vakantie-store";
+import { useTaken, taakWieTekst } from "@/lib/taken-store";
+import { praatVerhaal } from "@/lib/verhaal.functions";
+import { useActiviteiten } from "@/components/Activiteiten";
+import { useAfspraken } from "@/lib/afspraken-store";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
+import { actieInfo, bewaarGesprek, bouwVerhaalContext, categorieLabel, contextCategorieen, kiesActies, leesBewaard, leesToestemming, verwijderBewaard, zetToestemming, zorgSignaal, } from "@/lib/verhaal";
+import { Chevron, MetChevron } from "@/components/Tekens";
+export const Route = createFileRoute("/verhaal")({
+    head: () => ({
+        meta: [
+            { title: i18n.t("routes.verhaal.meta.titel") },
+            { name: "description", content: i18n.t("routes.verhaal.meta.beschrijving") },
+            { property: "og:title", content: i18n.t("routes.verhaal.meta.titel") },
+            { property: "og:description", content: i18n.t("routes.verhaal.meta.ogBeschrijving") },
+            { property: "og:type", content: "website" },
+            { name: "twitter:card", content: "summary" },
+        ],
+    }),
+    validateSearch: z.object({ moment: z.coerce.number().optional() }),
+    component: Verhaal,
+});
+const modusItem = (id) => ({ id, get titel() { return i18n.t(`routes.verhaal.modus.${id}.titel`); }, get tekst() { return i18n.t(`routes.verhaal.modus.${id}.tekst`); } });
+const modi = [modusItem("praten"), modusItem("overzicht"), modusItem("doen")];
+function Verhaal() {
+    const { t } = useTranslation();
+    const startSt = useStart();
+    const eigen = !!startSt.eigen;
+    // Basisgegevens die Co altijd mag kennen (namen en leeftijden), zodat Co daar nooit naar hoeft te vragen.
+    const gezin = eigen
+        ? `Ouder die praat: ${startSt.naam || "onbekend"}. Kinderen: ${startSt.kinderen.map((k) => `${k.naam}${leeftijdTekst(k.geboortedatum) ? ` (${leeftijdTekst(k.geboortedatum)})` : ""}`).join(", ") || "nog niet ingevuld"}.`
+        : `Ouder die praat: Sanne. Andere ouder: Joris. Kinderen: ${demoKinderen.map((k) => `${k.naam} (${k.leeftijd} jaar)`).join(", ")}.`;
+    const { moment: momentId } = Route.useSearch();
+    const overMoment = momentId ? momenten.find((m) => m.id === momentId) : undefined;
+    const vakanties = useVakanties();
+    const { taken } = useTaken();
+    const { voorstellen } = useActiviteiten();
+    const afsprakenBron = useAfspraken();
+    const [modus, setModus] = useState("praten");
+    const [toestemming, setToestemmingState] = useState(null);
+    const [vraagToestemming, setVraagToestemming] = useState(false);
+    const [berichten, setBerichten] = useState([]);
+    const [heeftBewaard, setHeeftBewaard] = useState(false);
+    const [bewaren, setBewaren] = useState(false);
+    const [tekst, setTekst] = useState("");
+    const [bezig, setBezig] = useState(false);
+    const [fout, setFout] = useState(null);
+    const [zorg, setZorg] = useState(false);
+    const [stap, setStap] = useState(overMoment ? "gesprek" : "start");
+    const einde = useRef(null);
+    useEffect(() => { setToestemmingState(leesToestemming()); setHeeftBewaard(leesBewaard().length > 0); }, []);
+    useEffect(() => { if (bewaren)
+        bewaarGesprek(berichten); }, [bewaren, berichten]);
+    useEffect(() => { einde.current?.scrollIntoView({ block: "nearest" }); }, [berichten.length, bezig]);
+    const kiesToestemming = (v) => { zetToestemming(v); setToestemmingState(v); setVraagToestemming(false); };
+    const kiesModus = (m) => { setModus(m); if (m !== "praten" && toestemming === null)
+        setVraagToestemming(true); };
+    // Alleen in het voorbeeldgezin zijn er gegevens die deze ouder mag zien; eigen gezin heeft nog geen beveiligde gedeelde bron.
+    const contextMag = toestemming === "ja" && !eigen;
+    const context = contextMag
+        ? bouwVerhaalContext({
+            vakanties,
+            voorstellen: voorstellen.map((v) => ({ titel: v.titel, status: v.status })),
+            taken: taken.map((tk) => ({ tekst: tk.tekst, wie: tk.wie ? taakWieTekst(tk.wie) : "", klaar: tk.klaar, overdragenAan: tk.overdragenAan })),
+            afspraken: afsprakenBron.filter((a) => a.status === "Actief").map((a) => ({ titel: a.titel, tekst: a.tekst })),
+        }, contextCategorieen)
+        : "";
+    const stuur = async (invoer = tekst) => {
+        const inhoud = invoer.trim();
+        if (!inhoud || bezig)
+            return;
+        if (zorgSignaal(inhoud))
+            setZorg(true);
+        const nieuw = [...berichten, { rol: "ouder", tekst: inhoud }];
+        setBerichten(nieuw);
+        setTekst("");
+        setFout(null);
+        setBezig(true);
+        try {
+            const r = await praatVerhaal({ data: { modus, context, gezin, berichten: nieuw.map(({ rol, tekst }) => ({ rol, tekst })) } });
+            setBerichten((b) => [...b, { rol: "ai", tekst: r.antwoord, acties: kiesActies(r.acties, modus), concept: r.concept }]);
+        }
+        catch (e) {
+            setFout(e instanceof Error ? e.message : t("routes.verhaal.fout.onbereikbaar"));
+        }
+        finally {
+            setBezig(false);
+        }
+    };
+    const nieuwGesprek = () => { setBerichten([]); setFout(null); setZorg(false); if (bewaren)
+        verwijderBewaard(); setBewaren(false); };
+    return (<AppShell>
+      <PageHeader titel={overMoment ? t("routes.verhaal.titelMoment") : stap === "luister" ? t("routes.verhaal.titelLuister") : t("routes.verhaal.titel")} {...(stap === "luister" ? {} : { subtitel: t("routes.verhaal.subtitel") })} terug={overMoment ? "/lastige-momenten" : "/meer"}/>
+      {stap === "start" && berichten.length === 0 && !overMoment ? (<CoStart heeftBewaard={heeftBewaard} onLuister={() => setStap("luister")} onVerder={() => { setBerichten(leesBewaard()); setBewaren(true); setStap("gesprek"); }}/>) : stap === "luister" && berichten.length === 0 ? (<CoLuistert onKlaar={(zin) => { setStap("gesprek"); void stuur(zin); }}/>) : <>
+      {overMoment ? (<Link to="/lastige-momenten" className="mt-3 flex items-center gap-3 rounded-[18px] border border-white/85 bg-white/60 px-4 py-2.5">
+          <AppIcon functie="documenten" maat="sm" vorm="kaal"/>
+          <span className="min-w-0"><span className="block text-xs text-ink-soft">{t("routes.verhaal.overDitMoment")}</span><span className="block text-[15px] font-black">{overMoment.nl.vraag}</span></span>
+        </Link>) : null}
+      <div className="mt-3 flex items-start gap-3"><CoBadge /><p className="text-sm text-ink-soft">{t("routes.verhaal.intro")}</p></div>
+      <CoPrivacy />
+
+      <div role="tablist" aria-label={t("routes.verhaal.modusLabel")} className="mt-4 grid grid-cols-3 gap-2">
+        {modi.map((m) => (<button key={m.id} role="tab" aria-selected={modus === m.id} onClick={() => kiesModus(m.id)} className={`rounded-md border px-2.5 py-2 text-left transition-colors ${modus === m.id ? "border-brand bg-brand-soft" : "border-border bg-card"}`}>
+            <span className="block text-sm font-semibold text-ink">{m.titel}</span>
+            <span className="mt-0.5 block text-[11px] leading-snug text-ink-soft">{m.tekst}</span>
+          </button>))}
+      </div>
+
+
+      {vraagToestemming ? (<div className="mt-3 rounded-md border border-border bg-card p-3 text-sm">
+          <p className="font-semibold">{t("routes.verhaal.toestemming.vraag")}</p>
+          <p className="mt-1 text-ink-soft">{t("routes.verhaal.toestemming.uitleg")}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => kiesToestemming("ja")}>{t("routes.verhaal.toestemming.ja")}</Button>
+            <Button size="sm" variant="outline" onClick={() => kiesToestemming("nee")}>{t("routes.verhaal.toestemming.nee")}</Button>
+          </div>
+        </div>) : (<div className="mt-3 flex items-start justify-between gap-3 rounded-md bg-muted/50 px-3 py-2 text-xs text-ink-soft">
+          <span>
+            {toestemming === "ja"
+                    ? eigen ? t("routes.verhaal.toestemming.eigenGezin") : t("routes.verhaal.toestemming.neemtMee", { lijst: contextCategorieen.map((c) => categorieLabel[c]).join(", ") })
+                    : t("routes.verhaal.toestemming.geen")}
+          </span>
+          <button className="shrink-0 font-semibold text-brand underline-offset-2 hover:underline" onClick={() => kiesToestemming(toestemming === "ja" ? "nee" : "ja")}>
+            {toestemming === "ja" ? t("routes.verhaal.toestemming.intrekken") : t("routes.verhaal.toestemming.toestaan")}
+          </button>
+        </div>)}
+
+      <div className="mt-4 space-y-3" aria-live="polite">
+        {berichten.length === 0 && heeftBewaard ? (<div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-ink-soft">{t("routes.verhaal.bewaard.heeft")}</span>
+            <Button size="sm" variant="outline" onClick={() => { setBerichten(leesBewaard()); setBewaren(true); }}>{t("routes.verhaal.bewaard.verder")}</Button>
+            <Button size="sm" variant="ghost" onClick={() => { verwijderBewaard(); setHeeftBewaard(false); }}>{t("common.verwijderen")}</Button>
+          </div>) : null}
+        {berichten.map((b, i) => (<div key={i} className={b.rol === "ouder" ? "flex justify-end" : ""}>
+            {b.rol === "ouder" ? (<p className="max-w-[85%] whitespace-pre-wrap rounded-[18px_18px_6px_18px] bg-[#DCE6D2] px-3.5 py-2.5 text-[15px] text-[#2F4A3A]">{b.tekst}</p>) : (<div className="max-w-[92%] text-[15px] text-ink">
+                <div className="flex items-start gap-2.5"><span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full border border-[#C9D6C3] bg-[#E9EFE3] text-xs font-black text-[#3F5747]" aria-hidden>Co</span><p className="whitespace-pre-wrap rounded-[18px_18px_18px_6px] border border-white/85 bg-white/70 px-3.5 py-2.5 leading-relaxed">{b.tekst}</p></div>
+                {b.concept?.trim() ? <BerichtConcept concept={b.concept} ander={eigen ? t("routes.verhaal.deAndereOuder") : "Joris"}/> : null}
+                {b.acties?.length ? (<div className="mt-2 flex flex-wrap gap-2">
+                    {b.acties.map((a) => {
+                            const info = actieInfo[a];
+                            if (a === "bericht")
+                                return b.concept?.trim() ? null : <Button key={a} variant="outline" size="sm" onClick={() => stuur(t("routes.verhaal.vraag.bericht"))}>{info.label}</Button>;
+                            if (info.to)
+                                return <Link key={a} to={info.to} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold">{info.label}</Link>;
+                            return <Button key={a} variant="outline" size="sm" onClick={() => stuur(a === "praten" ? t("routes.verhaal.vraag.verderPraten") : t("routes.verhaal.vraag.niets"))}>{info.label}</Button>;
+                        })}
+                  </div>) : null}
+              </div>)}
+          </div>))}
+        {bezig ? <p className="text-sm text-ink-soft">{t("routes.verhaal.bezig")}</p> : null}
+        {fout ? <div className="text-sm"><p>{fout}</p><Button size="sm" variant="outline" className="mt-2" onClick={() => { const laatst = berichten.at(-1); if (laatst?.rol === "ouder") {
+            setBerichten(berichten.slice(0, -1));
+            void stuur(laatst.tekst);
+        } }}>{t("routes.verhaal.opnieuwProberen")}</Button></div> : null}
+        {zorg ? <div><p className="mb-2 text-sm text-ink">{t("routes.verhaal.zorg")}</p><HulpKaart /></div> : null}
+        {berichten.some((b) => b.rol === "ai") && !bezig ? (<button onClick={() => stuur(t("routes.verhaal.vraag.bericht"))} className="flex w-full items-center gap-3 rounded-[20px] border border-white/85 bg-white/60 px-4 py-3 text-left">
+            <AppIcon functie="berichten" maat="sm" vorm="kaal"/>
+            <span className="min-w-0 flex-1"><span className="block text-[15px] font-black">{t("routes.verhaal.berichtOpstellen", { ander: eigen ? t("routes.verhaal.deAndereOuder") : "Joris" })}</span><span className="block text-xs text-ink-soft">{t("routes.verhaal.berichtOpstellenUitleg")}</span></span>
+          </button>) : null}
+        <div ref={einde}/>
+      </div>
+
+      <form className="mt-4" onSubmit={(e) => { e.preventDefault(); void stuur(); }}>
+        <label className="sr-only" htmlFor="verhaal-invoer">{t("routes.verhaal.invoerLabel")}</label>
+        <textarea id="verhaal-invoer" value={tekst} onChange={(e) => setTekst(e.target.value)} rows={3} maxLength={3000} placeholder={modus === "praten" ? t("routes.verhaal.placeholder.praten") : modus === "overzicht" ? t("routes.verhaal.placeholder.overzicht") : t("routes.verhaal.placeholder.doen")} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            void stuur();
+        } }} className="w-full resize-none rounded-md border border-border bg-card px-3 py-2.5 text-sm outline-none focus:border-brand"/>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-xs text-ink-soft">
+            <input type="checkbox" checked={bewaren} onChange={(e) => { setBewaren(e.target.checked); if (!e.target.checked) {
+            verwijderBewaard();
+            setHeeftBewaard(false);
+        } }}/>
+            {t("routes.verhaal.bewaren")}
+          </label>
+          <Button type="submit" size="sm" disabled={!tekst.trim() || bezig}><AppIcon functie="berichten" maat="sm" vorm="kaal"/> {t("common.versturen")}</Button>
+        </div>
+      </form>
+      </>}
+      {berichten.length ? <button onClick={() => { nieuwGesprek(); setStap("start"); }} className="mt-3 text-xs font-semibold text-ink-soft underline-offset-2 hover:underline">{t("routes.verhaal.nieuwGesprek")}</button> : null}
+      <p className="mt-4 text-[11px] text-ink-soft">{t("routes.verhaal.privacyVoet")}</p>
+    </AppShell>);
+}
+/** Conceptbericht uit het gesprek met Co: hier aan te passen, verstuurd wordt het pas in Berichten, door de ouder zelf. */
+function BerichtConcept({ concept, ander }) {
+    const { t } = useTranslation();
+    const [tekst, setTekst] = useState(concept);
+    return (<div className="mt-3 rounded-[20px] border-2 border-[#A9BCA8] bg-white/80 p-3.5">
+      <p className="text-xs font-extrabold uppercase tracking-[0.1em] text-[#3F5747]">{t("routes.verhaal.concept.kop", { ander })}</p>
+      <textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={Math.min(8, Math.max(3, Math.ceil(tekst.length / 42)))} aria-label={t("routes.verhaal.concept.label", { ander })} className="mt-2 w-full resize-none rounded-2xl border border-[#E2D8CB] bg-white px-3 py-2.5 text-[15px] leading-relaxed outline-none"/>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Link to="/berichten" search={{ concept: tekst.trim() }} className="inline-flex h-10 items-center rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{t("routes.verhaal.concept.verder")}</Link>
+        {tekst !== concept ? <button onClick={() => setTekst(concept)} className="text-sm font-bold text-ink-soft">{t("routes.verhaal.concept.terug")}</button> : null}
+      </div>
+      <p className="mt-2 text-xs text-ink-soft">{t("routes.verhaal.concept.uitleg")}</p>
+    </div>);
+}
+/** Teksten: routes.verhaal.start.<id> en routes.verhaal.lastig.<start>. */
+const STARTS = [
+    { id: "praten", Icoon: Smile, tegel: "#DCE3D3" },
+    { id: "bericht", Icoon: PenLine, tegel: "#E6DFD3", naar: "/berichten" },
+];
+const LASTIG = [
+    { start: "stoppen", tegel: "#C9D8C3", inkt: "#2F4A3A", uit: true,
+        icoon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden><circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="12" r="6.2" opacity=".65"/><circle cx="12" cy="12" r="9.8" opacity=".35"/></svg> },
+    { start: "komt", tegel: "#EFE1C9", inkt: "#6E5014", icoon: <Clock className="size-5" strokeWidth={2.2} aria-hidden/> },
+    { start: "na", tegel: "#EBD9CC", inkt: "#6E3A24", icoon: <Heart className="size-5" strokeWidth={2.2} aria-hidden/> },
+];
+/** Sparren met Co, startscherm (stijl A6). */
+function CoStart({ heeftBewaard, onLuister, onVerder }) {
+    const { t } = useTranslation();
+    const rij = "flex w-full items-center gap-3 px-3.5 py-3 text-left";
+    return (<div>
+      <div className="mt-4 rounded-[24px] border border-white/85 bg-white/60 p-4">
+        <p className="text-[17px] font-black">{t("routes.verhaal.costart.kop")}</p>
+        <div className="mt-3 flex items-center gap-2">
+          <button onClick={onLuister} className="flex h-12 min-w-0 flex-1 items-center rounded-full bg-white px-4 text-left text-[15px] text-ink-soft">{t("routes.verhaal.placeholder.praten")}</button>
+          <button onClick={onLuister} aria-label={t("routes.verhaal.inspreken")} className="grid size-12 shrink-0 place-items-center rounded-full bg-brand text-primary-foreground"><Mic className="size-5"/></button>
+        </div>
+      </div>
+      {heeftBewaard ? <button onClick={onVerder} className="mt-3 text-sm font-extrabold text-brand">{t("routes.verhaal.costart.bewaard")}</button> : null}
+      <h2 className="mt-5 px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft">{t("routes.verhaal.costart.lastig")}</h2>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        {LASTIG.map((l) => (<Link key={l.start} to="/lastige-momenten" search={{ start: l.start }} className={`flex min-w-0 flex-col gap-2 rounded-[20px] p-3 text-left ${l.uit ? "border-2 border-[#A9BCA8] [background:linear-gradient(135deg,rgba(220,230,210,.95),rgba(233,239,227,.9))]" : "border border-white/85 bg-white/60"}`}>
+            <span className="grid size-9 place-items-center rounded-full" style={{ background: l.tegel, color: l.inkt }}>{l.icoon}</span>
+            <span className="text-[14.5px] font-black leading-tight">{t(`routes.verhaal.lastig.${l.start}.titel`)}</span>
+            <span className="text-[12.5px] leading-snug text-ink-soft">{t(`routes.verhaal.lastig.${l.start}.sub`)}</span>
+          </Link>))}
+      </div>
+      <h2 className="mt-5 px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft">{t("routes.verhaal.costart.ofBegin")}</h2>
+      <div className="mt-2 divide-y divide-[#E9E1D5] rounded-[22px] border border-white/85 bg-white/60">
+        {STARTS.map(({ id, Icoon, tegel, naar }) => {
+            const titel = t(`routes.verhaal.start.${id}.titel`), sub = t(`routes.verhaal.start.${id}.sub`);
+            const inhoud = <><span className="grid size-10 shrink-0 place-items-center rounded-[14px] text-[#3F5747]" style={{ background: tegel }}><Icoon className="size-5" aria-hidden/></span><span className="min-w-0 flex-1"><span className="block text-[16px] font-black">{titel}</span><span className="block text-sm text-ink-soft">{sub}</span></span><Chevron className="size-4 text-ink-soft"/></>;
+            if (naar)
+                return <Link key={id} to={naar} className={rij}>{inhoud}</Link>;
+            return <button key={id} onClick={onLuister} className={rij}>{inhoud}</button>;
+        })}
+        <Link to="/lastige-momenten" search={{ start: "adem" }} className={rij}>
+          <span className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-[#E3ECDD]" aria-hidden><span className="size-3.5 rounded-full border-2 border-[#3F5747]"/></span>
+          <span className="min-w-0 flex-1"><span className="block text-[16px] font-black">{t("routes.verhaal.costart.adem")}</span><span className="block text-sm text-ink-soft">{t("routes.verhaal.costart.ademSub")}</span></span>
+          <Chevron className="size-4 text-ink-soft"/>
+        </Link>
+      </div>
+      <Link to="/lastige-momenten" className="mt-3 flex min-h-11 items-center px-1 py-2 text-[14.5px] font-black text-[#3F5747]"><MetChevron>{t("routes.verhaal.costart.alleTips")}</MetChevron></Link>
+      <div className="mt-4"><CoPrivacy /></div>
+    </div>);
+}
+const ONDERWERPEN = ["wilNietMee", "scherpBericht", "teLaat", "nieuwePartner", "heelBoos", "huisStil"];
+/** Even met Co: inspreken (of typen), de tekst eerst zelf zien en aanpassen, dan pas naar Co. */
+function CoLuistert({ onKlaar }) {
+    const { t } = useTranslation();
+    const spraakFn = useServerFn(zetSpraakOm);
+    const [tekst, setTekst] = useState("");
+    const [status, setStatus] = useState("");
+    const [fout, setFout] = useState("");
+    const rec = useRef(null);
+    const start = async () => {
+        setFout("");
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const r = new MediaRecorder(stream);
+            const delen = [];
+            r.ondataavailable = (e) => { if (e.data.size)
+                delen.push(e.data); };
+            r.onstop = async () => {
+                stream.getTracks().forEach((tr) => tr.stop());
+                setStatus("omzetten");
+                try {
+                    const type = (r.mimeType || "audio/webm").replace(/^video\//, "audio/");
+                    const buf = new Uint8Array(await new Blob(delen, { type }).arrayBuffer());
+                    let bin = "";
+                    buf.forEach((b) => (bin += String.fromCharCode(b)));
+                    const { tekst: gehoord } = await spraakFn({ data: { audio: btoa(bin), type } });
+                    if (!gehoord)
+                        setFout(i18n.t("routes.verhaal.luister.nietsVerstaan"));
+                    setTekst((v) => [v, gehoord].filter(Boolean).join(" "));
+                }
+                catch (e) {
+                    setFout(e instanceof Error ? e.message : i18n.t("routes.verhaal.luister.omzettenMislukt"));
+                }
+                finally {
+                    setStatus("");
+                }
+            };
+            rec.current = r;
+            r.start();
+            setStatus("opnemen");
+        }
+        catch {
+            setFout(i18n.t("routes.verhaal.luister.geenMicrofoon"));
+        }
+    };
+    const stop = () => rec.current?.stop();
+    const luistert = status === "opnemen";
+    return (<div className="flex min-h-[60vh] flex-col">
+      <p className="lora mt-6 text-center text-[26px] leading-snug">{luistert ? t("routes.verhaal.luister.bezig") : t("routes.verhaal.luister.kop")}</p>
+      {!luistert && !tekst ? <p className="mx-auto mt-2 max-w-xs text-center text-[15px] text-ink-soft">{t("routes.verhaal.luister.intro")}</p> : null}
+      <div className="mt-6 flex flex-col items-center gap-3">
+        <button onClick={luistert ? stop : start} disabled={status === "omzetten"} aria-label={luistert ? t("routes.verhaal.luister.stop") : t("routes.verhaal.luister.start")} className="grid size-[120px] place-items-center rounded-full bg-brand text-primary-foreground disabled:opacity-60" style={{ boxShadow: luistert ? "0 0 0 14px rgba(169,188,168,.35), 0 0 0 28px rgba(169,188,168,.18)" : "0 0 0 10px rgba(169,188,168,.3)" }}>
+          {luistert ? <Square className="size-9"/> : <Mic className="size-10"/>}
+        </button>
+        {luistert ? <div className="flex h-10 items-center gap-1" aria-hidden>{[14, 26, 18, 34, 22, 38, 16, 30, 20, 36, 24, 14, 28, 18].map((h, i) => <span key={i} className="w-1 animate-pulse rounded-full bg-[#4F6B58]" style={{ height: h, animationDelay: `${i * 90}ms` }}/>)}</div>
+            : <p className="text-sm font-black text-[#3F5747]">{status === "omzetten" ? t("routes.verhaal.luister.omzetten") : t("routes.verhaal.luister.klaarVoorJe")}</p>}
+      </div>
+      {fout ? <p className="mt-3 text-center text-sm text-ink-soft">{fout}</p> : null}
+      {tekst || luistert ? (<textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={4} aria-label={t("routes.verhaal.luister.tekstLabel")} placeholder={t("routes.verhaal.luister.tekstPlaceholder")} className="mt-5 w-full resize-none rounded-[20px] border border-white/85 bg-white/80 px-4 py-3 text-[16px] leading-relaxed outline-none"/>) : (<div className="mt-6">
+          <p className="text-xs font-extrabold uppercase tracking-[0.1em] text-ink-soft">{t("routes.verhaal.luister.ofHierover")}</p>
+          <div className="mt-2 flex flex-wrap gap-2">{ONDERWERPEN.map((id) => <button key={id} onClick={() => onKlaar(t(`routes.verhaal.onderwerp.${id}.zin`))} className="h-10 rounded-full border border-white/85 bg-white/70 px-4 text-sm font-extrabold">{t(`routes.verhaal.onderwerp.${id}.kort`)}</button>)}</div>
+        </div>)}
+      <div className="mt-auto pt-6">
+        {tekst.trim() ? (<div className="flex gap-2">
+            <button onClick={() => setTekst("")} className="h-12 rounded-full border border-white/85 bg-white/70 px-5 text-[15px] font-black">{t("routes.verhaal.luister.opnieuw")}</button>
+            <button onClick={() => onKlaar(tekst.trim())} className="h-12 flex-1 rounded-full bg-brand text-[15px] font-black text-primary-foreground">{t("routes.verhaal.luister.klaar")}</button>
+          </div>) : !luistert ? (<form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); const v = new FormData(e.currentTarget).get("t")?.trim(); if (v)
+            onKlaar(v); }}>
+            <input name="t" placeholder={t("routes.verhaal.placeholder.praten")} aria-label={t("routes.verhaal.luister.typLabel")} className="h-12 min-w-0 flex-1 rounded-full border border-white/85 bg-white px-4 text-[15px] outline-none"/>
+            <button type="button" onClick={start} aria-label={t("routes.verhaal.inspreken")} className="grid size-12 shrink-0 place-items-center rounded-full bg-brand text-primary-foreground"><Mic className="size-5"/></button>
+          </form>) : null}
+      </div>
+    </div>);
+}
