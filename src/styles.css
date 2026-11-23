@@ -513,3 +513,7 @@ details[open] > summary:not(:has(svg))::after { transform: rotate(180deg); }
     cursor: not-allowed;
   }
 }
+
+#nl-badge-frame {
+  display: none !important;
+}
