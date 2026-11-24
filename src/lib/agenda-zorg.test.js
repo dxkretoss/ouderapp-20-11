@@ -1,47 +1,61 @@
 import { expect, test } from "bun:test";
-import { agendaZorgOp, vakantieDelenOp, magOverdrachtVoorbereiden } from "./agenda-zorg";
-import { zorgState, zorgOp, dienVoorstelIn, accepteer, wijsAf } from "./zorg-store";
-import { startState } from "./start-store";
-import { voegVakantieVoorstelToe, vakantieLijst, accepteerVakantie, wijzigVakantieVoorstel, wijsVakantieAf, actieveVakantie } from "./vakantie-store";
+import { agendaZorgOp, vakantieDelenOp, magOverdrachtVoorbereiden, wisselMomenten } from "./agenda-zorg";
+import { zorgState, zorgOp, accepteer, wijsAf, dienVoorstelIn, zetZorgVoorTest } from "./zorg-store";
+import { vakantieLijst, accepteerVakantie, wijzigVakantieVoorstel, wijsVakantieAf, actieveVakantie, zetVakantiesVoorTest } from "./vakantie-store";
 import { vakantiesVoor } from "./schoolvakanties";
-const st = { ...startState(), eigen: false };
+// Eigen gezin (Phase 2): kinderen zijn server-id's; "sanne" = de kijkende ouder, "joris" = de andere ouder.
+const st = { eigen: true, kinderen: [{ id: "emma", naam: "Emma" }, { id: "noah", naam: "Noah" }] };
+// Week om week; de eerste week (vanaf maandag 3 maart 2025) bij de kijker.
+const regeling = { patroon: "om-de-week", dagen: [...Array(7).fill("ik"), ...Array(7).fill("ander")], startMaandag: "2025-03-03", wisseltijd: "14:30" };
+const basis = () => zetZorgVoorTest({ versies: ["emma", "noah"].map((kind) => ({ id: "v-" + kind, kind, vanaf: "2000-01-01", regeling })) });
+/** Een open voorstel van de andere ouder (zoals de server het voor deze kijker teruggeeft). */
+const vanAnder = (v) => { const id = "p-" + Math.random(); zetZorgVoorTest({ ...zorgState(), voorstellen: [...zorgState().voorstellen, Object.freeze({ herinneringen: [], ...v, id, van: "Joris", vanMij: false, status: "open" })] }); return id; };
+basis();
 test("care colours reverse from the viewing parent's perspective", () => {
-    const a = agendaZorgOp(zorgState(), [], st, "2025-03-12", "emma", "sanne");
-    const b = agendaZorgOp(zorgState(), [], st, "2025-03-12", "emma", "joris");
+    const a = agendaZorgOp(zorgState(), [], st, "2025-03-05", "emma", "sanne");
+    const b = agendaZorgOp(zorgState(), [], st, "2025-03-05", "emma", "joris");
     expect(a.kleur).toBe("ik");
     expect(b.kleur).toBe("ander");
 });
 test("mixed child care and child selection use the same schedule", () => {
-    const id = dienVoorstelIn({ soort: "eenmalig", kinderen: ["noah"], dagen: [12], datums: ["2025-03-12"], naarOuder: "joris", tekst: "Andere dag", datumLabel: "12 maart" });
-    expect(accepteer(id, "Joris")).toBe(true);
-    expect(agendaZorgOp(zorgState(), [], st, "2025-03-12").kleur).toBe("gemengd");
-    expect(agendaZorgOp(zorgState(), [], st, "2025-03-12", "noah").kleur).toBe("ander");
+    const id = vanAnder({ soort: "eenmalig", kinderen: ["noah"], datums: ["2025-03-05"], naarOuder: "joris", tekst: "Andere dag", datumLabel: "5 maart" });
+    expect(accepteer(id)).toBe(true);
+    expect(agendaZorgOp(zorgState(), [], st, "2025-03-05").kleur).toBe("gemengd");
+    expect(agendaZorgOp(zorgState(), [], st, "2025-03-05", "noah").kleur).toBe("ander");
 });
 test("temporary proposal only applies after approval and ends on its exact date", () => {
     const date = "2026-11-03", old = zorgOp(zorgState(), "emma", date).ouder;
     const target = old === "sanne" ? "joris" : "sanne";
-    const id = dienVoorstelIn({ soort: "eenmalig", kinderen: ["emma"], dagen: [3], datums: [date], naarOuder: target, tekst: "Eenmalig", datumLabel: date });
+    const eigen = dienVoorstelIn({ soort: "eenmalig", kinderen: ["emma"], datums: [date], naarOuder: target, tekst: "Eenmalig", datumLabel: date });
+    expect(accepteer(eigen)).toBe(false); // eigen voorstel goedkeuren kan niet
+    const id = vanAnder({ soort: "eenmalig", kinderen: ["emma"], datums: [date], naarOuder: target, tekst: "Eenmalig", datumLabel: date });
     expect(zorgOp(zorgState(), "emma", date).ouder).toBe(old);
-    expect(accepteer(id, "Sanne")).toBe(false);
-    expect(accepteer(id, "Joris")).toBe(true);
+    expect(accepteer(id)).toBe(true);
     expect(zorgOp(zorgState(), "emma", date).ouder).toBe(target);
     expect(zorgOp(zorgState(), "emma", "2026-12-03").uitzondering).toBeUndefined();
 });
 test("structural change starts only on the approved start date", () => {
     const old = zorgOp(zorgState(), "noah", "2027-01-04").ouder;
-    const id = dienVoorstelIn({ soort: "structureel", kinderen: ["noah"], dagen: [5], datums: ["2027-01-05"], naarOuder: "joris", tekst: "Vanaf nu", datumLabel: "5 januari" });
+    const id = vanAnder({ soort: "structureel", kinderen: ["noah"], datums: ["2027-01-05"], naarOuder: "joris", tekst: "Vanaf nu", datumLabel: "5 januari" });
     expect(zorgOp(zorgState(), "noah", "2027-01-05").uitzondering).toBeUndefined();
-    expect(accepteer(id, "Joris")).toBe(true);
+    expect(accepteer(id)).toBe(true);
     expect(zorgOp(zorgState(), "noah", "2027-01-04").ouder).toBe(old);
     expect(zorgOp(zorgState(), "noah", "2027-01-05").ouder).toBe("joris");
     expect(zorgOp(zorgState(), "noah", "2027-01-12").ouder).toBe("sanne");
 });
 test("declined care proposal never changes planning", () => {
     const old = zorgOp(zorgState(), "emma", "2027-02-01").ouder;
-    const id = dienVoorstelIn({ soort: "eenmalig", kinderen: ["emma"], dagen: [1], datums: ["2027-02-01"], naarOuder: old === "sanne" ? "joris" : "sanne", tekst: "Niet akkoord", datumLabel: "1 februari" });
-    expect(wijsAf(id, "Joris")).toBe(true);
-    expect(accepteer(id, "Joris")).toBe(false);
+    const id = vanAnder({ soort: "eenmalig", kinderen: ["emma"], datums: ["2027-02-01"], naarOuder: old === "sanne" ? "joris" : "sanne", tekst: "Niet akkoord", datumLabel: "1 februari" });
+    expect(wijsAf(id)).toBe(true);
+    expect(accepteer(id)).toBe(false);
     expect(zorgOp(zorgState(), "emma", "2027-02-01").ouder).toBe(old);
+});
+test("handover moments are derived per date from the same schedule", () => {
+    basis();
+    const m = wisselMomenten(zorgState(), [], st, "2025-03-04", 10);
+    expect(m.map((x) => x.id)).toEqual(["2025-03-10"]);
+    expect(m[0].naarMij).toBe(false);
+    expect(m[0].tijd).toBe("14:30");
 });
 const fields = { naam: "Kerst", periode: "2026-12-25 t/m 2026-12-26", vanDatum: "2026-12-25", totDatum: "2026-12-26", ouder: "Sanne", details: "", kinderen: ["emma"], soort: "bijzonder", herhaal: "afwisselend", verdeling: [{ van: "2026-12-25", tot: "2026-12-25", ouder: "Sanne" }, { van: "2026-12-26", tot: "2026-12-26", ouder: "Joris" }] };
 const holiday = { ...fields, id: "test", status: "afgesproken" };
@@ -58,20 +72,24 @@ test("holiday overrides only its agreed period then ordinary care resumes", () =
     expect(agendaZorgOp(zorgState(), [holiday], st, "2026-12-27", "emma").wissels[0]?.naar).toBe("sanne");
     expect(vakantieDelenOp({ ...holiday, status: "voorstel" }, "2026-12-25", "emma")).toEqual([]);
 });
-test("holiday revision and rejection preserve original dates and history", () => {
-    const id = voegVakantieVoorstelToe(fields);
-    expect(accepteerVakantie(id, "Joris")).toBe(true);
-    expect(wijzigVakantieVoorstel(id, { ...fields, vanDatum: "2026-12-24" })).toBe(true);
-    let v = vakantieLijst().find((x) => x.id === id);
+test("holiday revision and rejection preserve original dates", () => {
+    zetVakantiesVoorTest([{ ...fields, id: "h1", status: "voorstel", van: "Joris", geschiedenis: [] }], true);
+    expect(accepteerVakantie("h1")).toBe(true);
+    expect(wijzigVakantieVoorstel("h1", { ...fields, vanDatum: "2026-12-24" })).toBe(true);
+    let v = vakantieLijst().find((x) => x.id === "h1");
     if (!v)
         throw Error("Missing source");
+    expect(v.van).toBe("Sanne");
     expect(actieveVakantie(v)?.vanDatum).toBe("2026-12-25");
-    expect(wijsVakantieAf(id, "Joris")).toBe(true);
-    v = vakantieLijst().find((x) => x.id === id);
+    expect(wijsVakantieAf("h1")).toBe(false); // eigen voorstel: alleen de andere ouder reageert
+    // De andere ouder stelt op zijn beurt een wijziging voor; niet akkoord zet de afgesproken velden terug.
+    zetVakantiesVoorTest([{ ...v, vanDatum: "2026-12-23", van: "Joris" }], true);
+    expect(wijsVakantieAf("h1")).toBe(true);
+    v = vakantieLijst().find((x) => x.id === "h1");
     if (!v)
         throw Error("Missing source");
     expect(v.vanDatum).toBe("2026-12-25");
-    expect(v.geschiedenis?.at(-1)?.actie).toBe("Niet akkoord");
+    expect(v.status).toBe("afgesproken");
 });
 test("conflicting agreed periods remain explicit, not silently selected", () => {
     const other = { ...holiday, id: "other", ouder: "Joris", verdeling: [{ van: "2026-12-25", tot: "2026-12-26", ouder: "Joris" }] };

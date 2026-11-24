@@ -15,15 +15,9 @@ describe("Extra houvast verandert alleen de eigen weergave", () => {
         zetVoorkeur("extraHouvast", true);
         zetVoorkeur("extraHouvast", false);
         expect(JSON.stringify(afsprakenState())).toBe(voor);
-        expect(afsprakenState().find(a => a.id === "a3")?.voorstel?.akkoord).toEqual({ Joris: true });
     });
-    test("standaard voorbeelden blijven in de bron maar niet in het invoeroverzicht", () => {
-        const voorbeeld = afsprakenState().find(a => a.id === "a3");
-        expect(voorbeeld).toBeDefined();
-        if (!voorbeeld)
-            throw new Error("voorbeeld ontbreekt");
-        expect(isIngevuldeAfspraak(voorbeeld)).toBe(false);
-        expect(voorbeeld.geschiedenis).toHaveLength(2);
+    test("de afsprakenbron bevat geen voorbeeldafspraken (alleen wat het gezin zelf invoert)", () => {
+        expect(afsprakenState().find(a => a.id === "a3")).toBeUndefined();
     });
     test("zelf gemaakte afspraken blijven zichtbaar na uitschakelen", () => {
         zetAfspraken(l => [...l, { id: "houvast-test", titel: "Contact", tekst: "Woensdag afstemmen", onderwerp: "Contact", kind: "Emma", status: "Voorstel", versies: [], geschiedenis: [] }]);

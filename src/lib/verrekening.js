@@ -11,63 +11,56 @@ export const statusLabel = {
     get bevestigd() { return i18n.t("lib.verrekening.status.bevestigd"); },
     get verrekend() { return i18n.t("lib.verrekening.status.verrekend"); },
     get betwist() { return i18n.t("lib.verrekening.status.betwist"); },
+    get opgeslagen() { return i18n.t("lib.verrekening.status.opgeslagen"); },
+    get ingetrokken() { return i18n.t("lib.verrekening.status.ingetrokken"); },
 };
 /** Weergavenaam van een kostencategorie; de opgeslagen waarde ("School", "Bon" …) blijft de sleutel. */
 export const categorieLabel = (c) => i18n.t(`lib.verrekening.categorie.${c}`, { defaultValue: c });
-/** Aandeel van een ouder in een kostenpost, op basis van de verdelingstekst. */
+/** Aandeel van een ouder ("ik" = de kijker, "ander" = de andere ouder) in een kostenpost. */
 export function aandeelVan(k, ouder) {
-    const s = k.aandeelSanne;
-    return ouder === "sanne" ? s : Math.round((k.bedrag - s) * 100) / 100;
+    const s = k.aandeelIk;
+    return ouder === "ik" ? s : Math.round((k.bedrag - s) * 100) / 100;
 }
 const r2 = (n) => Math.round(n * 100) / 100;
 /**
- * Rekent openstaande (bevestigde) kosten tegen elkaar weg.
- * Alleen posten met status "openstaand" (bestaande data) of "bevestigd"
- * tellen mee; concepten, betwiste en al verrekende posten niet.
+ * Rekent openstaande (bevestigde) kosten tegen elkaar weg, vanuit de kijker ("ik").
+ * Alleen posten met status "openstaand"/"bevestigd", of "wacht" die volgens beoordeelKosten volledig
+ * binnen een afgesproken budget valt, tellen mee; concepten, betwiste, opgeslagen (kindrekening /
+ * helemaal voor mij) en al verrekende posten niet. Budgetten zelf tellen nooit mee.
+ * netto > 0: de andere ouder betaalt jou.
  */
 export function berekenSaldo(lijst, budgetten = budgetSnapshot()) {
     const uniekeLijst = lijst.filter((k, i) => lijst.findIndex((x) => x.id === k.id) === i);
     const beoordeling = beoordeelKosten(uniekeLijst, budgetten);
-    const gezien = new Set();
-    const meenemen = lijst.filter((k) => {
-        if (gezien.has(k.id))
-            return false;
-        gezien.add(k.id);
-        return k.status === "openstaand" || k.status === "bevestigd" || (k.status === "wacht" && beoordeling.get(k.id)?.soort === "gedekt");
-    });
-    const jorisAanSanne = { posten: [], totaal: 0 };
-    const sanneAanJoris = { posten: [], totaal: 0 };
+    const meenemen = uniekeLijst.filter((k) => k.bron !== "kindrekening" && (k.status === "openstaand" || k.status === "bevestigd" || (k.status === "wacht" && beoordeling.get(k.id)?.soort === "gedekt")));
+    const anderAanIk = { posten: [], totaal: 0 };
+    const ikAanAnder = { posten: [], totaal: 0 };
     for (const k of meenemen) {
-        if (k.betaaldDoor === "sanne") {
-            const aandeel = aandeelVan(k, "joris");
-            jorisAanSanne.posten.push({ post: k, aandeel });
-            jorisAanSanne.totaal = r2(jorisAanSanne.totaal + aandeel);
+        if (k.betaaldDoor === "ik") {
+            const aandeel = aandeelVan(k, "ander");
+            anderAanIk.posten.push({ post: k, aandeel });
+            anderAanIk.totaal = r2(anderAanIk.totaal + aandeel);
         }
         else {
-            const aandeel = aandeelVan(k, "sanne");
-            sanneAanJoris.posten.push({ post: k, aandeel });
-            sanneAanJoris.totaal = r2(sanneAanJoris.totaal + aandeel);
+            const aandeel = aandeelVan(k, "ik");
+            ikAanAnder.posten.push({ post: k, aandeel });
+            ikAanAnder.totaal = r2(ikAanAnder.totaal + aandeel);
         }
     }
     return {
-        jorisAanSanne,
-        sanneAanJoris,
-        netto: r2(jorisAanSanne.totaal - sanneAanJoris.totaal),
+        anderAanIk,
+        ikAanAnder,
+        // Oude namen (Home leest ze nog): zelfde objecten, vanuit de kijker.
+        jorisAanSanne: anderAanIk,
+        sanneAanJoris: ikAanAnder,
+        netto: r2(anderAanIk.totaal - ikAanAnder.totaal),
         aantalPosten: meenemen.length,
     };
 }
-export const standaardSleutels = {
-    Algemeen: { sanne: 60, joris: 40 },
-    School: { sanne: 50, joris: 50 },
-    Sport: { sanne: 50, joris: 50 },
-    Medisch: { sanne: 60, joris: 40 },
-    Opvang: { sanne: 70, joris: 30 },
-    Kleding: { sanne: 60, joris: 40 },
-    Activiteiten: { sanne: 50, joris: 50 },
-    Overig: { sanne: 50, joris: 50 },
-};
+/** Eén verdeelsleutel per gezin (de kostenafspraak); per categorie valt terug op "Algemeen". */
+export const standaardSleutels = { Algemeen: { ik: 50, ander: 50 } };
 export function sleutelVoor(sleutels, categorie) {
-    return sleutels[categorie] ?? sleutels["Algemeen"] ?? { sanne: 50, joris: 50 };
+    return sleutels?.[categorie] ?? sleutels?.["Algemeen"] ?? { ik: 50, ander: 50 };
 }
 const VERREKEN_STATUSSEN = ["nog-te-betalen", "betaalverzoek-gedeeld", "wacht-op-ontvanger", "ontvangst-bevestigd", "afgerond"];
 export const verrekeningStatus = (status) => i18n.t(`lib.verrekening.verrekenStatus.${VERREKEN_STATUSSEN.includes(status) ? status : "nog-te-betalen"}`);

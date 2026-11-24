@@ -1,1089 +1,541 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import nodemailer from "npm:nodemailer@6.9.10";
-// Phase 1: session required (see _shared/phase2-guard.ts)
-import { optionalUser } from "../_shared/session.ts";
-import { phase2Guard, pinIdentity } from "../_shared/phase2-guard.ts";
+// manage-caregivers — the circle around a child: grandparents, babysitters, step-parents, contacts.
+// Parents (session) manage members per child; a member only gets app access after an invitation
+// is accepted while signed in (the link alone never grants anything). Permissions are per child and
+// per section, default none, limited by an optional period, and enforced here for caregiver sessions.
+import { db } from "../_shared/db.ts";
+import { check, err, HttpError, ok, serveActions } from "../_shared/respond.ts";
+import { requireUser } from "../_shared/session.ts";
+import { assertChildAccess, childIdsFor } from "../_shared/access.ts";
+import { resolveAvatars, removeStored, uploadImage } from "../_shared/storage.ts";
+import { sendEmail } from "../_shared/mail.ts";
+import { appOrigin } from "../_shared/origin.ts";
+import { caregiverInviteEmail } from "../_shared/family-mail.ts";
+import {
+  CAREGIVER_COLS,
+  hasLiveAccess,
+  inPeriod,
+  liveCaregiverRows,
+  normLevel,
+  SECTIONS,
+  todayNl,
+} from "../_shared/family-caregivers.ts";
+import { isPlainObject, isUuid, normalizeEmail, optDate, optText, reqText, requireUuid } from "../_shared/util.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-session-token",
-};
+const STATUSES = ["contact_only", "invited", "active", "revoked"];
+const NOOD_FIELDS = ["geboortedatum", "contacten", "huisarts", "allergieen", "medicatie", "extra"];
 
-const isUUID = (str: any) =>
-  typeof str === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+type Row = Record<string, any>;
+type Perms = Record<string, Record<string, string>>;
 
-// Helper: Send email via SMTP (Nodemailer) or fallback to Resend API
-async function sendEmail({
-  to,
-  subject,
-  html,
-}: {
-  to: string;
-  subject: string;
-  html: string;
-}) {
-  const smtpHost = Deno.env.get("SMTP_HOST") || Deno.env.get("EMAIL_HOST");
-  const smtpPort = Deno.env.get("SMTP_PORT") || Deno.env.get("EMAIL_PORT");
-  const smtpUser = Deno.env.get("SMTP_USER") || Deno.env.get("EMAIL_USER");
-  const rawPass = Deno.env.get("SMTP_PASS") || Deno.env.get("EMAIL_PASS");
-  const smtpPass = rawPass ? rawPass.replace(/^["']|["']$/g, "").trim() : "";
-  const isResendSmtp = Boolean(smtpHost && smtpHost.toLowerCase().includes("resend"));
-  const authUser = isResendSmtp ? "resend" : smtpUser;
-  const smtpFrom =
-    Deno.env.get("SMTP_FROM") ||
-    Deno.env.get("EMAIL_FROM") ||
-    (isResendSmtp
-      ? "Ouderschap & Co <onboarding@resend.dev>"
-      : smtpUser && smtpUser.includes("@")
-      ? `Ouderschap & Co <${smtpUser}>`
-      : "Ouderschap & Co <onboarding@resend.dev>");
+// ---------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------
 
-  // 1. Try Nodemailer SMTP if credentials are provided
-  if (smtpHost && smtpPass) {
-    try {
-      const transporter = smtpHost.includes("gmail")
-        ? nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-              user: smtpUser,
-              pass: smtpPass,
-            },
-          })
-        : nodemailer.createTransport({
-            host: smtpHost,
-            port: Number(smtpPort) || (isResendSmtp ? 465 : 587),
-            secure: Number(smtpPort) === 465 || isResendSmtp,
-            auth: {
-              user: authUser,
-              pass: smtpPass,
-            },
-          });
-
-      const info = await transporter.sendMail({
-        from: smtpFrom,
-        to,
-        subject,
-        html,
-      });
-      console.log(`[manage-caregivers] Email successfully sent to ${to} via SMTP:`, info.messageId);
-      return { success: true, messageId: info.messageId, provider: "smtp" };
-    } catch (err: any) {
-      console.error("[manage-caregivers] Nodemailer SMTP failed:", err);
-    }
-  }
-
-  // 2. Fallback to Resend API
-  const resendApiKey = Deno.env.get("RESEND_API_KEY") || (smtpPass?.startsWith("re_") ? smtpPass : null);
-  if (resendApiKey) {
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: smtpFrom.includes("@resend.dev") ? smtpFrom : "Ouderschap & Co <onboarding@resend.dev>",
-          to: [to],
-          subject,
-          html,
-        }),
-      });
-
-      if (res.ok) {
-        const rJson = await res.json();
-        console.log(`[manage-caregivers] Email successfully sent to ${to} via Resend API:`, rJson);
-        return { success: true, messageId: rJson.id, provider: "resend" };
-      } else {
-        const errText = await res.text();
-        console.error("[manage-caregivers] Resend API send failed response:", errText);
-      }
-    } catch (resendErr: any) {
-      console.error("[manage-caregivers] Resend API send failed:", resendErr);
-    }
-  }
-
-  console.warn(`[manage-caregivers] No email provider succeeded for ${to}.`);
-  return { success: false, error: "Email provider unconfigured or failed to deliver." };
+function statusOf(r: Row): string {
+  if (r.revoked_at || r.status === "revoked") return "revoked";
+  return STATUSES.includes(r.status) ? r.status : r.connected_user_id ? "active" : "contact_only";
 }
 
-function getCaregiverEmailHtml({
-  recipientName,
-  senderName,
-  inviteLink,
-  isEn = false,
-}: {
-  recipientName: string;
-  senderName: string;
-  inviteLink: string;
-  isEn?: boolean;
-}): string {
-  const texts = isEn
-    ? {
-        title: "Caregiver Invitation — Ouderschap & Co.",
-        sub: "Caregiver & Family Circle",
-        greeting: `Hi ${recipientName}`,
-        intro: `You have been invited by <strong>${senderName}</strong> as a caregiver/family member on <strong>Ouderschap & Co.</strong>`,
-        desc: "You can view the calm pickup schedule, confirm handovers, and stay informed on important child moments.",
-        privacy: "Note: You only see the schedule and emergency info shared with you. Private parent messages and financial agreements remain strictly confidential.",
-        cta: "Open Caregiver View",
-        fallback: "If the button above does not work, copy and open this link:",
-        rights: "All rights reserved.",
-      }
-    : {
-        title: "Uitnodiging Verzorger — Ouderschap & Co.",
-        sub: "Verzorger & Familieomgeving",
-        greeting: `Beste ${recipientName}`,
-        intro: `Je bent door <strong>${senderName}</strong> uitgenodigd als betrokkene / verzorger op <strong>Ouderschap & Co.</strong>`,
-        desc: "Hier kun je rustig de actuele planning bekijken, ophaalmomenten bevestigen en op de hoogte blijven van belangrijke momenten rondom de kinderen.",
-        privacy: "Goed om te weten: Je ziet uitsluitend de voor jou ingestelde planning en noodinformatie. Privégesprekken en financiën tussen ouders blijven altijd verborgen.",
-        cta: "Open Verzorger Omgeving",
-        fallback: "Werkt de knop niet? Kopieer en open dan onderstaande link in je browser:",
-        rights: "Alle rechten voorbehouden.",
-      };
-
-  return `
-  <!DOCTYPE html>
-  <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${texts.title}</title>
-    </head>
-    <body style="margin: 0; padding: 32px 16px; background-color: #f7f5f2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1f2937;">
-      <div style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e7e2d9; box-shadow: 0 6px 24px -2px rgba(44, 74, 62, 0.08);">
-        <div style="background: linear-gradient(135deg, #2c4a3e 0%, #1e332b 100%); padding: 36px 32px; text-align: center;">
-          <h1 style="margin: 0; font-size: 30px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">
-            Ouderschap & Co.
-          </h1>
-          <p style="margin: 8px 0 0; color: #d4e4dc; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
-            ${texts.sub}
-          </p>
-        </div>
-        <div style="padding: 32px 28px;">
-          <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 700; color: #2c4a3e;">
-            ${texts.greeting}
-          </h2>
-          <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-bottom: 16px;">
-            ${texts.intro}
-          </p>
-          <p style="font-size: 14px; line-height: 1.6; color: #4b5563; margin-bottom: 24px;">
-            ${texts.desc}
-          </p>
-          <div style="text-align: center; margin: 32px 0;">
-            <a href="${inviteLink}" style="display: inline-block; background-color: #2c4a3e; color: #ffffff; font-size: 15px; font-weight: 700; padding: 14px 32px; border-radius: 12px; text-decoration: none; box-shadow: 0 4px 12px rgba(44, 74, 62, 0.2);">
-              ${texts.cta}
-            </a>
-          </div>
-          <div style="background-color: #f4f8f6; border: 1px solid #d4e4dc; border-radius: 12px; padding: 14px 16px; font-size: 12px; line-height: 1.5; color: #2c4a3e; margin: 24px 0;">
-            ${texts.privacy}
-          </div>
-          <p style="font-size: 12px; color: #9ca3af; margin-top: 24px; word-break: break-all;">
-            ${texts.fallback}<br>
-            <a href="${inviteLink}" style="color: #2c4a3e; text-decoration: underline;">${inviteLink}</a>
-          </p>
-        </div>
-        <div style="background-color: #faf8f5; border-top: 1px solid #e7e2d9; padding: 16px 28px; text-align: center; font-size: 12px; color: #9ca3af;">
-          © ${new Date().getFullYear()} Ouderschap & Co. ${texts.rights}
-        </div>
-      </div>
-    </body>
-  </html>
-  `;
+async function audit(actorId: string | null, entityId: string, action: string, details: Record<string, unknown>) {
+  const { error } = await db().from("audit_events").insert({
+    actor_id: actorId,
+    entity_type: "caregiver",
+    entity_id: entityId,
+    action,
+    details,
+  });
+  if (error) console.warn("[manage-caregivers] audit insert failed:", error);
 }
 
-async function loadParentsAndCoParents(adminClient: any, creatorId: string, childIds: string[]) {
-  if (!creatorId) return { creator: null, co_parents: [] };
+async function loadRow(id: string): Promise<Row> {
+  const row = check(
+    await db().from("family_caregivers").select(CAREGIVER_COLS).eq("id", id).maybeSingle(),
+    "load caregiver",
+  ) as Row | null;
+  if (!row) throw err.notFound("Circle member not found");
+  return row;
+}
 
-  const { data: creator } = await adminClient
-    .from("profiles")
-    .select("id, name, email")
-    .eq("id", creatorId)
-    .maybeSingle();
+async function permsFor(ids: string[]): Promise<Map<string, Perms>> {
+  const out = new Map<string, Perms>();
+  if (!ids.length) return out;
+  const rows = (check(
+    await db().from("caregiver_permissions").select("caregiver_id, child_id, section, permission_level").in("caregiver_id", ids),
+    "load permissions",
+  ) ?? []) as Array<{ caregiver_id: string; child_id: string; section: string; permission_level: string }>;
+  for (const r of rows) {
+    const level = normLevel(r.section, r.permission_level);
+    if (level === "geen") continue;
+    const p = out.get(r.caregiver_id) ?? {};
+    (p[r.child_id] ??= {})[r.section] = level;
+    out.set(r.caregiver_id, p);
+  }
+  return out;
+}
 
-  const creatorObj = {
-    id: creator?.id || creatorId,
-    name: (creator?.name && creator.name.trim() !== "Co-ouder" && creator.name.trim() !== "Co-parent")
-      ? creator.name.trim()
-      : "Mona",
-    email: creator?.email || "",
-    phone: "",
+/** The caller may see a member when it was added by them or belongs to one of their children. */
+function visibleChildIds(row: Row, mine: Set<string>): string[] {
+  return ((row.child_ids ?? []) as string[]).filter((id) => mine.has(id));
+}
+
+async function assertMemberAccess(userId: string, row: Row): Promise<string[]> {
+  const mine = new Set(await childIdsFor(userId));
+  const visible = visibleChildIds(row, mine);
+  if (row.created_by !== userId && !visible.length) throw err.notFound("Circle member not found");
+  return visible;
+}
+
+/** API shape of a member for a parent. Only children the caller can access; token only while invited. */
+async function toMembers(userId: string, rows: Row[]): Promise<Row[]> {
+  if (!rows.length) return [];
+  const mine = new Set(await childIdsFor(userId));
+  const perms = await permsFor(rows.map((r) => r.id));
+  const creatorIds = [...new Set(rows.map((r) => r.created_by).filter(Boolean))];
+  const creators = creatorIds.length
+    ? ((check(await db().from("profiles").select("id, name").in("id", creatorIds), "load creators") ?? []) as Array<{ id: string; name: string }>)
+    : [];
+  const photos = await resolveAvatars(rows.map((r) => r.photo_url));
+  return rows.map((r, i) => {
+    const kids = visibleChildIds(r, mine);
+    const p = perms.get(r.id) ?? {};
+    const status = statusOf(r);
+    return {
+      id: r.id,
+      name: r.name,
+      role: r.role,
+      phone: r.phone ?? null,
+      email: r.email ?? null,
+      address: r.address ?? null,
+      photo: photos[i],
+      is_emergency_contact: !!r.is_emergency_contact,
+      status,
+      child_ids: kids,
+      permissions: Object.fromEntries(kids.map((k) => [k, p[k] ?? {}])),
+      valid_from: r.valid_from ? String(r.valid_from).slice(0, 10) : null,
+      valid_to: r.valid_to ? String(r.valid_to).slice(0, 10) : null,
+      has_account: !!r.connected_user_id,
+      live: hasLiveAccess(r),
+      created_by: r.created_by,
+      added_by_me: r.created_by === userId,
+      added_by_name: creators.find((c) => c.id === r.created_by)?.name ?? null,
+      invite_token: status === "invited" ? r.invite_token : null,
+      invited_at: r.invited_at ?? null,
+      accepted_at: r.accepted_at ?? null,
+      created_at: r.created_at,
+    };
+  });
+}
+
+async function toMember(userId: string, id: string): Promise<Row> {
+  return (await toMembers(userId, [await loadRow(id)]))[0];
+}
+
+/** Validates `{ <childId>: { <section>: level } }` for the given children; "geen" entries are dropped. */
+function parsePermissions(input: unknown, childIds: string[]): Perms {
+  if (input === undefined || input === null) return {};
+  if (!isPlainObject(input)) throw err.validation("permissions must be an object");
+  const out: Perms = {};
+  for (const [childId, secs] of Object.entries(input)) {
+    if (!childIds.includes(childId)) continue; // only children this member belongs to
+    if (!isPlainObject(secs)) throw err.validation("permissions per child must be an object");
+    for (const [section, level] of Object.entries(secs)) {
+      if (!SECTIONS[section]) throw err.validation(`Unknown section "${section}"`);
+      if (level === "geen" || level === "none" || level === null) continue;
+      if (typeof level !== "string" || !SECTIONS[section].includes(level)) throw err.validation(`Invalid level for ${section}`);
+      (out[childId] ??= {})[section] = level;
+    }
+  }
+  return out;
+}
+
+async function writePermissions(caregiverId: string, childIds: string[], perms: Perms) {
+  if (!childIds.length) return;
+  check(
+    await db().from("caregiver_permissions").delete().eq("caregiver_id", caregiverId).in("child_id", childIds),
+    "clear permissions",
+  );
+  const rows = childIds.flatMap((c) =>
+    Object.entries(perms[c] ?? {}).map(([section, level]) => ({ caregiver_id: caregiverId, child_id: c, section, permission_level: level }))
+  );
+  if (rows.length) check(await db().from("caregiver_permissions").insert(rows), "save permissions");
+}
+
+function parsePeriod(body: Record<string, any>) {
+  const from = optDate(body.valid_from, "valid_from");
+  const to = optDate(body.valid_to, "valid_to");
+  if (from && to && from > to) throw err.validation("valid_from must be before valid_to");
+  return { from, to };
+}
+
+function parseChildIds(v: unknown): string[] {
+  if (!Array.isArray(v) || !v.length) throw err.validation("child_ids must be a non-empty array");
+  if (v.length > 20) throw err.validation("too many children");
+  return [...new Set(v.map((x) => requireUuid(x, "child_ids[]")))];
+}
+
+function contactFields(body: Record<string, any>, partial: boolean) {
+  const f: Row = {};
+  if (!partial || body.name !== undefined) f.name = reqText(body.name, "name", 100);
+  if (!partial || body.role !== undefined) f.role = reqText(body.role, "role", 60);
+  const phone = optText(body.phone, "phone", 40);
+  if (phone !== undefined) f.phone = phone;
+  if (body.email !== undefined) f.email = body.email === null || body.email === "" ? null : normalizeEmail(body.email);
+  const address = optText(body.address, "address", 300);
+  if (address !== undefined) f.address = address;
+  if (body.is_emergency_contact !== undefined) f.is_emergency_contact = body.is_emergency_contact === true;
+  return f;
+}
+
+async function namesOf(ids: string[]): Promise<Map<string, string>> {
+  if (!ids.length) return new Map();
+  const rows = (check(await db().from("children").select("id, name").in("id", ids), "child names") ?? []) as Array<{ id: string; name: string }>;
+  return new Map(rows.map((r) => [r.id, r.name]));
+}
+
+// ---------------------------------------------------------------------------
+// what a caregiver sees (also used for the parent's preview)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds exactly what this member may see: only children with at least one permitted section,
+ * and emergency details only with "nood" and only the fields the parents put on the card.
+ * No ids of profiles other than the parents' names, no schedules, notes, messages or money.
+ */
+async function buildView(row: Row): Promise<Row> {
+  const perms = (await permsFor([row.id])).get(row.id) ?? {};
+  const kidIds = ((row.child_ids ?? []) as string[]).filter((c) => Object.keys(perms[c] ?? {}).length);
+  const kids = kidIds.length
+    ? ((check(
+      await db().from("children").select("id, name, color_code, avatar_url, date_of_birth, doctor, allergies, profile, created_by").in("id", kidIds),
+      "view children",
+    ) ?? []) as Row[])
+    : [];
+  const links = kidIds.length
+    ? ((check(await db().from("child_parents").select("child_id, parent_id").in("child_id", kidIds), "view links") ?? []) as Row[])
+    : [];
+  const parentIds = [...new Set([...kids.map((k) => k.created_by), ...links.map((l) => l.parent_id)].filter(Boolean))];
+  const parents = parentIds.length
+    ? ((check(await db().from("profiles").select("id, name").in("id", parentIds), "view parents") ?? []) as Array<{ id: string; name: string }>)
+    : [];
+  // emergency contacts from the circle (only phone numbers, only flagged members of that child)
+  const circle = kidIds.length
+    ? ((check(
+      await db().from("family_caregivers").select("id, name, role, phone, child_ids, is_emergency_contact, status, revoked_at").overlaps("child_ids", kidIds).eq("is_emergency_contact", true),
+      "view circle contacts",
+    ) ?? []) as Row[])
+    : [];
+  const avatars = await resolveAvatars(kids.map((k) => k.avatar_url));
+  const children = kids.map((k, i) => {
+    const p = perms[k.id] ?? {};
+    const base: Row = { id: k.id, name: k.name, color_code: k.color_code ?? null, avatar: avatars[i] };
+    if (p.nood) {
+      const profile = isPlainObject(k.profile) ? k.profile : {};
+      const card = isPlainObject(profile.noodkaart) ? profile.noodkaart : {};
+      const fields = (Array.isArray(card.velden) ? card.velden : []).filter((f: unknown) => typeof f === "string" && NOOD_FIELDS.includes(f));
+      const health = isPlainObject(profile.gezondheid) ? profile.gezondheid : {};
+      const e: Row = {};
+      if (fields.includes("geboortedatum")) e.date_of_birth = k.date_of_birth ? String(k.date_of_birth).slice(0, 10) : null;
+      if (fields.includes("huisarts")) e.doctor = k.doctor ?? null;
+      if (fields.includes("allergieen")) e.allergies = k.allergies ?? null;
+      if (fields.includes("medicatie")) e.medication = typeof health.medicatie === "string" ? health.medicatie : null;
+      if (fields.includes("extra")) e.extra = typeof card.extra === "string" ? card.extra : null;
+      if (fields.includes("contacten")) {
+        const ownParents = new Set([k.created_by, ...links.filter((l) => l.child_id === k.id).map((l) => l.parent_id)]);
+        const people = Array.isArray(profile.personen) ? profile.personen : [];
+        e.contacts = [
+          ...parents.filter((pp) => ownParents.has(pp.id)).map((pp) => ({ name: pp.name, role: "ouder", phone: null })),
+          ...people.filter((x: Row) => x && x.nood && typeof x.naam === "string").map((x: Row) => ({ name: x.naam, role: typeof x.rol === "string" ? x.rol : "", phone: typeof x.telefoon === "string" ? x.telefoon : null })),
+          ...circle.filter((c) => c.id !== row.id && (c.child_ids ?? []).includes(k.id) && statusOf(c) !== "revoked").map((c) => ({ name: c.name, role: c.role, phone: c.phone ?? null })),
+        ];
+      }
+      base.emergency = e;
+    }
+    return base;
+  });
+  return {
+    caregiver: {
+      id: row.id,
+      name: row.name,
+      role: row.role,
+      status: statusOf(row),
+      valid_from: row.valid_from ? String(row.valid_from).slice(0, 10) : null,
+      valid_to: row.valid_to ? String(row.valid_to).slice(0, 10) : null,
+    },
+    permissions: Object.fromEntries(kidIds.map((c) => [c, perms[c]])),
+    children,
+    parents: parents.map((p) => ({ id: p.id, name: p.name })),
   };
-
-  const coParentsList: any[] = [];
-  try {
-    const { data: acceptedInvs } = await adminClient
-      .from("invitations")
-      .select("id, from_parent_id, to_parent_id, child_ids")
-      .or(`from_parent_id.eq.${creatorId},to_parent_id.eq.${creatorId}`)
-      .eq("status", "accepted");
-
-    const otherParentIds = new Set<string>();
-    const childIdsByCoParent = new Map<string, Set<string>>();
-
-    if (Array.isArray(acceptedInvs)) {
-      for (const inv of acceptedInvs) {
-        const otherId = inv.from_parent_id === creatorId ? inv.to_parent_id : inv.from_parent_id;
-        if (otherId && isUUID(otherId)) {
-          const invChildIds = Array.isArray(inv.child_ids) ? inv.child_ids.filter(isUUID) : [];
-
-          // If caregiver has specific childIds, only include co-parent if their invitation covers at least one of these children
-          if (childIds.length > 0 && invChildIds.length > 0) {
-            const hasOverlap = invChildIds.some((cid: string) => childIds.includes(cid));
-            if (!hasOverlap) {
-              continue;
-            }
-          }
-
-          otherParentIds.add(otherId);
-          if (!childIdsByCoParent.has(otherId)) {
-            childIdsByCoParent.set(otherId, new Set<string>());
-          }
-          if (invChildIds.length > 0) {
-            invChildIds.forEach((cid: string) => {
-              if (childIds.length === 0 || childIds.includes(cid)) {
-                childIdsByCoParent.get(otherId)!.add(cid);
-              }
-            });
-          }
-        }
-      }
-    }
-
-    if (childIds.length > 0) {
-      const { data: cpRows } = await adminClient
-        .from("child_parents")
-        .select("child_id, parent_id")
-        .in("child_id", childIds)
-        .neq("parent_id", creatorId);
-
-      if (Array.isArray(cpRows)) {
-        for (const cp of cpRows) {
-          if (cp.parent_id && isUUID(cp.parent_id)) {
-            otherParentIds.add(cp.parent_id);
-            if (!childIdsByCoParent.has(cp.parent_id)) {
-              childIdsByCoParent.set(cp.parent_id, new Set<string>());
-            }
-            if (cp.child_id) {
-              childIdsByCoParent.get(cp.parent_id)!.add(cp.child_id);
-            }
-          }
-        }
-      }
-    }
-
-    if (otherParentIds.size > 0) {
-      const { data: profiles } = await adminClient
-        .from("profiles")
-        .select("id, name, email, avatar_url")
-        .in("id", Array.from(otherParentIds));
-
-      if (Array.isArray(profiles)) {
-        for (const p of profiles) {
-          const matchedChildIds = Array.from(childIdsByCoParent.get(p.id) || []);
-          // If caregiver is restricted to specific childIds, only include co-parent if matchedChildIds overlap
-          if (childIds.length > 0 && matchedChildIds.length > 0) {
-            const hasOverlap = matchedChildIds.some((cid: string) => childIds.includes(cid));
-            if (!hasOverlap) continue;
-          }
-
-          coParentsList.push({
-            id: p.id,
-            name: (p.name && p.name.trim() !== "Co-ouder" && p.name.trim() !== "Co-parent")
-              ? p.name.trim()
-              : "Co-parent",
-            email: p.email || "",
-            phone: "",
-            avatar_url: p.avatar_url || null,
-            child_ids: matchedChildIds,
-            role: "co_parent",
-          });
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("[manage-caregivers] loadParentsAndCoParents warning:", err);
-  }
-
-  return { creator: creatorObj, co_parents: coParentsList };
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+// ---------------------------------------------------------------------------
+// invitation by token (?t=)
+// ---------------------------------------------------------------------------
 
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+async function rowForToken(token: unknown): Promise<Row> {
+  if (!isUuid(token)) throw err.validation("token is invalid");
+  const row = check(
+    await db().from("family_caregivers").select(CAREGIVER_COLS).eq("invite_token", String(token).toLowerCase()).maybeSingle(),
+    "load invitation",
+  ) as Row | null;
+  if (!row) throw err.notFound("Invitation not found");
+  const status = statusOf(row);
+  if (status === "revoked") throw new HttpError(410, "INVITE_CANCELLED", "Invitation was withdrawn");
+  if (status === "active") throw new HttpError(409, "INVITE_USED", "Invitation was already used");
+  if (status !== "invited") throw err.notFound("Invitation not found");
+  if (row.valid_to && todayNl() > String(row.valid_to).slice(0, 10)) throw new HttpError(410, "INVITE_EXPIRED", "Access period has ended");
+  return row;
+}
 
-    const body = await req.json();
-    const { action } = body;
-    if (action === "get-by-token" || action === "accept") {
-      // public caregiver-invite flow (?t=...): never trust a user id from the body
-      const __sessionUser = await optionalUser(req);
-      if (__sessionUser) pinIdentity(body, __sessionUser);
-      else { delete body.user_id; delete body.userId; }
-    } else {
-      const __denied = await phase2Guard(req, body);
-      if (__denied) return __denied;
-      if (action === "get-for-user" || action === "get-by-user") {
-        // only ever look up the caller's own caregiver record
-        body.email = (await optionalUser(req))?.email ?? null;
-      }
+// ---------------------------------------------------------------------------
+// actions
+// ---------------------------------------------------------------------------
+
+Deno.serve(serveActions("manage-caregivers", {
+  /** Every member of the caller's children (both parents see the same circle), plus members they added. */
+  async list(req) {
+    const me = await requireUser(req);
+    const mine = await childIdsFor(me.id);
+    const [byChild, byMe] = await Promise.all([
+      mine.length
+        ? db().from("family_caregivers").select(CAREGIVER_COLS).overlaps("child_ids", mine)
+        : Promise.resolve({ data: [], error: null }),
+      db().from("family_caregivers").select(CAREGIVER_COLS).eq("created_by", me.id),
+    ]);
+    const rows = new Map<string, Row>();
+    for (const r of [...((check(byChild as any, "list by child") ?? []) as Row[]), ...((check(byMe, "list by creator") ?? []) as Row[])]) {
+      rows.set(r.id, r);
     }
+    const list = [...rows.values()].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    return ok({ members: await toMembers(me.id, list) });
+  },
 
-    // 1. LIST CAREGIVERS FOR PARENT (Includes caregivers created by parent, or connected to parent's children/co-parents)
-    if (action === "list") {
-      const parent_id = body.parent_id || body.user_id;
-      if (!parent_id) {
-        return new Response(JSON.stringify({ success: false, error: "parent_id is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+  async create(req, body, { isEn }) {
+    const me = await requireUser(req);
+    const childIds = parseChildIds(body.child_ids);
+    for (const c of childIds) await assertChildAccess(me.id, c, { edit: true });
+    const fields = contactFields(body, false);
+    const invite = body.invite === true;
+    if (invite && !fields.phone && !fields.email) throw err.validation("An invitation needs a phone number or e-mail address");
+    const { from, to } = parsePeriod(body);
+    const perms = invite ? parsePermissions(body.permissions, childIds) : {};
+    const now = new Date().toISOString();
+    const created = check(
+      await db().from("family_caregivers").insert({
+        ...fields,
+        created_by: me.id,
+        updated_by: me.id,
+        child_ids: childIds,
+        status: invite ? "invited" : "contact_only",
+        invited_at: invite ? now : null,
+        valid_from: from ?? null,
+        valid_to: to ?? null,
+        valid_until: null,
+      }).select("id").single(),
+      "create caregiver",
+    ) as { id: string };
+    await writePermissions(created.id, childIds, perms);
+    if (body.image_base64) {
+      const ref = await uploadImage("avatars", `caregivers/${created.id}`, body.image_base64);
+      check(await db().from("family_caregivers").update({ photo_url: ref }).eq("id", created.id), "set photo");
+    }
+    await audit(me.id, created.id, invite ? "INVITED" : "CREATED", { child_ids: childIds, role: fields.role, permissions: perms, valid_from: from ?? null, valid_to: to ?? null });
+    let emailSent = false;
+    if (invite && fields.email && body.send_email === true) emailSent = await mailInvite(me, await loadRow(created.id), body.redirect_origin, isEn);
+    return ok({ member: await toMember(me.id, created.id), email_sent: emailSent });
+  },
 
-      // Collect all child IDs and co-parent IDs for parent_id
-      const childIdsSet = new Set<string>();
-      const coParentIdsSet = new Set<string>();
+  /**
+   * Change contact details, children, permissions, period, or turn a contact into an invitation.
+   * Permissions are replaced only for children the caller may edit; other children keep theirs.
+   */
+  async update(req, body, { isEn }) {
+    const me = await requireUser(req);
+    const id = requireUuid(body.caregiver_id, "caregiver_id");
+    const row = await loadRow(id);
+    await assertMemberAccess(me.id, row);
+    if (statusOf(row) === "revoked") throw err.validation("Access was withdrawn; add the person again");
+    const mine = new Set(await childIdsFor(me.id));
+    const patch: Row = { ...contactFields(body, true), updated_by: me.id };
 
-      try {
-        // Direct child_parents check
-        const { data: cpRows } = await adminClient
-          .from("child_parents")
-          .select("child_id, parent_id")
-          .eq("parent_id", parent_id);
+    let childIds: string[] = row.child_ids ?? [];
+    if (body.child_ids !== undefined) {
+      const next = parseChildIds(body.child_ids);
+      const changed = [...next.filter((c) => !childIds.includes(c)), ...childIds.filter((c) => !next.includes(c))];
+      for (const c of changed) await assertChildAccess(me.id, c, { edit: true });
+      childIds = next;
+      patch.child_ids = next;
+      // removed children lose their permissions
+      const removed = (row.child_ids ?? []).filter((c: string) => !next.includes(c));
+      if (removed.length) check(await db().from("caregiver_permissions").delete().eq("caregiver_id", id).in("child_id", removed), "drop permissions");
+    }
+    if (body.valid_from !== undefined || body.valid_to !== undefined) {
+      const { from, to } = parsePeriod({ valid_from: body.valid_from ?? row.valid_from ?? null, valid_to: body.valid_to ?? row.valid_to ?? null });
+      patch.valid_from = from ?? null;
+      patch.valid_to = to ?? null;
+    }
+    const becomesInvite = body.invite === true && statusOf(row) === "contact_only";
+    if (becomesInvite) {
+      const phone = patch.phone !== undefined ? patch.phone : row.phone;
+      const email = patch.email !== undefined ? patch.email : row.email;
+      if (!phone && !email) throw err.validation("An invitation needs a phone number or e-mail address");
+      patch.status = "invited";
+      patch.invited_at = new Date().toISOString();
+      patch.invite_token = crypto.randomUUID();
+    }
+    if (body.image_base64) {
+      patch.photo_url = await uploadImage("avatars", `caregivers/${id}`, body.image_base64);
+      if (row.photo_url) await removeStored(row.photo_url);
+    } else if (body.photo === null && row.photo_url) {
+      patch.photo_url = null;
+      await removeStored(row.photo_url);
+    }
+    check(await db().from("family_caregivers").update(patch).eq("id", id), "update caregiver");
 
-        if (Array.isArray(cpRows)) {
-          cpRows.forEach((r: any) => {
-            if (r.child_id && isUUID(r.child_id)) childIdsSet.add(r.child_id);
-          });
-        }
-
-        // Direct children created by parent
-        const { data: myCreatedKids } = await adminClient
-          .from("children")
-          .select("id")
-          .eq("created_by", parent_id);
-
-        if (Array.isArray(myCreatedKids)) {
-          myCreatedKids.forEach((k: any) => {
-            if (k.id && isUUID(k.id)) childIdsSet.add(k.id);
-          });
-        }
-
-        // Accepted invitations check
-        const { data: acceptedInvs } = await adminClient
-          .from("invitations")
-          .select("from_parent_id, to_parent_id, child_ids")
-          .or(`from_parent_id.eq.${parent_id},to_parent_id.eq.${parent_id}`)
-          .eq("status", "accepted");
-
-        if (Array.isArray(acceptedInvs)) {
-          acceptedInvs.forEach((inv: any) => {
-            const otherId = inv.from_parent_id === parent_id ? inv.to_parent_id : inv.from_parent_id;
-            if (otherId && isUUID(otherId)) coParentIdsSet.add(otherId);
-            if (Array.isArray(inv.child_ids)) {
-              inv.child_ids.forEach((cid: string) => {
-                if (isUUID(cid)) childIdsSet.add(cid);
-              });
-            }
-          });
-        }
-
-        // Find co-parents linked to these children
-        const childIdsArray = Array.from(childIdsSet);
-        if (childIdsArray.length > 0) {
-          const { data: otherParents } = await adminClient
-            .from("child_parents")
-            .select("parent_id")
-            .in("child_id", childIdsArray)
-            .neq("parent_id", parent_id);
-
-          if (Array.isArray(otherParents)) {
-            otherParents.forEach((p: any) => {
-              if (p.parent_id && isUUID(p.parent_id)) coParentIdsSet.add(p.parent_id);
-            });
-          }
-
-          const { data: createdKidsOtherParents } = await adminClient
-            .from("children")
-            .select("created_by")
-            .in("id", childIdsArray)
-            .neq("created_by", parent_id);
-
-          if (Array.isArray(createdKidsOtherParents)) {
-            createdKidsOtherParents.forEach((k: any) => {
-              if (k.created_by && isUUID(k.created_by)) coParentIdsSet.add(k.created_by);
-            });
-          }
-        }
-      } catch (linkErr) {
-        console.warn("[manage-caregivers] link resolve notice:", linkErr);
-      }
-
-      // Collect caregiver IDs that have permissions on parent's children
-      const caregiverIdsSet = new Set<string>();
-      const childIdsArray = Array.from(childIdsSet);
-      if (childIdsArray.length > 0) {
+    let perms: Perms | null = null;
+    if (body.permissions !== undefined) {
+      if (statusOf({ ...row, ...patch }) === "contact_only") throw err.validation("A contact without app access has no permissions");
+      const editable: string[] = [];
+      for (const c of childIds.filter((x) => mine.has(x))) {
         try {
-          const { data: permRows } = await adminClient
-            .from("caregiver_permissions")
-            .select("caregiver_id")
-            .in("child_id", childIdsArray);
-
-          if (Array.isArray(permRows)) {
-            permRows.forEach((pr: any) => {
-              if (pr.caregiver_id && isUUID(pr.caregiver_id)) caregiverIdsSet.add(pr.caregiver_id);
-            });
-          }
-        } catch (permErr) {
-          console.warn("[manage-caregivers] permissions lookup notice:", permErr);
-        }
+          await assertChildAccess(me.id, c, { edit: true });
+          editable.push(c);
+        } catch { /* view-only child: its permissions stay as they are */ }
       }
-
-      // Build query to find all relevant family caregivers
-      const allowedCreatorIds = [parent_id, ...Array.from(coParentIdsSet)];
-      const explicitCaregiverIds = Array.from(caregiverIdsSet);
-
-      let query = adminClient
-        .from("family_caregivers")
-        .select(`
-          id,
-          created_by,
-          name,
-          role,
-          phone,
-          email,
-          is_emergency_contact,
-          invite_token,
-          status,
-          connected_user_id,
-          valid_until,
-          created_at,
-          caregiver_permissions (
-            id,
-            child_id,
-            section,
-            permission_level
-          )
-        `);
-
-      if (explicitCaregiverIds.length > 0) {
-        query = query.or(`created_by.in.(${allowedCreatorIds.join(",")}),id.in.(${explicitCaregiverIds.join(",")})`);
-      } else {
-        query = query.in("created_by", allowedCreatorIds);
-      }
-
-      const { data: caregivers, error } = await query.order("created_at", { ascending: false });
-
-      if (error) throw new Error(error.message);
-
-      // Attach creator profile info (name, email)
-      const rawList = caregivers || [];
-      const creatorIdsToFetch = Array.from(new Set(rawList.map((c: any) => c.created_by).filter(Boolean)));
-      let creatorsMap = new Map<string, { id: string; name: string; email: string }>();
-
-      if (creatorIdsToFetch.length > 0) {
-        try {
-          const { data: profs } = await adminClient
-            .from("profiles")
-            .select("id, name, email")
-            .in("id", creatorIdsToFetch);
-
-          if (Array.isArray(profs)) {
-            profs.forEach((p: any) => {
-              creatorsMap.set(p.id, {
-                id: p.id,
-                name: p.name?.trim() || "Ouder",
-                email: p.email || "",
-              });
-            });
-          }
-        } catch (profErr) {
-          console.warn("[manage-caregivers] fetch creator profiles notice:", profErr);
-        }
-      }
-
-      const enrichedCaregivers = rawList.map((cg: any) => ({
-        ...cg,
-        creator: creatorsMap.get(cg.created_by) || null,
-      }));
-
-      return new Response(JSON.stringify({ success: true, caregivers: enrichedCaregivers }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      perms = parsePermissions(body.permissions, editable);
+      await writePermissions(id, editable, perms);
     }
-
-    // 2. CREATE CAREGIVER
-    if (action === "create") {
-      const {
-        parent_id,
-        name,
-        role = "Caregiver",
-        phone,
-        email,
-        is_emergency_contact = false,
-        status = "contact_only",
-        valid_until = null,
-        permissions = {},
-      } = body;
-
-      if (!name || !name.trim()) {
-        return new Response(JSON.stringify({ success: false, error: "Name is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: caregiver, error: insertErr } = await adminClient
-        .from("family_caregivers")
-        .insert({
-          created_by: parent_id || null,
-          name: name.trim(),
-          role,
-          phone: phone ? phone.trim() : null,
-          email: email ? email.trim() : null,
-          is_emergency_contact: Boolean(is_emergency_contact),
-          status,
-          valid_until,
-        })
-        .select()
-        .single();
-
-      if (insertErr) throw new Error(insertErr.message);
-
-      // Insert permissions if provided
-      if (permissions && typeof permissions === "object" && caregiver?.id) {
-        const permissionRows: any[] = [];
-        Object.entries(permissions).forEach(([childId, sections]: [string, any]) => {
-          if (sections && typeof sections === "object") {
-            Object.entries(sections).forEach(([section, level]) => {
-              if (level && level !== "none" && level !== "geen") {
-                permissionRows.push({
-                  caregiver_id: caregiver.id,
-                  child_id: childId,
-                  section,
-                  permission_level: level,
-                });
-              }
-            });
-          }
-        });
-
-        if (permissionRows.length > 0) {
-          await adminClient.from("caregiver_permissions").insert(permissionRows);
-        }
-      }
-
-      // Re-fetch complete caregiver with permissions
-      const { data: fullCaregiver } = await adminClient
-        .from("family_caregivers")
-        .select(`
-          id,
-          created_by,
-          name,
-          role,
-          phone,
-          email,
-          is_emergency_contact,
-          invite_token,
-          status,
-          connected_user_id,
-          valid_until,
-          created_at,
-          caregiver_permissions (
-            id,
-            child_id,
-            section,
-            permission_level
-          )
-        `)
-        .eq("id", caregiver.id)
-        .single();
-
-      // Auto-send email if status === 'invited' and email is provided
-      if (status === "invited" && email) {
-        try {
-          const recipientEmail = email.trim().toLowerCase();
-          const isEn = Boolean((body.lang || "").toLowerCase().startsWith("en"));
-          const appOrigin = body.origin || "http://localhost:5173";
-          const actualToken = fullCaregiver?.invite_token || caregiver.invite_token || caregiver.id;
-          const link = `${appOrigin}/uitnodiging?t=${encodeURIComponent(actualToken || "")}`;
-
-          const emailSubject = isEn
-            ? `Caregiver Invitation — Ouderschap & Co.`
-            : `Uitnodiging voor de verzorger-omgeving — Ouderschap & Co.`;
-
-          const emailHtml = getCaregiverEmailHtml({
-            recipientName: name.trim(),
-            senderName: body.parent_name || (isEn ? "Your family" : "Je familie"),
-            inviteLink: link,
-            isEn,
-          });
-
-          await sendEmail({
-            to: recipientEmail,
-            subject: emailSubject,
-            html: emailHtml,
-          });
-        } catch (mailErr) {
-          console.warn("[manage-caregivers] auto send email on create notice:", mailErr);
-        }
-      }
-
-      return new Response(JSON.stringify({ success: true, caregiver: fullCaregiver || caregiver }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 3. UPDATE CAREGIVER
-    if (action === "update") {
-      const {
-        caregiver_id,
-        name,
-        role,
-        phone,
-        email,
-        is_emergency_contact,
-        status,
-        valid_until,
-        permissions,
-      } = body;
-
-      if (!caregiver_id) {
-        return new Response(JSON.stringify({ success: false, error: "caregiver_id is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const updateData: any = { updated_at: new Date().toISOString() };
-      if (name !== undefined) updateData.name = name.trim();
-      if (role !== undefined) updateData.role = role;
-      if (phone !== undefined) updateData.phone = phone ? phone.trim() : null;
-      if (email !== undefined) updateData.email = email ? email.trim() : null;
-      if (is_emergency_contact !== undefined) updateData.is_emergency_contact = Boolean(is_emergency_contact);
-      if (status !== undefined) updateData.status = status;
-      if (valid_until !== undefined) updateData.valid_until = valid_until;
-
-      const { error: updateErr } = await adminClient
-        .from("family_caregivers")
-        .update(updateData)
-        .eq("id", caregiver_id);
-
-      if (updateErr) throw new Error(updateErr.message);
-
-      // Replace permissions if passed
-      if (permissions && typeof permissions === "object") {
-        await adminClient.from("caregiver_permissions").delete().eq("caregiver_id", caregiver_id);
-
-        const permissionRows: any[] = [];
-        Object.entries(permissions).forEach(([childId, sections]: [string, any]) => {
-          if (sections && typeof sections === "object") {
-            Object.entries(sections).forEach(([section, level]) => {
-              if (level && level !== "none" && level !== "geen") {
-                permissionRows.push({
-                  caregiver_id: caregiver_id,
-                  child_id: childId,
-                  section,
-                  permission_level: level,
-                });
-              }
-            });
-          }
-        });
-
-        if (permissionRows.length > 0) {
-          await adminClient.from("caregiver_permissions").insert(permissionRows);
-        }
-      }
-
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 4. DELETE CAREGIVER
-    if (action === "delete") {
-      const { caregiver_id } = body;
-      if (!caregiver_id) {
-        return new Response(JSON.stringify({ success: false, error: "caregiver_id is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { error: delErr } = await adminClient
-        .from("family_caregivers")
-        .delete()
-        .eq("id", caregiver_id);
-
-      if (delErr) throw new Error(delErr.message);
-
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 5A. GET CAREGIVER FOR LOGGED IN USER
-    if (action === "get-for-user" || action === "get-by-user") {
-      const { user_id, email } = body;
-      if (!user_id && !email) {
-        return new Response(JSON.stringify({ success: false, error: "user_id or email is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      let caregiverQuery = adminClient
-        .from("family_caregivers")
-        .select(`
-          id,
-          created_by,
-          name,
-          role,
-          phone,
-          email,
-          is_emergency_contact,
-          invite_token,
-          status,
-          connected_user_id,
-          valid_until,
-          caregiver_permissions (
-            id,
-            child_id,
-            section,
-            permission_level
-          )
-        `);
-
-      const validUserId = isUUID(user_id) ? user_id : null;
-      const cleanEmail = typeof email === "string" && email.trim() ? email.trim() : null;
-
-      if (validUserId && cleanEmail) {
-        caregiverQuery = caregiverQuery.or(`connected_user_id.eq.${validUserId},email.ilike.${cleanEmail}`);
-      } else if (validUserId) {
-        caregiverQuery = caregiverQuery.eq("connected_user_id", validUserId);
-      } else if (cleanEmail) {
-        caregiverQuery = caregiverQuery.ilike("email", cleanEmail);
-      } else {
-        return new Response(JSON.stringify({ success: true, caregiver: null }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: rows, error } = await caregiverQuery.limit(1);
-      if (error) {
-        console.warn("[manage-caregivers] get-for-user query error:", error);
-        return new Response(JSON.stringify({ success: true, caregiver: null }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const caregiver = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-
-      let childrenDetails: any[] = [];
-      let childIds: string[] = [];
-      if (caregiver && Array.isArray(caregiver.caregiver_permissions) && caregiver.caregiver_permissions.length > 0) {
-        childIds = [...new Set(caregiver.caregiver_permissions.map((cp: any) => cp.child_id))].filter(isUUID);
-        if (childIds.length > 0) {
-          const { data: kids } = await adminClient
-            .from("children")
-            .select("id, name, last_name, date_of_birth, avatar_url, school, daycare, doctor, medical_notes, allergies, dietary_notes, color_code, care_schedule")
-            .in("id", childIds);
-          childrenDetails = kids || [];
-        }
-      }
-
-      if (caregiver?.created_by) {
-        const { creator, co_parents } = await loadParentsAndCoParents(adminClient, caregiver.created_by, childIds);
-        caregiver.creator = creator;
-        caregiver.co_parents = co_parents;
-      }
-
-      return new Response(JSON.stringify({
-        success: true,
-        caregiver: caregiver || null,
-        children: childrenDetails,
-        co_parents: caregiver?.co_parents || [],
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 5B. GET BY TOKEN (For Caregiver View / Invitation Acceptance)
-    if (action === "get-by-token") {
-      const { token } = body;
-      if (!token) {
-        return new Response(JSON.stringify({ success: false, error: "token is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      let caregiverQuery = adminClient
-        .from("family_caregivers")
-        .select(`
-          id,
-          created_by,
-          name,
-          role,
-          phone,
-          email,
-          is_emergency_contact,
-          invite_token,
-          status,
-          connected_user_id,
-          valid_until,
-          caregiver_permissions (
-            id,
-            child_id,
-            section,
-            permission_level
-          )
-        `);
-
-      if (isUUID(token)) {
-        caregiverQuery = caregiverQuery.or(`invite_token.eq.${token},id.eq.${token}`);
-      } else {
-        caregiverQuery = caregiverQuery.eq("invite_token", token);
-      }
-
-      const { data: caregiver, error } = await caregiverQuery.maybeSingle();
-
-      if (error) throw new Error(error.message);
-
-      let tokenChildrenDetails: any[] = [];
-      let tokenChildIds: string[] = [];
-      if (caregiver && Array.isArray(caregiver.caregiver_permissions) && caregiver.caregiver_permissions.length > 0) {
-        tokenChildIds = [...new Set(caregiver.caregiver_permissions.map((cp: any) => cp.child_id))].filter(isUUID);
-        if (tokenChildIds.length > 0) {
-          const { data: kids } = await adminClient
-            .from("children")
-            .select("id, name, last_name, date_of_birth, avatar_url, school, daycare, doctor, medical_notes, allergies, dietary_notes, color_code, care_schedule")
-            .in("id", tokenChildIds);
-          tokenChildrenDetails = kids || [];
-        }
-      }
-
-      if (caregiver?.created_by) {
-        const { creator, co_parents } = await loadParentsAndCoParents(adminClient, caregiver.created_by, tokenChildIds);
-        caregiver.creator = creator;
-        caregiver.co_parents = co_parents;
-      }
-
-      return new Response(JSON.stringify({
-        success: true,
-        caregiver: caregiver || null,
-        children: tokenChildrenDetails,
-        co_parents: caregiver?.co_parents || [],
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 6. ACCEPT INVITATION
-    if (action === "accept") {
-      const { token, user_id } = body;
-      if (!token) {
-        return new Response(JSON.stringify({ success: false, error: "token is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const newToken = crypto.randomUUID();
-      let updateQuery = adminClient
-        .from("family_caregivers")
-        .update({
-          status: "active",
-          connected_user_id: user_id || null,
-          invite_token: newToken,
-          updated_at: new Date().toISOString(),
-        });
-
-      if (isUUID(token)) {
-        updateQuery = updateQuery.or(`invite_token.eq.${token},id.eq.${token}`);
-      } else {
-        updateQuery = updateQuery.eq("invite_token", token);
-      }
-
-      const { data: updated, error } = await updateQuery.select().maybeSingle();
-
-      if (error) {
-        console.warn("[manage-caregivers] accept update error:", error);
-      }
-
-      if (updated) {
-        return new Response(JSON.stringify({ success: true, caregiver: updated }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // If no row updated, check if already active
-      let checkQuery = adminClient.from("family_caregivers").select("*");
-      if (isUUID(token)) {
-        checkQuery = checkQuery.or(`invite_token.eq.${token},id.eq.${token}`);
-      } else {
-        checkQuery = checkQuery.eq("invite_token", token);
-      }
-      const { data: existing } = await checkQuery.maybeSingle();
-      if (existing) {
-        return new Response(JSON.stringify({ success: true, caregiver: existing, already_accepted: true }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(JSON.stringify({ success: false, error: "Caregiver invitation not found." }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 7. SEND INVITE EMAIL
-    if (action === "send-invite-email") {
-      const { caregiver_id, email, invite_token, origin, lang, parent_name } = body;
-      const recipientEmail = (email || "").trim().toLowerCase();
-
-      if (!recipientEmail || !/.+@.+\..+/.test(recipientEmail)) {
-        return new Response(JSON.stringify({ success: false, error: "A valid email is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      let caregiverName = "Familielid / Verzorger";
-      let actualToken = invite_token;
-
-      // Update caregiver email and promote status to 'invited'
-      if (caregiver_id) {
-        const { data: cg } = await adminClient
-          .from("family_caregivers")
-          .select("name, invite_token")
-          .eq("id", caregiver_id)
-          .maybeSingle();
-
-        if (cg) {
-          if (cg.name) caregiverName = cg.name;
-          if (cg.invite_token) actualToken = cg.invite_token;
-        }
-
-        await adminClient
-          .from("family_caregivers")
-          .update({
-            email: recipientEmail,
-            status: "invited",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", caregiver_id);
-      }
-
-      const isEn = Boolean((lang || "").toLowerCase().startsWith("en"));
-      const appOrigin = origin || "http://localhost:5173";
-      const link = `${appOrigin}/uitnodiging?t=${encodeURIComponent(actualToken || "")}`;
-
-      const emailSubject = isEn
-        ? `Caregiver Invitation — Ouderschap & Co.`
-        : `Uitnodiging voor de verzorger-omgeving — Ouderschap & Co.`;
-
-      const emailHtml = getCaregiverEmailHtml({
-        recipientName: caregiverName,
-        senderName: parent_name || (isEn ? "Your family" : "Je familie"),
-        inviteLink: link,
-        isEn,
-      });
-
-      // Dispatch via SMTP (or Resend API fallback)
-      const sendResult = await sendEmail({
-        to: recipientEmail,
-        subject: emailSubject,
-        html: emailHtml,
-      });
-
-      console.log(`[manage-caregivers] Send email result for ${recipientEmail}:`, sendResult);
-
-      return new Response(JSON.stringify({
-        success: true,
-        email: recipientEmail,
-        link,
-        delivered: sendResult?.success || false,
-        provider: sendResult?.provider || null,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 8. UPDATE CAREGIVER HANDOVER RESPONSE (Accept / Decline)
-    if (action === "set_handover_status" || action === "update_handover_response") {
-      const { caregiver_id, child_id, response } = body;
-      let childIds: string[] = [];
-
-      if (child_id && isUUID(child_id)) {
-        childIds = [child_id];
-      } else if (caregiver_id && isUUID(caregiver_id)) {
-        const { data: perms } = await adminClient
-          .from("caregiver_permissions")
-          .select("child_id")
-          .eq("caregiver_id", caregiver_id);
-        childIds = (perms || []).map((p: any) => p.child_id).filter(isUUID);
-      }
-
-      if (childIds.length > 0) {
-        const { data: kids } = await adminClient
-          .from("children")
-          .select("id, care_schedule")
-          .in("id", childIds);
-
-        if (Array.isArray(kids)) {
-          for (const k of kids) {
-            try {
-              const sched = typeof k.care_schedule === "string" ? JSON.parse(k.care_schedule) : (k.care_schedule || {});
-              sched.handoverCaregiverResponse = response;
-              sched.handoverCaregiverResponseAt = new Date().toISOString();
-              await adminClient
-                .from("children")
-                .update({
-                  care_schedule: JSON.stringify(sched),
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", k.id);
-            } catch (parseErr) {
-              console.error("Error updating child care_schedule:", parseErr);
-            }
-          }
-        }
-      }
-
-      return new Response(JSON.stringify({
-        success: true,
-        response,
-        childIds,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ success: false, error: `Unknown action: ${action}` }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    await audit(me.id, id, becomesInvite ? "INVITED" : "UPDATED", {
+      fields: Object.keys(patch).filter((k) => !["updated_by", "invite_token"].includes(k)),
+      child_ids: childIds,
+      ...(perms ? { permissions: perms } : {}),
     });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ success: false, error: err.message || "Internal server error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    let emailSent = false;
+    if (becomesInvite && body.send_email === true && (patch.email ?? row.email)) emailSent = await mailInvite(me, await loadRow(id), body.redirect_origin, isEn);
+    return ok({ member: await toMember(me.id, id), email_sent: emailSent });
+  },
+
+  /** Withdraw access immediately (any parent of one of the member's children). History stays. */
+  async revoke(req, body) {
+    const me = await requireUser(req);
+    const id = requireUuid(body.caregiver_id, "caregiver_id");
+    const row = await loadRow(id);
+    const visible = await assertMemberAccess(me.id, row);
+    if (row.created_by !== me.id) for (const c of visible) await assertChildAccess(me.id, c, { edit: true });
+    if (statusOf(row) !== "revoked") {
+      check(
+        await db().from("family_caregivers").update({
+          status: "revoked",
+          revoked_at: new Date().toISOString(),
+          revoked_by: me.id,
+          updated_by: me.id,
+          invite_token: crypto.randomUUID(),
+        }).eq("id", id),
+        "revoke caregiver",
+      );
+      await audit(me.id, id, "REVOKED", { child_ids: row.child_ids ?? [] });
+    }
+    return ok({ member: await toMember(me.id, id) });
+  },
+
+  /** Remove the entry completely — only the parent who added it. */
+  async delete(req, body) {
+    const me = await requireUser(req);
+    const id = requireUuid(body.caregiver_id, "caregiver_id");
+    const row = await loadRow(id);
+    if (row.created_by !== me.id) throw err.forbidden("Only the parent who added this person can remove them");
+    if (row.photo_url) await removeStored(row.photo_url);
+    check(await db().from("family_caregivers").delete().eq("id", id), "delete caregiver");
+    await audit(me.id, id, "DELETED", { child_ids: row.child_ids ?? [], name: row.name });
+    return ok({});
+  },
+
+  async "send-invite-email"(req, body, { isEn }) {
+    const me = await requireUser(req);
+    const id = requireUuid(body.caregiver_id, "caregiver_id");
+    const row = await loadRow(id);
+    await assertMemberAccess(me.id, row);
+    if (statusOf(row) !== "invited") throw err.validation("Only an open invitation can be e-mailed");
+    if (!row.email) throw err.validation("No e-mail address");
+    return ok({ email_sent: await mailInvite(me, row, body.redirect_origin, isEn) });
+  },
+
+  /** Parent preview: exactly what this member would see (period and withdrawal respected). */
+  async "view-as"(req, body) {
+    const me = await requireUser(req);
+    const row = await loadRow(requireUuid(body.caregiver_id, "caregiver_id"));
+    await assertMemberAccess(me.id, row);
+    if (statusOf(row) === "contact_only" || !inPeriod(row)) return ok({ view: null });
+    return ok({ view: await buildView(row) });
+  },
+
+  /** The signed-in account as caregiver: one view per family circle it currently has access to. */
+  async "get-for-user"(req) {
+    const me = await requireUser(req);
+    const rows = await liveCaregiverRows(me.id);
+    const views: Row[] = [];
+    for (const r of rows) views.push(await buildView(r));
+    return ok({ views });
+  },
+
+  /** Public: what the invitation is about — names only, no contact or health details. */
+  async "get-by-token"(_req, body) {
+    const row = await rowForToken(body.token);
+    const perms = (await permsFor([row.id])).get(row.id) ?? {};
+    const names = await namesOf(row.child_ids ?? []);
+    const sender = row.created_by
+      ? (check(await db().from("profiles").select("name").eq("id", row.created_by).maybeSingle(), "load sender") as { name: string } | null)
+      : null;
+    return ok({
+      invitation: {
+        name: row.name,
+        role: row.role,
+        from_parent: { name: sender?.name ?? "" },
+        children: (row.child_ids ?? []).filter((c: string) => names.has(c)).map((c: string) => ({ id: c, name: names.get(c) })),
+        permissions: perms,
+        valid_from: row.valid_from ? String(row.valid_from).slice(0, 10) : null,
+        valid_to: row.valid_to ? String(row.valid_to).slice(0, 10) : null,
+      },
     });
-  }
-});
+  },
+
+  /** Signed in: accept the invitation; the token is rotated so the link cannot be reused. */
+  async accept(req, body) {
+    const me = await requireUser(req);
+    const row = await rowForToken(body.token);
+    if (row.email && row.email.toLowerCase() !== String(me.email).toLowerCase()) {
+      throw new HttpError(403, "INVITE_EMAIL_MISMATCH", "Invitation is for another e-mail address");
+    }
+    const mine = new Set(await childIdsFor(me.id));
+    if (row.created_by === me.id || (row.child_ids ?? []).some((c: string) => mine.has(c))) {
+      throw new HttpError(400, "INVITE_OWN", "Parents cannot join their own child's circle");
+    }
+    const now = new Date().toISOString();
+    const updated = check(
+      await db().from("family_caregivers").update({
+        status: "active",
+        connected_user_id: me.id,
+        accepted_at: now,
+        invite_token: crypto.randomUUID(),
+      }).eq("id", row.id).eq("status", "invited").select(CAREGIVER_COLS),
+      "accept invitation",
+    ) as Row[] | null;
+    if (!updated || !updated.length) throw new HttpError(409, "INVITE_USED", "Invitation was already used");
+    await audit(me.id, row.id, "ACCEPTED", { child_ids: row.child_ids ?? [] });
+    return ok({ view: await buildView(updated[0]) });
+  },
+}));
+
+async function mailInvite(me: { id: string; name: string }, row: Row, redirectOrigin: unknown, isEn: boolean): Promise<boolean> {
+  const names = await namesOf(row.child_ids ?? []);
+  const link = `${appOrigin(redirectOrigin)}/uitnodiging?t=${encodeURIComponent(row.invite_token)}`;
+  const mail = caregiverInviteEmail({
+    recipientName: row.name,
+    senderName: me.name,
+    role: row.role,
+    childrenNames: [...names.values()],
+    inviteLink: link,
+    isEn,
+  });
+  return await sendEmail({ to: row.email, ...mail });
+}
+

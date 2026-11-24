@@ -11,8 +11,7 @@ import { CoBadge } from "@/components/CoBadge";
 import { CoPrivacy } from "@/components/CoPrivacy";
 import { HulpKaart } from "@/components/Onveilig";
 import { Button } from "@/components/ui/button";
-import { leeftijdTekst, useStart } from "@/lib/start-store";
-import { kinderen as demoKinderen } from "@/lib/demo-data";
+import { useStart } from "@/lib/start-store";
 import { useVakanties } from "@/lib/vakantie-store";
 import { useTaken, taakWieTekst } from "@/lib/taken-store";
 import { praatVerhaal } from "@/lib/verhaal.functions";
@@ -42,10 +41,7 @@ function Verhaal() {
     const { t } = useTranslation();
     const startSt = useStart();
     const eigen = !!startSt.eigen;
-    // Basisgegevens die Co altijd mag kennen (namen en leeftijden), zodat Co daar nooit naar hoeft te vragen.
-    const gezin = eigen
-        ? `Ouder die praat: ${startSt.naam || "onbekend"}. Kinderen: ${startSt.kinderen.map((k) => `${k.naam}${leeftijdTekst(k.geboortedatum) ? ` (${leeftijdTekst(k.geboortedatum)})` : ""}`).join(", ") || "nog niet ingevuld"}.`
-        : `Ouder die praat: Sanne. Andere ouder: Joris. Kinderen: ${demoKinderen.map((k) => `${k.naam} (${k.leeftijd} jaar)`).join(", ")}.`;
+    // De GEZIN-regel (naam + namen/leeftijden van de kinderen) bouwt de server zelf uit de sessie (co-assistant).
     const { moment: momentId } = Route.useSearch();
     const overMoment = momentId ? momenten.find((m) => m.id === momentId) : undefined;
     const vakanties = useVakanties();
@@ -93,7 +89,7 @@ function Verhaal() {
         setFout(null);
         setBezig(true);
         try {
-            const r = await praatVerhaal({ data: { modus, context, gezin, berichten: nieuw.map(({ rol, tekst }) => ({ rol, tekst })) } });
+            const r = await praatVerhaal({ data: { modus, context, berichten: nieuw.map(({ rol, tekst }) => ({ rol, tekst })) } });
             setBerichten((b) => [...b, { rol: "ai", tekst: r.antwoord, acties: kiesActies(r.acties, modus), concept: r.concept }]);
         }
         catch (e) {
@@ -150,7 +146,7 @@ function Verhaal() {
         {berichten.map((b, i) => (<div key={i} className={b.rol === "ouder" ? "flex justify-end" : ""}>
             {b.rol === "ouder" ? (<p className="max-w-[85%] whitespace-pre-wrap rounded-[18px_18px_6px_18px] bg-[#DCE6D2] px-3.5 py-2.5 text-[15px] text-[#2F4A3A]">{b.tekst}</p>) : (<div className="max-w-[92%] text-[15px] text-ink">
                 <div className="flex items-start gap-2.5"><span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full border border-[#C9D6C3] bg-[#E9EFE3] text-xs font-black text-[#3F5747]" aria-hidden>Co</span><p className="whitespace-pre-wrap rounded-[18px_18px_18px_6px] border border-white/85 bg-white/70 px-3.5 py-2.5 leading-relaxed">{b.tekst}</p></div>
-                {b.concept?.trim() ? <BerichtConcept concept={b.concept} ander={eigen ? t("routes.verhaal.deAndereOuder") : "Joris"}/> : null}
+                {b.concept?.trim() ? <BerichtConcept concept={b.concept} ander={t("routes.verhaal.deAndereOuder")}/> : null}
                 {b.acties?.length ? (<div className="mt-2 flex flex-wrap gap-2">
                     {b.acties.map((a) => {
                             const info = actieInfo[a];
@@ -171,7 +167,7 @@ function Verhaal() {
         {zorg ? <div><p className="mb-2 text-sm text-ink">{t("routes.verhaal.zorg")}</p><HulpKaart /></div> : null}
         {berichten.some((b) => b.rol === "ai") && !bezig ? (<button onClick={() => stuur(t("routes.verhaal.vraag.bericht"))} className="flex w-full items-center gap-3 rounded-[20px] border border-white/85 bg-white/60 px-4 py-3 text-left">
             <AppIcon functie="berichten" maat="sm" vorm="kaal"/>
-            <span className="min-w-0 flex-1"><span className="block text-[15px] font-black">{t("routes.verhaal.berichtOpstellen", { ander: eigen ? t("routes.verhaal.deAndereOuder") : "Joris" })}</span><span className="block text-xs text-ink-soft">{t("routes.verhaal.berichtOpstellenUitleg")}</span></span>
+            <span className="min-w-0 flex-1"><span className="block text-[15px] font-black">{t("routes.verhaal.berichtOpstellen", { ander: t("routes.verhaal.deAndereOuder") })}</span><span className="block text-xs text-ink-soft">{t("routes.verhaal.berichtOpstellenUitleg")}</span></span>
           </button>) : null}
         <div ref={einde}/>
       </div>

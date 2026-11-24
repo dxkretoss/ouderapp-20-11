@@ -1,16 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import i18n, { taalLocale } from "@/i18n";
 import { z } from "zod";
 import { Check, Circle, Download, Eye, FileText, Share2 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { pdfVeilig } from "@/lib/pro-pdf";
-import { afspraken, categorieMeta, datumWeergave, documentCategorieLabel, documenten, gesprekken, kinderen, parents } from "@/lib/demo-data";
-import { start as besluiten } from "@/lib/besluiten-data";
+import { categorieMeta, documentCategorieLabel } from "@/lib/demo-data";
+import { useDocumenten } from "@/lib/documenten-store";
+import { startState, useStart } from "@/lib/start-store";
+import { authState } from "@/lib/auth-store";
 import { useKosten } from "@/lib/kosten-store";
+import { useAgenda } from "@/lib/agenda-store";
+import { useZorg } from "@/lib/zorg-store";
+import { useVakanties } from "@/lib/vakantie-store";
+import { useOverdracht } from "@/lib/overdracht-store";
+import { wisselMomenten } from "@/lib/agenda-zorg";
+import { iso, voorkomens } from "@/lib/agenda-datum";
+import { laadBerichten, laadGesprekken, useBerichten } from "@/lib/berichten-store";
 import { leg, soortLabel, useAudit } from "@/lib/audit-store";
-import { geschiedenisDatum, useAfspraken } from "@/lib/afspraken-store";
+import { geschiedenisDatum, useAfspraken, useBesluiten } from "@/lib/afspraken-store";
 import { magAudit, magBron, magKind, proKijkers, vroegste } from "@/lib/export-rechten";
 export const Route = createFileRoute("/exporteren")({
     validateSearch: z.object({ pro: z.string().optional() }),
@@ -41,26 +50,34 @@ const delen = [
 const maanden = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
 const kort = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 const kortEn = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-/** Demo-labels zoals "8 maart" of "10 mrt 20:14" naar een datum (demo-jaar 2026; latere maanden in 2025). */
+/** Datums uit bronnen: ISO ("2026-03-08…") of Nederlandse labels ("8 maart", "10 mrt 20:14"). */
 function parseLabel(l) {
-    const m = l.toLowerCase().match(/(\d{1,2})\s+([a-z]+)(?:\s+(\d{1,2}):(\d{2}))?/);
+    if (typeof l === "string" && /^\d{4}-\d{2}-\d{2}/.test(l))
+        return new Date(l.length === 10 ? `${l}T12:00` : l);
+    const m = String(l ?? "").toLowerCase().match(/(\d{1,2})\s+([a-z]+)(?:\s+(\d{1,2}):(\d{2}))?/);
     if (!m)
-        return new Date("2026-03-11T12:00");
+        return new Date(NaN);
     let mi = maanden.indexOf(m[2]);
     if (mi < 0)
         mi = kort.indexOf(m[2].slice(0, 3));
     if (mi < 0)
         mi = kortEn.indexOf(m[2].slice(0, 3));
-    const jaar = mi > 2 ? 2025 : 2026;
+    const nu = new Date();
+    const jaar = mi > nu.getMonth() ? nu.getFullYear() - 1 : nu.getFullYear();
     return new Date(jaar, Math.max(mi, 0), Number(m[1]), Number(m[3] ?? 12), Number(m[4] ?? 0));
 }
 const d2 = (d) => d.toLocaleDateString(taalLocale(), { day: "numeric", month: "long", year: "numeric" });
 const t2 = (d) => d.toLocaleTimeString(taalLocale(), { hour: "2-digit", minute: "2-digit" });
 const dt = (d) => i18n.t("routes.exporteren.datumTijd", { datum: d2(d), tijd: t2(d) });
-const naam = (id) => (id in parents ? parents[id].naam : id);
-const kindNamen = kinderen.map((k) => k.naam);
-/** Welke kinderen een tekstveld noemt; noemt het niemand, dan geldt het voor het hele gezin. */
-const kindVan = (s) => { const l = kindNamen.filter((n) => s.toLowerCase().includes(n.toLowerCase())); return l.length ? l : kindNamen; };
+/** Naam bij een profiel-id: de ingelogde ouder of de gekoppelde andere ouder. */
+function naam(id) {
+    const ik = authState().gebruiker;
+    if (ik && id === ik.id)
+        return ik.name;
+    return startState().coOuders?.find((c) => c.id === id)?.name || i18n.t("common.deAndereOuder");
+}
+/** Kijker-relatieve code uit de agendabronnen ("sanne" = jij, "joris" = de andere ouder) → naam. */
+const ouderNaam = (code) => (code === "sanne" ? authState().gebruiker?.name || i18n.t("common.jij") : code === "joris" ? startState().coOuders?.[0]?.name || i18n.t("common.deAndereOuder") : "");
 const euro = (n) => (taalLocale() === "nl-NL" ? `€ ${n.toFixed(2).replace(".", ",")}` : `€${n.toFixed(2)}`);
 /** Auditacties (enum) → weergave. */
 const actieNl = {};
@@ -69,24 +86,48 @@ const actieNl = {};
 const kostCategorieLabel = (c) => i18n.t(`routes.exporteren.kostCategorie.${c}`, { defaultValue: c });
 const kostStatusLabel = (s) => i18n.t(`routes.exporteren.kostStatus.${s}`, { defaultValue: s });
 const besluitSoortLabel = (s) => i18n.t(`routes.exporteren.besluitSoort.${s}`, { defaultValue: s });
+const besluitRegel = (type) => (type === "voorstel" ? i18n.t("routes.beslissingen.log.voorstelGedaan") : type === "gedeeld" ? i18n.t("routes.beslissingen.log.gedeeld") : type === "akkoord" ? i18n.t("common.akkoord") : type === "niet" ? i18n.t("common.nietAkkoord") : type);
 const V = (k) => i18n.t(`routes.exporteren.veld.${k}`);
 function Exporteren() {
     const { t } = useTranslation();
     const { pro } = Route.useSearch();
-    const kijker = (pro && proKijkers[pro]) || { type: "ouder", id: "sanne" };
+    const kijker = (pro && proKijkers[pro]) || { type: "ouder", id: authState().gebruiker?.id };
     const kosten = useKosten();
     const audit = useAudit();
     const onzeAfspraken = useAfspraken();
+    const besluiten = useBesluiten();
+    const { lijst: documenten } = useDocumenten();
+    const agendaSt = useAgenda();
+    const zorg = useZorg();
+    const vakanties = useVakanties();
+    const overdracht = useOverdracht();
+    const berichten = useBerichten();
+    const st = useStart();
+    const kindNamen = st.kinderen.map((k) => k.naam);
+    const naamVanKind = (id) => st.kinderen.find((k) => k.id === id)?.naam;
+    /** Welke kinderen een tekstveld noemt; noemt het niemand, dan geldt het voor het hele gezin. */
+    const kindVan = (s) => { const l = kindNamen.filter((n) => String(s ?? "").toLowerCase().includes(n.toLowerCase())); return l.length ? l : kindNamen; };
+    const kindIdsNaarNamen = (ids) => (ids?.length ? ids.map(naamVanKind).filter(Boolean) : kindNamen);
     const [stap, setStap] = useState("kies");
     const [periode, setPeriode] = useState("1j");
     const [van, setVan] = useState("2026-01-01");
     const [tot, setTot] = useState(new Date().toISOString().slice(0, 10));
     const toegestaneKinderen = kindNamen.filter((k) => magKind(kijker, k));
     const [kids, setKids] = useState(toegestaneKinderen);
+    // Kinderen komen na het inloggen van de server.
+    useEffect(() => { if (!kids.length && toegestaneKinderen.length)
+        setKids(toegestaneKinderen); }, [toegestaneKinderen.join("|")]);
     const magDeel = (d) => d.bronnen === "audit" ? ["afspraak", "schema", "besluit", "kosten"].some((s) => magAudit(kijker, s)) : d.bronnen.some((b) => magBron(kijker, b));
     const toegestaan = delen.filter(magDeel);
     const [kies, setKies] = useState(toegestaan.filter((d) => d.id !== "communicatie" && d.id !== "documenten").map((d) => d.id));
     const [bezig, setBezig] = useState(false);
+    // Communicatie: pas bij keuze alle gesprekken en berichten ophalen (alleen wat deze ouder zelf mag lezen).
+    const metBerichten = kies.includes("communicatie") && magBron(kijker, "bericht");
+    useEffect(() => { if (metBerichten)
+        laadGesprekken(); }, [metBerichten]);
+    const gesprekIds = berichten.gesprekken.map((g) => g.id).join("|");
+    useEffect(() => { if (metBerichten)
+        berichten.gesprekken.forEach((g) => laadBerichten(g.id)); }, [metBerichten, gesprekIds]); // eslint-disable-line react-hooks/exhaustive-deps
     const [pdf, setPdf] = useState(null);
     const [deelCheck, setDeelCheck] = useState(false);
     const bereik = () => {
@@ -110,15 +151,32 @@ function Exporteren() {
     /** Verzamelt uitsluitend feiten, gefilterd via de centrale rechtencheck. Geen interpretatie of oordeel. */
     const data = useMemo(() => {
         const [s, e] = bereik();
-        const ok = (i) => i.wanneer >= s && i.wanneer <= e && i.kinderen.some((k) => kids.includes(k) && magKind(kijker, k));
+        const ok = (i) => !Number.isNaN(i.wanneer.getTime()) && i.wanneer >= s && i.wanneer <= e && i.kinderen.some((k) => kids.includes(k) && magKind(kijker, k));
         const sorteer = (l) => l.filter(ok).sort((a, b) => a.wanneer.getTime() - b.wanneer.getTime());
         const evs = audit.filter((g) => magAudit(kijker, g.soort));
         const evKids = (g) => (g.kinderen.length ? [...g.kinderen] : kindNamen);
-        const ag = (wissel) => (magBron(kijker, "agenda") ? afspraken.filter((a) => (a.categorie === "wissel") === wissel) : []).map((a) => {
-            const [h, m] = a.tijd.split(":");
-            return { wanneer: new Date(2026, 2, a.dag, Number(h) || 12, Number(m) || 0), titel: `${categorieMeta[a.categorie].label}: ${a.titel}`,
-                velden: [[V("kind"), a.kind], [V("locatie"), a.locatie], [V("vastgelegdDoor"), naam(a.ouder)]], kinderen: kindVan(a.kind) };
-        });
+        // Agenda (alleen gedeelde afspraken; privé gaat nooit mee) en wisselmomenten uit de zorgverdeling.
+        const vanIso = iso(s), totIso = iso(e);
+        const ag = (wissel) => {
+            if (!magBron(kijker, "agenda"))
+                return [];
+            const afspraken = agendaSt.events.filter((a) => a.gedeeld !== false && (a.categorie === "wissel") === wissel).flatMap((a) => voorkomens(a, vanIso, totIso).map((datum) => ({
+                wanneer: new Date(`${datum}T${a.tijd || "12:00"}`), titel: a.titel, kinderen: kindIdsNaarNamen(a.kindIds),
+                velden: [[V("categorie"), categorieMeta[a.categorie]?.label ?? a.categorie], [V("kind"), kindIdsNaarNamen(a.kindIds).join(" & ")], ...(a.tijd ? [[V("tijd"), a.eindtijd ? `${a.tijd}–${a.eindtijd}` : a.tijd]] : []), ...(a.locatie ? [[V("locatie"), a.locatie]] : [])],
+            })));
+            if (!wissel)
+                return afspraken;
+            const dagen = Math.min(Math.max(Math.round((e.getTime() - s.getTime()) / 864e5) + 1, 0), 400);
+            const momenten = wisselMomenten(zorg, vakanties, st, vanIso, dagen).filter((m) => m.datum <= iso(new Date())).map((m) => ({
+                wanneer: new Date(`${m.datum}T${m.tijd || "12:00"}`), titel: t("routes.exporteren.wisselmoment"), kinderen: m.namen.length ? m.namen : kindNamen,
+                velden: [[V("kind"), m.namen.join(" & ")], [V("van"), ouderNaam(m.van)], [V("naar"), ouderNaam(m.naar)], ...(m.tijd ? [[V("tijd"), m.tijd]] : []), ...(m.plek ? [[V("locatie"), m.plek]] : [])],
+            }));
+            const logs = [...overdracht.gedeeld, ...overdracht.ontvangen].filter((o) => o.gedeeldOp).map((o) => ({
+                wanneer: new Date(o.gedeeldOp), titel: t("routes.exporteren.overdrachtGedeeld"), kinderen: kindIdsNaarNamen(o.kindIds),
+                velden: [[V("kind"), kindIdsNaarNamen(o.kindIds).join(" & ")], [V("door"), ouderNaam(o.van === "ik" ? "sanne" : "joris")]],
+            }));
+            return [...afspraken, ...momenten, ...logs];
+        };
         return {
             wissel: sorteer(ag(true)),
             verzoeken: sorteer(evs.filter((g) => g.soort === "schema").map((g) => ({
@@ -129,34 +187,36 @@ function Exporteren() {
                 ...ag(false),
                 // Onze afspraken: rechtstreeks uit de ene afsprakenbron (eigen geschiedenis), geen kopie in de audit.
                 ...(magBron(kijker, "agenda") ? onzeAfspraken : []).flatMap((a) => a.geschiedenis.flatMap((g) => {
-                    const d = geschiedenisDatum(g.datum);
-                    return d ? [{ wanneer: d, titel: a.titel, kinderen: kindVan(a.kind),
+                    const d = g.moment ? new Date(g.moment) : geschiedenisDatum(g.datum);
+                    return d ? [{ wanneer: d, titel: a.titel, kinderen: kindIdsNaarNamen(a.kindIds),
                             velden: [[V("afspraak"), a.tekst], [V("status"), a.status], [V("registratie"), g.tekst], ...(a.bron ? [[V("herkomst"), a.bron.label]] : [])] }] : [];
                 })),
-                ...(magBron(kijker, "besluit") ? besluiten : []).flatMap((b) => b.log.map((l) => ({
-                    wanneer: parseLabel(l.wanneer), titel: b.titel, kinderen: b.kind === "beide" ? kindNamen : kindVan(b.kind),
-                    velden: [[V("type"), besluitSoortLabel(b.soort)], [V("registratie"), l.wat], [V("door"), l.wie]],
+                ...(magBron(kijker, "besluit") ? besluiten : []).flatMap((b) => (b.history ?? []).map((l) => ({
+                    wanneer: new Date(l.at), titel: b.title, kinderen: kindIdsNaarNamen(b.child_ids),
+                    velden: [[V("type"), besluitSoortLabel(b.decision_kind)], [V("registratie"), besluitRegel(l.type)], [V("door"), naam(l.by)]],
                 }))),
             ]),
-            communicatie: sorteer((magBron(kijker, "bericht") ? gesprekken : []).flatMap((g) => g.berichten.map((b, i) => ({
-                wanneer: new Date(2026, 2, 11, 8 + i, 0), titel: naam(b.van), tekst: b.tekst, groep: g.onderwerp, kinderen: kindNamen,
-                velden: [[V("onderwerp"), g.onderwerp], [V("oorspronkelijkeTijd"), b.tijd]],
+            // Berichten uit berichten-store (manage-messages): alleen verstuurde berichten van gesprekken die deze ouder mag lezen.
+            communicatie: sorteer((magBron(kijker, "bericht") ? berichten.gesprekken : []).flatMap((g) => (berichten.berichten[g.id] ?? []).filter((b) => !b.wacht && !b.mislukt && b.at).map((b) => ({
+                wanneer: new Date(b.at), titel: b.van === "ik" ? naam(authState().gebruiker?.id) : naam(b.afzender), groep: g.onderwerp, tekst: b.tekst, kinderen: kindIdsNaarNamen(g.kindId ? [g.kindId] : []),
+                velden: [[V("onderwerp"), g.onderwerp], [V("oorspronkelijkeTijd"), t2(new Date(b.at))]],
             })))),
+            // Kosten (kosten-store): datum is ISO, betaaldDoor is "ik"/"ander", betaaldDoorId het profiel-id.
             kosten: sorteer((magBron(kijker, "kost") ? kosten : []).map((k) => ({
-                wanneer: parseLabel(k.datum), titel: k.omschrijving, kinderen: kindVan(k.kind),
-                velden: [[V("bedrag"), euro(k.bedrag)], [V("categorie"), kostCategorieLabel(k.categorie)], [V("kind"), k.kind], [V("verdeling"), k.verdeling], [V("status"), kostStatusLabel(k.status)], [V("toegevoegdDoor"), naam(k.betaaldDoor)]],
+                wanneer: parseLabel(k.datum), titel: k.omschrijving, kinderen: kindIdsNaarNamen(k.kindIds),
+                velden: [[V("bedrag"), euro(k.bedrag)], [V("categorie"), kostCategorieLabel(k.categorie)], [V("kind"), kindIdsNaarNamen(k.kindIds).join(" & ") || t("routes.exporteren.heleGezin")], [V("verdeling"), k.verdeling], [V("status"), kostStatusLabel(k.status)], [V("betaaldDoor"), naam(k.betaaldDoorId)]],
             }))),
-            documenten: sorteer((magBron(kijker, "document") ? documenten : []).map((d) => ({
-                wanneer: parseLabel(d.gewijzigd), titel: d.naam, kinderen: kindVan(d.kind),
-                velden: [[V("categorie"), documentCategorieLabel(d.categorie)], [V("kind"), d.kind], [V("laatstGewijzigd"), datumWeergave(d.gewijzigd)]],
+            documenten: sorteer((magBron(kijker, "document") ? documenten.filter((d) => d.gedeeld) : []).map((d) => ({
+                wanneer: new Date(d.datum), titel: d.naam, kinderen: kindIdsNaarNamen(d.kindId ? [d.kindId] : []),
+                velden: [[V("categorie"), documentCategorieLabel(d.categorie)], [V("kind"), kindIdsNaarNamen(d.kindId ? [d.kindId] : []).join(" & ")], [V("laatstGewijzigd"), d2(new Date(d.datum))]],
             }))),
             geschiedenis: sorteer(evs.map((g) => ({
-                wanneer: new Date(g.moment), titel: actieNl[g.actie], groep: `${soortLabel[g.soort]} · ${g.itemNaam}`, kinderen: evKids(g),
+                wanneer: new Date(g.moment), titel: actieNl[g.actie], groep: `${soortLabel[g.soort] ?? g.soort} · ${g.itemNaam}`, kinderen: evKids(g),
                 velden: [...g.wijzigingen.map((x) => [x.veld, `${x.oud} → ${x.nieuw}`]), ...Object.entries(g.meta).map(([k, v]) => [k, v]), [V("door"), `${g.actorNaam} (${g.actorRol.toLowerCase()})`]],
             }))),
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [audit, onzeAfspraken, kosten, kids, periode, van, tot, pro]);
+    }, [audit, onzeAfspraken, besluiten, documenten, kosten, agendaSt, zorg, vakanties, overdracht, berichten, kids, periode, van, tot, pro, st]);
     const [s, e] = bereik();
     const periodeTekst = `${d2(s)} – ${d2(e)}`;
     const kidsTekst = kids.length === kindNamen.length ? kids.join(" & ") : kids.join(", ");

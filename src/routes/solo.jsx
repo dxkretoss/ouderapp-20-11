@@ -27,16 +27,10 @@ const voordelen = [
     { id: "logboek", icoon: "logboek" },
     { id: "documenten", icoon: "map" },
 ];
-/** Voorbeeldnotities: tekst wordt bij het lezen vertaald. */
-const logboek = ["l1", "l2", "l3"].map((id) => ({
-    id,
-    get datum() { return i18n.t(`routes.solo.logboek.${id}.datum`); },
-    get tekst() { return i18n.t(`routes.solo.logboek.${id}.tekst`); },
-}));
 function Solo() {
     const { t } = useTranslation();
     const [aan, setAan] = useState(false);
-    const [notities, setNotities] = useState(logboek);
+    const [notities, setNotities] = useState([]) /* geen voorbeeldnotities; het logboek staat (nog) alleen in deze sessie */;
     const [nieuw, setNieuw] = useState("");
     const account = useAuth().gebruiker;
     const [email, setEmail] = useState(account?.email ?? "");

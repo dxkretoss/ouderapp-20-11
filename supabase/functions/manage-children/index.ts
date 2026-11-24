@@ -10,7 +10,10 @@ import { isPlainObject, jsonSize, optDate, optText, parseJsonText, reqText, requ
 const AVATAR_PRESET_RE = /^avatar:[A-Za-z0-9_-]{1,40}$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const CUSTODY = ["gezamenlijk", "een-ouder", "anders", "onbekend"];
-const PROFILE_SECTIONS = ["basis", "personen", "school", "gezondheid", "praktisch"];
+// "noodkaart" = which fields the parents put on the emergency card for circle members ({ velden: [], extra }).
+const PROFILE_SECTIONS = ["basis", "personen", "school", "gezondheid", "praktisch", "noodkaart"];
+const CUSTODY_DETAIL = ["voogd", "anders"];
+const CUSTODY_DEVIATIONS = ["aangepast", "informatie", "beperkteInfo", "begeleid", "geenOmgang", "communicatie", "anders"];
 const MAX_PROFILE_BYTES = 64 * 1024;
 const MAX_SCHEDULE_BYTES = 32 * 1024;
 const MAX_NOTE_LENGTH = 20000;
@@ -229,22 +232,48 @@ Deno.serve(serveActions("manage-children", {
     return ok({});
   },
 
+  /**
+   * Self-reported custody (display only, never grants or removes access). Optional detail:
+   * holder "me" | "other" (who has sole custody, for "een-ouder"), detail "voogd" | "anders",
+   * deviations (a list of agreed deviations). Every change needs the other parent's confirmation again.
+   */
   async "save-custody"(req, body) {
     const me = await requireUser(req);
     if (!CUSTODY.includes(body.custody)) throw err.validation(`custody must be one of ${CUSTODY.join(", ")}`);
+    if (body.holder !== undefined && body.holder !== null && !["me", "other"].includes(body.holder)) throw err.validation("holder must be me or other");
+    if (body.detail !== undefined && body.detail !== null && !CUSTODY_DETAIL.includes(body.detail)) throw err.validation("detail is invalid");
+    if (body.deviations !== undefined && (!Array.isArray(body.deviations) || body.deviations.some((d: unknown) => !CUSTODY_DEVIATIONS.includes(d as string)))) {
+      throw err.validation("deviations is invalid");
+    }
     const ids = await targetChildIds(me.id, body.child_id);
     if (!ids.length) return ok({});
     const rows = (check(
-      await db().from("children").select("id, practical_notes").in("id", ids),
+      await db().from("children").select("id, practical_notes, created_by").in("id", ids),
       "load practical notes",
-    ) ?? []) as Array<{ id: string; practical_notes: string | null }>;
+    ) ?? []) as Array<{ id: string; practical_notes: string | null; created_by: string }>;
+    const links = (check(
+      await db().from("child_parents").select("child_id, parent_id").in("child_id", ids),
+      "load custody parents",
+    ) ?? []) as Array<{ child_id: string; parent_id: string }>;
     const now = new Date().toISOString();
     for (const r of rows) {
       const parsed = parseJsonText(r.practical_notes);
       const notes = isPlainObject(parsed) ? parsed : {};
       delete (notes as Record<string, unknown>).private_notes; // never keep private notes on the shared row
+      const meta: Record<string, unknown> = { ingevuldDoor: me.id, bevestigdDoorAnder: false, updated_at: now };
+      if (body.custody === "een-ouder" && body.holder) {
+        // the other parent of THIS child (if linked); otherwise "other" stays a description
+        const other = [r.created_by, ...links.filter((l) => l.child_id === r.id).map((l) => l.parent_id)].find((id) => id && id !== me.id);
+        meta.houder = body.holder === "me" ? me.id : other ?? "other";
+      }
+      if (body.custody === "anders" && body.detail) meta.detail = body.detail;
+      if (Array.isArray(body.deviations)) meta.afwijkingen = [...new Set(body.deviations)];
+      else {
+        const prev = isPlainObject((notes as Record<string, any>).custody_meta) ? (notes as Record<string, any>).custody_meta : null;
+        if (prev && Array.isArray(prev.afwijkingen)) meta.afwijkingen = prev.afwijkingen;
+      }
       notes.custody = body.custody;
-      notes.custody_meta = { ingevuldDoor: me.id, bevestigdDoorAnder: false, updated_at: now };
+      notes.custody_meta = meta;
       check(
         await db()
           .from("children")
@@ -254,6 +283,29 @@ Deno.serve(serveActions("manage-children", {
       );
     }
     return ok({});
+  },
+
+  /** The OTHER parent confirms what was filled in (still self-reported, still display only). */
+  async "confirm-custody"(req, body) {
+    const me = await requireUser(req);
+    const childId = requireUuid(body.child_id, "child_id");
+    await assertChildAccess(me.id, childId);
+    const row = check(
+      await db().from("children").select("custody, practical_notes").eq("id", childId).single(),
+      "load custody",
+    ) as { custody: string | null; practical_notes: string | null };
+    const parsed = parseJsonText(row.practical_notes);
+    const notes = isPlainObject(parsed) ? parsed : {};
+    const meta = isPlainObject((notes as Record<string, any>).custody_meta) ? { ...(notes as Record<string, any>).custody_meta } : null;
+    if (!row.custody || !meta) throw err.validation("Nothing to confirm yet");
+    if (meta.ingevuldDoor === me.id) throw err.forbidden("Only the other parent can confirm");
+    meta.bevestigdDoorAnder = true;
+    meta.bevestigdDoor = me.id;
+    meta.bevestigdOp = new Date().toISOString();
+    delete (notes as Record<string, unknown>).private_notes;
+    notes.custody_meta = meta;
+    check(await db().from("children").update({ practical_notes: JSON.stringify(notes) }).eq("id", childId), "confirm custody");
+    return ok({ child: await childOrThrow(me.id, childId) });
   },
 
   async "get-private-note"(req, body) {

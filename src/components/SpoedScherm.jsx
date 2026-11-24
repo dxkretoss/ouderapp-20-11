@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { useNuAfstemmen, reageerNuAfstemmen } from "@/lib/nu-afstemmen-store";
-import { kinderen as demoKinderen } from "@/lib/demo-data";
+import { startState } from "@/lib/start-store";
 import { useStart } from "@/lib/start-store";
 import { AppIcon } from "@/components/AppIcon";
 import { MetVinkje } from "@/components/Tekens";
@@ -68,7 +68,7 @@ export function SpoedScherm() {
     if (pad === "/welkom" || pad === "/rondleiding")
         return null;
     const kindId = melding?.kindIds[0] ?? "";
-    const kindNaam = demoKinderen.find((k) => k.id === kindId)?.naam ?? t("components.SpoedScherm.jeKind");
+    const kindNaam = startState().kinderen.find((k) => k.id === kindId)?.naam ?? t("components.SpoedScherm.jeKind");
     const accent = kindAccent[kindId] ?? "#C07B5C";
     const verschil = melding?.oudeTijd && melding.nieuweTijd ? minutenVerschil(melding.oudeTijd, melding.nieuweTijd) : null;
     const akkoordTekst = melding?.opties[1] ?? t("components.SpoedScherm.isGoed");

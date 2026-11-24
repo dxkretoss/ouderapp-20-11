@@ -3,29 +3,29 @@ import { BewerkPotlood } from "@/components/ui-kit";
 import { useKring, adresboek, persoonLabel } from "@/lib/kring-store";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { AppShell, BackButton, PageHeader } from "@/components/AppShell";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import i18n, { taalLocale } from "@/i18n";
-import { datumWeergave, documentCategorieLabel, documenten, gezondheidLabel, kindbank, kinderen, useGezondheid, bewaarGezondheid } from "@/lib/demo-data";
 import { Button } from "@/components/ui/button";
 import { DeelMomentje, MomentjeKaart } from "@/components/Momentjes";
 import { useMomentjes } from "@/lib/momentjes-store";
 import { AppIcon } from "@/components/AppIcon";
-import { Plus } from "lucide-react";
-import { Chevron, MetChevron } from "@/components/Tekens";
-import { useStart, leeftijdTekst, gezagKeuzes, kindKleuren, start } from "@/lib/start-store";
+import { Loader2, Plus } from "lucide-react";
+import { Chevron, Kruis, MetChevron } from "@/components/Tekens";
+import { useStart, leeftijdTekst, kindKleuren } from "@/lib/start-store";
+import { useGezin } from "@/lib/gezin";
 import { bevestig } from "@/lib/feedback";
-import { GezagSheet } from "@/components/EersteHome";
 import { MedischGezag } from "@/components/MedischGezag";
 import { BeeldKiezer, ProfielBeeld } from "@/components/ProfielBeeld";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { bewaarKind, bewaarNotitie, useKindProfiel, zetKindBeeld } from "@/lib/kindprofiel-store";
+const N = "routes.kinderenKindId.";
 export const Route = createFileRoute("/kinderen/$kindId")({
     loader: ({ params }) => {
-        const kind = kinderen.find((k) => k.id === params.kindId);
         // Eigen kinderen hebben een server-id (uuid); of het kind bij dit account hoort, bepaalt het component.
-        if (!kind && !/^[0-9a-f-]{36}$|^(k|tmp)-/i.test(params.kindId))
+        if (!/^[0-9a-f-]{36}$|^tmp-/i.test(params.kindId))
             throw notFound();
-        return { naam: kind?.naam ?? i18n.t("routes.kinderenKindId.kindprofiel") };
+        return { naam: i18n.t("routes.kinderenKindId.kindprofiel") };
     },
     head: ({ loaderData }) => {
         const t = loaderData ? i18n.t("common.metaTitel", { titel: loaderData.naam }) : i18n.t("routes.kinderenKindId.meta.nietGevonden");
@@ -52,283 +52,315 @@ function KindNietGevonden() {
 function KindProfielWrap() {
     const { kindId } = Route.useParams();
     const st = useStart();
-    if (!st.eigen)
-        return kinderen.some((x) => x.id === kindId) ? <KindProfiel /> : <KindNietGevonden />;
     const k = st.kinderen.find((x) => x.id === kindId);
-    if (!k)
+    const server = k && !String(k.id).startsWith("tmp-");
+    const { kind, notitie } = useKindProfiel(server ? kindId : null);
+    if (!k || kind === null)
         return <KindNietGevonden />;
-    const leeftijd = leeftijdTekst(k.geboortedatum);
-    return <EigenProfiel kindId={k.id} naam={k.naam} geboortedatum={k.geboortedatum} leeftijd={leeftijd} kleur={k.kleur} beeld={k.beeld}/>;
+    if (!kind)
+        return (<AppShell>
+        <div className="flex items-center gap-3"><BackButton terug="/kinderen"/><h1 className="lora min-w-0 flex-1 text-[32px] leading-tight">{i18n.t(N + "allesOver", { naam: k.naam })}</h1></div>
+        <p className="mt-6 flex items-center gap-2 text-sm text-ink-soft" role="status"><Loader2 className="size-4 animate-spin" aria-hidden="true"/>{i18n.t("common.laden")}</p>
+      </AppShell>);
+    return <KindProfiel kort={k} kind={kind} notitie={notitie}/>;
 }
-function EigenProfiel({ kindId, naam, geboortedatum, leeftijd, kleur, beeld }) {
-    const { t } = useTranslation();
-    const st = useStart();
-    const [gezagOpen, setGezagOpen] = useState(false);
-    const [beeldOpen, setBeeldOpen] = useState(false);
-    const k = { naam, geboortedatum };
-    const g = st.gezag;
-    const kleurHex = kleur ?? "#6F7F68";
-    return (<AppShell>
-      <PageHeader titel={k.naam} subtitel={leeftijd ?? t("routes.kinderenKindId.kindprofiel")} terug="/kinderen"/>
-      <div className="mt-4 flex items-center gap-4">
-        <button type="button" onClick={() => setBeeldOpen(true)} aria-label={t("routes.kinderenKindId.eigen.beeldWijzigen", { naam: k.naam })} className="relative shrink-0">
-          <ProfielBeeld beeld={beeld} naam={k.naam} kleur={kleurHex} maat={56}/>
-          <span aria-hidden="true" className="absolute -bottom-0.5 -right-0.5 grid size-6 place-items-center rounded-full border border-border bg-card"><AppIcon functie="notitie" maat="sm" vorm="kaal"/></span>
-        </button>
-        <Sheet open={beeldOpen} onOpenChange={setBeeldOpen}>
-          <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-3xl bg-background">
-            <SheetHeader><SheetTitle className="font-display">{t("routes.kinderenKindId.eigen.beeldTitel", { naam: k.naam })}</SheetTitle></SheetHeader>
-            <div className="px-4 pb-6"><BeeldKiezer beeld={beeld} naam={k.naam} overslaanTekst={t("common.sluiten")} onKies={(b) => { if (!b && !beeld) {
-        setBeeldOpen(false);
-        return;
-    } start.zetKindBeeld(kindId, b); bevestig(b ? t("routes.kinderenKindId.eigen.beeldOpgeslagen") : t("routes.kinderenKindId.eigen.beeldVerwijderd")); setBeeldOpen(false); }}/></div>
-          </SheetContent>
-        </Sheet>
-        <div>
-          <p className="text-xs text-ink-soft">{t("routes.kinderenKindId.eigen.kleurVan", { naam: k.naam })}</p>
-          <div className="mt-1 flex gap-2" role="group" aria-label={t("routes.kinderenKindId.eigen.kleurKiezen", { naam: k.naam })}>
-            {kindKleuren.map((c) => (<button key={c.id} onClick={() => { start.zetKindKleur(kindId, c.hex); bevestig(t("routes.kinderenKindId.eigen.kleurOpgeslagen")); }} aria-label={t("routes.kinderenKindId.eigen.kleur", { naam: c.naam })} aria-pressed={kleurHex === c.hex} className="size-8 rounded-full border-2" style={{ backgroundColor: c.hex, borderColor: kleurHex === c.hex ? c.hex : "transparent", opacity: kleurHex === c.hex ? 1 : 0.45 }}/>))}
-          </div>
-        </div>
-      </div>
-      <dl className="mt-6 divide-y divide-border border-y border-border text-sm">
-        <div className="flex justify-between py-3"><dt className="text-ink-soft">{t("routes.kinderenKindId.naam")}</dt><dd className="font-semibold">{k.naam}</dd></div>
-        <div className="flex justify-between py-3"><dt className="text-ink-soft">{t("routes.kinderenKindId.eigen.geboortedatum")}</dt><dd>{k.geboortedatum ? new Date(k.geboortedatum).toLocaleDateString(taalLocale(), { day: "numeric", month: "long", year: "numeric" }) : t("routes.kinderenKindId.eigen.nogNietIngevuld")}</dd></div>
-        <div className="flex items-start justify-between gap-4 py-3"><dt className="text-ink-soft">{t("routes.kinderenKindId.eigen.gezag")}</dt><dd className="text-right">
-          {g ? <><span className="font-semibold">{gezagKeuzes.find((x) => x.id === g.situatie)?.naam}</span><span className="block text-xs text-ink-soft">{t("routes.kinderenKindId.eigen.ingevuldDoor", { naam: g.ingevuldDoor })}</span></> : t("routes.kinderenKindId.eigen.nogNietIngevuld")}
-          <button onClick={() => setGezagOpen(true)} className="mt-1 block min-h-[44px] w-full text-right text-xs font-semibold text-brand">{g ? t("common.wijzigen") : t("routes.kinderenKindId.eigen.invullen")}</button>
-        </dd></div>
-      </dl>
-      <p className="mt-4 text-sm text-ink-soft">{t("routes.kinderenKindId.eigen.later", { naam: k.naam })}</p>
-      <GezagSheet open={gezagOpen} onClose={() => setGezagOpen(false)}/>
-    </AppShell>);
+const GLAS = "rounded-[22px] border border-white/85 bg-white/60";
+const veld = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal";
+const obj = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
+const lijst = (v) => (Array.isArray(v) ? v : []);
+const schoon = (v) => (typeof v === "string" ? v.trim() : v ?? "");
+const nieuwId = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+const ROLLEN = ["ouder", "grootouder", "verzorger", "oppas", "familie", "school", "zorg", "anders"];
+/** Volle jaren (voor de medische leeftijdsgroepen); null zonder geboortedatum. */
+function jaren(geb) {
+    if (!geb)
+        return null;
+    const d = new Date(`${geb}T12:00:00`), nu = new Date();
+    let j = nu.getFullYear() - d.getFullYear();
+    if (nu.getMonth() < d.getMonth() || (nu.getMonth() === d.getMonth() && nu.getDate() < d.getDate()))
+        j -= 1;
+    return j;
 }
-function KindProfiel() {
+const datumTekst = (iso) => (iso ? new Date(`${String(iso).slice(0, 10)}T12:00:00`).toLocaleDateString(taalLocale(), { day: "numeric", month: "long", year: "numeric" }) : "");
+/** Formulier met losse velden (zelfde vormgeving als het gezondheidsformulier). */
+function Formulier({ velden, begin, onBewaar, onAnnuleer, extra, voet }) {
     const { t } = useTranslation();
-    const { kindId } = Route.useParams();
-    const k = kinderen.find((x) => x.id === kindId);
-    const b = kindbank[kindId];
-    const medisch = useGezondheid(kindId);
+    const [w, setW] = useState(begin);
+    const [bezig, setBezig] = useState(false);
+    return (<form className="space-y-3 border-t border-border pt-3" onSubmit={async (e) => { e.preventDefault(); setBezig(true); const ok = await onBewaar(w); setBezig(false); if (ok)
+        onAnnuleer(); }}>
+      {velden.map((v) => (<label key={v.id} className="block text-xs font-semibold">{v.label}
+          {v.type === "lang" ? <textarea aria-label={v.label} rows={2} value={w[v.id] ?? ""} onChange={(e) => setW((x) => ({ ...x, [v.id]: e.target.value }))} className={veld}/>
+            : <input aria-label={v.label} type={v.type === "datum" ? "date" : "text"} required={v.verplicht} value={w[v.id] ?? ""} onChange={(e) => setW((x) => ({ ...x, [v.id]: e.target.value }))} className={veld}/>}
+        </label>))}
+      {extra ? extra(w, setW) : null}
+      {voet ? <p className="text-xs text-ink-soft">{voet}</p> : null}
+      <div className="flex flex-wrap gap-2"><Button type="submit" disabled={bezig} className="min-h-11 bg-brand text-primary-foreground shadow-none">{bezig ? <Loader2 className="size-4 animate-spin" aria-hidden="true"/> : null}{t("common.opslaan")}</Button><Button type="button" variant="ghost" onClick={onAnnuleer}>{t("common.annuleren")}</Button></div>
+    </form>);
+}
+/** Lijst bewerken (contacten, leerkrachten, activiteiten): items toevoegen en weghalen binnen het formulier. */
+function LijstVelden({ titel, items, velden, onChange, toevoegenTekst }) {
+    const { t } = useTranslation();
+    const zetItem = (i, p) => onChange(items.map((x, j) => (j === i ? { ...x, ...p } : x)));
+    return (<fieldset className="space-y-2">
+      <legend className="text-xs font-semibold">{titel}</legend>
+      {items.map((it, i) => (<div key={it.id ?? i} className="relative space-y-2 rounded-md bg-white/60 px-3 py-2 pr-11">
+          <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label={t("common.verwijderen")} className="absolute right-1 top-1 grid size-9 place-items-center rounded-full text-ink-soft"><Kruis className="size-4"/></button>
+          {velden.map((v) => v.type === "rol" ? (<label key={v.id} className="block text-[11px] font-semibold text-ink-soft">{v.label}
+              <select value={it[v.id] ?? "anders"} onChange={(e) => zetItem(i, { [v.id]: e.target.value })} className={veld}>
+                {ROLLEN.map((r) => <option key={r} value={r}>{t(N + `rol.${r}`)}</option>)}
+              </select></label>) : v.type === "vink" ? (<label key={v.id} className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" checked={!!it[v.id]} onChange={(e) => zetItem(i, { [v.id]: e.target.checked })} className="size-4 accent-[var(--brand)]"/>{v.label}</label>)
+            : (<label key={v.id} className="block text-[11px] font-semibold text-ink-soft">{v.label}<input type={v.type === "tel" ? "tel" : v.type === "email" ? "email" : "text"} value={it[v.id] ?? ""} onChange={(e) => zetItem(i, { [v.id]: e.target.value })} className={veld}/></label>))}
+        </div>))}
+      <button type="button" onClick={() => onChange([...items, { id: nieuwId() }])} className="inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-brand"><Plus aria-hidden="true" className="size-4"/>{toevoegenTekst}</button>
+    </fieldset>);
+}
+function KindProfiel({ kort, kind, notitie }) {
+    const { t } = useTranslation();
+    const kindId = kind.id;
+    const gezin = useGezin();
     useKring();
-    const [gezondheidConcept, setGezondheidConcept] = useState(null);
-    const [gezondheidOpgeslagen, setGezondheidOpgeslagen] = useState(false);
-    const { lijst } = useMomentjes();
-    const mijn = lijst.filter((m) => m.kindId === kindId);
+    const kan = kind.can_edit !== false;
+    const profiel = obj(kind.profile);
+    const sec = (s) => obj(profiel[s]);
+    const school = sec("school"), opvang = obj(school.opvang), gezond = sec("gezondheid"), prak = sec("praktisch");
+    const personen = lijst(profiel.personen);
+    const { lijst: momentjes } = useMomentjes();
+    const mijn = momentjes.filter((m) => m.kindId === kindId);
     const mijlpalen = useMijlpalenLijst().filter((m) => m.kind === kindId);
     const [deelOpen, setDeelOpen] = useState(false);
     const [toevoegen, setToevoegen] = useState(false);
     const [mijlpaalTekst, setMijlpaalTekst] = useState("");
     const [alleMomenten, setAlleMomenten] = useState(false);
     const [open, setOpen] = useState(null);
-    const [omschrijving, setOmschrijving] = useState(null);
-    const [bewerkKind, setBewerkKind] = useState(null);
-    const [cadeaus, setCadeaus] = useState(() => [
-        { id: 1, tekst: t("routes.kinderenKindId.cadeau.lego"), door: "" },
-        { id: 2, tekst: t("routes.kinderenKindId.cadeau.stiften"), door: t("routes.kinderenKindId.cadeau.omaEls") },
-    ]);
-    const [nieuwCadeau, setNieuwCadeau] = useState("");
-    if (!k || !b || !medisch)
-        return <KindNietGevonden />;
-    const docs = documenten.filter((d) => d.kind.includes(k.naam));
-    const contacten = [...k.contacten, ...(b.trainer ? [b.trainer] : [])];
-    const kring = adresboek(k.id).map(persoonLabel);
-    const mensen = ["Sanne", "Joris", ...kring];
-    const groep = b.klas.split("·")[0]?.trim() ?? "";
+    const [bewerk, setBewerk] = useState(null);
+    const [beeldOpen, setBeeldOpen] = useState(false);
+    const leeftijd = leeftijdTekst(kind.date_of_birth);
+    const kleurHex = kind.color_code ?? kort.kleur ?? "#6F7F68";
+    const kring = adresboek(kindId).map(persoonLabel);
+    const ouders = [gezin.ik?.naam || t("common.jij"), ...lijst(kind.linked_parents).map((o) => o.name)];
+    const mensen = [...ouders, ...kring];
     const groepen = [
-        { id: "basis", icoon: "persoon", titel: t("routes.kinderenKindId.groep.basis"), samenvatting: t("routes.kinderenKindId.groep.geborenOp", { datum: datumWeergave(k.geboortedatum) }), rijen: [
-                { label: t("routes.kinderenKindId.naam"), waarde: `${k.naam} ${k.achternaam}` },
-                { label: t("routes.kinderenKindId.groep.geboren"), waarde: datumWeergave(k.geboortedatum) },
-                ...b.huishoudens.map((h, i) => ({ label: t("routes.kinderenKindId.groep.huishouden", { n: i + 1 }), waarde: h })),
-            ] },
-        { id: "school", icoon: "school", titel: t("routes.kinderenKindId.groep.school"), samenvatting: [k.school, k.school.toLowerCase().includes(groep.toLowerCase()) ? "" : groep].filter(Boolean).join(" · "), rijen: [
-                { label: t("routes.kinderenKindId.groep.schoolLabel"), waarde: k.school },
-                { label: t("routes.kinderenKindId.groep.klas"), waarde: b.klas },
-                { label: t("routes.kinderenKindId.groep.opvang"), waarde: k.opvang },
-                { label: t("routes.kinderenKindId.groep.belangrijk"), waarde: b.schoolInfo },
-            ].filter((r) => r.waarde) },
-        { id: "gezondheid", icoon: "gezondheid", titel: t("routes.kinderenKindId.groep.gezondheid"), samenvatting: [medisch.huisarts && gezondheidLabel("huisarts"), medisch.tandarts && t("routes.kinderenKindId.groep.tandartsKlein"), medisch.apotheek && t("routes.kinderenKindId.groep.apotheekKlein")].filter(Boolean).join(", "), rijen: [
-                { label: gezondheidLabel("huisarts"), waarde: medisch.huisarts },
-                { label: gezondheidLabel("tandarts"), waarde: medisch.tandarts },
-                { label: gezondheidLabel("apotheek"), waarde: medisch.apotheek },
-                { label: gezondheidLabel("allergieen"), waarde: medisch.allergieen },
-                { label: gezondheidLabel("medicatie"), waarde: medisch.medicatie },
-                { label: gezondheidLabel("verzekering"), waarde: medisch.verzekering },
-                { label: gezondheidLabel("bijzonderheden"), waarde: medisch.bijzonderheden },
-            ], voet: t("routes.kinderenKindId.groep.gezondheidVoet") },
-        { id: "maten", icoon: "kledingmaten", titel: t("routes.kinderenKindId.groep.maten"), samenvatting: [b.maten.kleding && t("routes.kinderenKindId.groep.kledingMaat", { maat: b.maten.kleding }), b.maten.schoen && t("routes.kinderenKindId.groep.schoenMaat", { maat: b.maten.schoen })].filter(Boolean).join(" · "), rijen: [
-                { label: t("routes.kinderenKindId.groep.kleding"), waarde: b.maten.kleding },
-                { label: t("routes.kinderenKindId.groep.schoenen"), waarde: b.maten.schoen },
-                ...(b.maten.sport ? [{ label: t("routes.kinderenKindId.groep.sport"), waarde: b.maten.sport }] : []),
-            ], voet: t("routes.kinderenKindId.groep.laatstGewijzigd", { datum: b.maten.gewijzigd }) },
-        { id: "activiteiten", icoon: "activiteiten", titel: t("routes.kinderenKindId.groep.activiteiten"), samenvatting: b.activiteiten.map((a) => `${a.naam} ${a.wanneer.split(" ")[0]?.toLowerCase()}`).join(" · "), rijen: b.activiteiten.map((a) => ({ label: a.naam, waarde: a.wanneer })) },
+        { id: "school", icoon: "school", titel: t(N + "groep.school"), samenvatting: [kind.school, school.groep, kind.daycare].filter(Boolean).join(" · "), rijen: [
+                { label: t(N + "groep.schoolLabel"), waarde: kind.school },
+                { label: t(N + "groep.klas"), waarde: school.groep },
+                { label: t(N + "eigen.leerkrachten"), waarde: lijst(school.leerkrachten).map((l) => [l.naam, l.telefoon, l.email].filter(Boolean).join(" · ")).join("\n") },
+                { label: t(N + "groep.opvang"), waarde: kind.daycare },
+                { label: t(N + "eigen.opvangDagen"), waarde: opvang.dagen },
+                { label: t(N + "eigen.opvangContact"), waarde: opvang.contact },
+            ], formulier: () => (<Formulier velden={[
+                    { id: "school", label: t(N + "groep.schoolLabel") }, { id: "groep", label: t(N + "groep.klas") },
+                    { id: "daycare", label: t(N + "groep.opvang") }, { id: "dagen", label: t(N + "eigen.opvangDagen") }, { id: "contact", label: t(N + "eigen.opvangContact"), type: "lang" },
+                ]} begin={{ school: kind.school ?? "", groep: school.groep ?? "", daycare: kind.daycare ?? "", dagen: opvang.dagen ?? "", contact: opvang.contact ?? "", leerkrachten: lijst(school.leerkrachten) }} extra={(w, setW) => <LijstVelden titel={t(N + "eigen.leerkrachten")} items={w.leerkrachten} onChange={(l) => setW((x) => ({ ...x, leerkrachten: l }))} toevoegenTekst={t(N + "eigen.leerkrachtToevoegen")} velden={[{ id: "naam", label: t(N + "naam") }, { id: "telefoon", label: t(N + "eigen.telefoon"), type: "tel" }, { id: "email", label: t(N + "eigen.email"), type: "email" }]}/>} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, {
+                    school: schoon(w.school), daycare: schoon(w.daycare),
+                    profile: { school: { ...school, groep: schoon(w.groep), leerkrachten: w.leerkrachten.filter((l) => schoon(l.naam)).map((l) => ({ id: l.id, naam: schoon(l.naam), telefoon: schoon(l.telefoon), email: schoon(l.email) })), opvang: { ...opvang, dagen: schoon(w.dagen), contact: schoon(w.contact) } } },
+                })}/>) },
+        { id: "gezondheid", icoon: "gezondheid", titel: t(N + "groep.gezondheid"), samenvatting: [kind.doctor && t(N + "eigen.huisartsKlein"), gezond.tandarts && t(N + "groep.tandartsKlein"), kind.allergies && t(N + "eigen.allergieenKlein")].filter(Boolean).join(", "), rijen: [
+                { label: t(N + "eigen.huisarts"), waarde: kind.doctor },
+                { label: t(N + "eigen.tandarts"), waarde: gezond.tandarts },
+                { label: t(N + "eigen.allergieen"), waarde: kind.allergies },
+                { label: t(N + "eigen.medicatie"), waarde: gezond.medicatie },
+                { label: t(N + "eigen.gezondheidOverig"), waarde: kind.medical_notes },
+            ], voet: t(N + "groep.gezondheidVoet"), formulier: () => (<Formulier velden={[
+                    { id: "doctor", label: t(N + "eigen.huisarts"), type: "lang" }, { id: "tandarts", label: t(N + "eigen.tandarts"), type: "lang" },
+                    { id: "allergies", label: t(N + "eigen.allergieen"), type: "lang" }, { id: "medicatie", label: t(N + "eigen.medicatie"), type: "lang" }, { id: "overig", label: t(N + "eigen.gezondheidOverig"), type: "lang" },
+                ]} begin={{ doctor: kind.doctor ?? "", tandarts: gezond.tandarts ?? "", allergies: kind.allergies ?? "", medicatie: gezond.medicatie ?? "", overig: kind.medical_notes ?? "" }} voet={t(N + "gezondheid.delen")} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, {
+                    doctor: schoon(w.doctor), allergies: schoon(w.allergies), medical_notes: schoon(w.overig),
+                    profile: { gezondheid: { ...gezond, tandarts: schoon(w.tandarts), medicatie: schoon(w.medicatie) } },
+                })}/>), na: <MedischGezag kindId={kindId} naam={kind.name} leeftijd={jaren(kind.date_of_birth)}/> },
+        { id: "activiteiten", icoon: "activiteiten", titel: t(N + "groep.activiteiten"), samenvatting: [prak.hobbys, ...lijst(prak.activiteiten).map((a) => a.naam)].filter(Boolean).join(" · "), rijen: [
+                { label: t(N + "eigen.hobbys"), waarde: prak.hobbys },
+                ...lijst(prak.activiteiten).map((a) => ({ label: a.naam, waarde: a.wanneer || "—" })),
+            ], formulier: () => (<Formulier velden={[{ id: "hobbys", label: t(N + "eigen.hobbys"), type: "lang" }]} begin={{ hobbys: prak.hobbys ?? "", activiteiten: lijst(prak.activiteiten) }} extra={(w, setW) => <LijstVelden titel={t(N + "groep.activiteiten")} items={w.activiteiten} onChange={(l) => setW((x) => ({ ...x, activiteiten: l }))} toevoegenTekst={t(N + "eigen.activiteitToevoegen")} velden={[{ id: "naam", label: t(N + "eigen.activiteit") }, { id: "wanneer", label: t(N + "eigen.wanneer") }]}/>} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, {
+                    profile: { praktisch: { ...prak, hobbys: schoon(w.hobbys), activiteiten: w.activiteiten.filter((a) => schoon(a.naam)).map((a) => ({ id: a.id, naam: schoon(a.naam), wanneer: schoon(a.wanneer) })) } },
+                })}/>) },
+        { id: "maten", icoon: "kledingmaten", titel: t(N + "groep.maten"), samenvatting: [kind.clothes_size && t(N + "groep.kledingMaat", { maat: kind.clothes_size }), kind.shoe_size && t(N + "groep.schoenMaat", { maat: kind.shoe_size })].filter(Boolean).join(" · "), rijen: [
+                { label: t(N + "groep.kleding"), waarde: kind.clothes_size },
+                { label: t(N + "groep.schoenen"), waarde: kind.shoe_size },
+            ], voet: prak.matenGewijzigd ? t(N + "groep.laatstGewijzigd", { datum: datumTekst(prak.matenGewijzigd) }) : null, formulier: () => (<Formulier velden={[{ id: "kleding", label: t(N + "groep.kleding") }, { id: "schoen", label: t(N + "groep.schoenen") }]} begin={{ kleding: kind.clothes_size ?? "", schoen: kind.shoe_size ?? "" }} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, {
+                    clothes_size: schoon(w.kleding), shoe_size: schoon(w.schoen),
+                    profile: { praktisch: { ...prak, matenGewijzigd: new Date().toISOString().slice(0, 10) } },
+                })}/>) },
+        { id: "praktisch", icoon: "lijst", titel: t(N + "eigen.praktisch"), samenvatting: [prak.routines, prak.overig].filter(Boolean).join(" · "), rijen: [
+                { label: t(N + "eigen.routines"), waarde: prak.routines },
+                { label: t(N + "eigen.praktischOverig"), waarde: prak.overig },
+            ], formulier: () => (<Formulier velden={[{ id: "routines", label: t(N + "eigen.routines"), type: "lang" }, { id: "overig", label: t(N + "eigen.praktischOverig"), type: "lang" }]} begin={{ routines: prak.routines ?? "", overig: prak.overig ?? "" }} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, {
+                    profile: { praktisch: { ...prak, routines: schoon(w.routines), overig: schoon(w.overig) } },
+                })}/>) },
+        { id: "basis", icoon: "persoon", titel: t(N + "groep.basis"), samenvatting: kind.date_of_birth ? t(N + "groep.geborenOp", { datum: datumTekst(kind.date_of_birth) }) : "", rijen: [
+                { label: t(N + "naam"), waarde: [kind.name, kind.last_name].filter(Boolean).join(" ") },
+                { label: t(N + "groep.geboren"), waarde: datumTekst(kind.date_of_birth) },
+                { label: t(N + "eigen.ouders"), waarde: ouders.join(", ") },
+            ], formulier: () => <BasisFormulier kind={kind} onKlaar={() => setBewerk(null)}/> },
     ];
     const momenten = [
         ...mijn.map((m) => ({ soort: "Momentje", sleutel: m.datum ?? "0", m })),
         ...mijlpalen.map((p) => ({ soort: "Mijlpaal", sleutel: `${p.jaar}-00`, p })),
     ].sort((a, b2) => b2.sleutel.localeCompare(a.sleutel));
     const zichtbaar = alleMomenten ? momenten : momenten.slice(0, 2);
-    const Rij = ({ id, icoon, titel, samenvatting, rechts }) => {
+    const Rij = ({ id, icoon, titel, samenvatting }) => {
         const isOpen = open === id;
-        return (<button onClick={() => setOpen(isOpen ? null : id)} className="flex min-h-14 w-full items-center gap-3 py-2.5 text-left" aria-expanded={isOpen}>
+        return (<button onClick={() => { setOpen(isOpen ? null : id); setBewerk(null); }} className="flex min-h-14 w-full items-center gap-3 py-2.5 text-left" aria-expanded={isOpen}>
         {icoon}
         <span className="min-w-0 flex-1">
           <span className="block text-[15.5px] font-black">{titel}</span>
-          <span className="block truncate text-xs text-ink-soft">{samenvatting || t("routes.kinderenKindId.nogNiets")}</span>
+          <span className="block truncate text-xs text-ink-soft">{samenvatting || t(N + "nogNiets")}</span>
         </span>
-        {rechts ?? (samenvatting || isOpen ? <Chevron richting="omlaag" open={isOpen} className="size-4 text-ink-soft"/> : <Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0 text-ink-soft"/>)}
+        {samenvatting || isOpen ? <Chevron richting="omlaag" open={isOpen} className="size-4 text-ink-soft"/> : <Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0 text-ink-soft"/>}
       </button>);
     };
-    const goedOmTeWeten = [medisch.allergieen, medisch.medicatie].map((x) => x?.trim()).filter(Boolean).join(", ");
-    const toonGroep = (g) => (<div key={g.id} id={`onderdeel-${g.id}`} className="scroll-mt-20">
+    const goedOmTeWeten = [kind.allergies, gezond.medicatie].map((x) => x?.trim()).filter(Boolean).join(", ");
+    const toonGroep = (g) => {
+        const gevuld = g.rijen.filter((r) => r.waarde);
+        return (<div key={g.id} id={`onderdeel-${g.id}`} className="scroll-mt-20">
             <Rij id={g.id} icoon={<AppIcon functie={g.icoon} maat="md"/>} titel={g.titel} samenvatting={g.samenvatting}/>
             {open === g.id ? (<div className="mb-3 space-y-2">
-                {g.rijen.map((r) => (<div key={r.label} className="rounded-md bg-white/60 px-3 py-2">
+                {gevuld.map((r) => (<div key={r.label} className="rounded-md bg-white/60 px-3 py-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">{r.label}</p>
-                    <p className="text-sm">{r.waarde}</p>
+                    <p className="whitespace-pre-line text-sm">{r.waarde}</p>
                   </div>))}
-                {g.voet ? <p className="text-[11px] text-ink-soft">{g.voet}</p> : null}
-                {g.id === "gezondheid" ? (gezondheidConcept ? <form className="space-y-3 border-t border-border pt-3" onSubmit={(e) => { e.preventDefault(); bewaarGezondheid(kindId, gezondheidConcept); setGezondheidConcept(null); setGezondheidOpgeslagen(true); }}>
-                    {["huisarts", "tandarts", "apotheek", "allergieen", "medicatie", "verzekering", "bijzonderheden"].map((veld) => [veld, gezondheidLabel(veld)]).map(([veld, label]) => <label key={veld} className="block text-xs font-semibold">{label}<textarea aria-label={label} value={gezondheidConcept[veld]} onChange={(e) => setGezondheidConcept((v) => v ? { ...v, [veld]: e.target.value } : v)} rows={2} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal"/></label>)}
-                    <p className="text-xs text-ink-soft">{t("routes.kinderenKindId.gezondheid.delen")}</p>
-                    <div className="flex flex-wrap gap-2"><Button type="submit" className="min-h-11 bg-brand text-primary-foreground shadow-none">{t("routes.kinderenKindId.gezondheid.opslaan")}</Button><Button type="button" variant="ghost" onClick={() => setGezondheidConcept(null)}>{t("common.annuleren")}</Button></div>
-                  </form> : <><Button variant="ghost" className="min-h-11 gap-1.5 text-brand" onClick={() => { setGezondheidConcept({ ...medisch }); setGezondheidOpgeslagen(false); }}><AppIcon functie="notitie" maat="sm" vorm="kaal"/>{t("routes.kinderenKindId.gezondheid.aanpassen")}</Button>{gezondheidOpgeslagen ? <p role="status" className="text-xs text-brand">{t("routes.kinderenKindId.gezondheid.bijgewerkt")}</p> : null}<MedischGezag kindId={k.id} naam={k.naam} leeftijd={k.leeftijd}/></>) : null}
+                {gevuld.length === 0 && bewerk !== g.id ? <p className="text-sm text-ink-soft">{kan ? t(N + "eigen.leegSectie") : t(N + "eigen.leegSectieLezen")}</p> : null}
+                {g.voet && gevuld.length ? <p className="text-[11px] text-ink-soft">{g.voet}</p> : null}
+                {bewerk === g.id ? g.formulier() : kan ? <Button variant="ghost" className="min-h-11 gap-1.5 text-brand" onClick={() => setBewerk(g.id)}>{gevuld.length ? <AppIcon functie="notitie" maat="sm" vorm="kaal"/> : <Plus aria-hidden="true" className="size-4"/>}{gevuld.length ? t("common.bewerken") : t("common.toevoegen")}</Button> : null}
+                {g.na && bewerk !== g.id ? g.na : null}
               </div>) : null}
           </div>);
+    };
     return (<AppShell>
       <div className="flex items-center gap-3">
         <BackButton terug="/kinderen"/>
-        <h1 className="lora min-w-0 flex-1 text-[32px] leading-tight">{t("routes.kinderenKindId.allesOver", { naam: k.naam })}</h1>
+        <h1 className="lora min-w-0 flex-1 text-[32px] leading-tight">{t(N + "allesOver", { naam: kind.name })}</h1>
       </div>
       <section className={`${GLAS} relative mt-4 p-4`}>
         <div className="flex items-center gap-3.5 pr-10">
-          <img src={k.avatar} alt={k.naam} className="size-[72px] shrink-0 rounded-full border-[3px] object-cover" style={{ borderColor: k.kleur ?? "#8A7E72" }}/>
+          <button type="button" disabled={!kan} onClick={() => setBeeldOpen(true)} aria-label={t(N + "eigen.beeldWijzigen", { naam: kind.name })} className="relative shrink-0 rounded-full border-[3px]" style={{ borderColor: kleurHex }}>
+            <ProfielBeeld beeld={kort.beeld} naam={kind.name} kleur={kleurHex} maat={66}/>
+          </button>
           <div className="min-w-0">
-            <p className="text-[19px] font-black">{t("routes.kinderenKindId.naamLeeftijd", { naam: k.naam, leeftijd: k.leeftijd })}</p>
-            <p className="mt-0.5 text-sm leading-snug">{omschrijving ?? k.praktisch}</p>
+            <p className="text-[19px] font-black">{leeftijd ? t(N + "eigen.naamLeeftijd", { naam: kind.name, leeftijd }) : kind.name}</p>
+            <p className="mt-0.5 text-sm leading-snug">{kind.description || <span className="text-ink-soft">{kan ? t(N + "eigen.omschrijvingLeeg") : t(N + "eigen.nogNietIngevuld")}</span>}</p>
           </div>
         </div>
-        <div className="absolute right-3 top-3"><BewerkPotlood onClick={() => setBewerkKind(omschrijving ?? k.praktisch)} label={t("routes.kinderenKindId.gegevensAanpassen", { naam: k.naam })}/></div>
+        {kan ? <div className="absolute right-3 top-3"><BewerkPotlood onClick={() => { setOpen("basis-kop"); setBewerk("basis-kop"); }} label={t(N + "gegevensAanpassen", { naam: kind.name })}/></div> : null}
         {goedOmTeWeten ? (<div className="mt-3 flex items-start gap-2 rounded-[14px] bg-[#E9EFE3] px-3 py-2.5">
             <AppIcon functie="info" maat="sm" vorm="kaal"/>
-            <p className="text-[13.5px] leading-snug text-[#2F4A3A]"><Trans i18nKey="routes.kinderenKindId.goedOmTeWeten" values={{ tekst: goedOmTeWeten }} components={{ b: <b/> }}/></p>
+            <p className="text-[13.5px] leading-snug text-[#2F4A3A]"><Trans i18nKey={N + "goedOmTeWeten"} values={{ tekst: goedOmTeWeten }} components={{ b: <b/> }}/></p>
           </div>) : null}
       </section>
-      {bewerkKind !== null ? (<form className="mt-2 space-y-3 border-y border-border py-3" onSubmit={(e) => { e.preventDefault(); setOmschrijving(bewerkKind.trim() || k.praktisch); setBewerkKind(null); }}>
-          <label className="block text-xs font-semibold">{t("routes.kinderenKindId.korteOmschrijving")}<textarea aria-label={t("routes.kinderenKindId.korteOmschrijving")} rows={2} value={bewerkKind} onChange={(e) => setBewerkKind(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal"/></label>
-          <p className="text-xs text-ink-soft">{t("routes.kinderenKindId.onderBasis")}</p>
-          <div className="flex gap-2"><Button type="submit" className="min-h-11 bg-brand text-primary-foreground shadow-none">{t("common.opslaan")}</Button><Button type="button" variant="ghost" onClick={() => setBewerkKind(null)}>{t("common.annuleren")}</Button></div>
-        </form>) : null}
+      {bewerk === "basis-kop" ? <div className="mt-2"><BasisFormulier kind={kind} onKlaar={() => { setBewerk(null); setOpen(null); }}/></div> : null}
+      <Sheet open={beeldOpen} onOpenChange={setBeeldOpen}>
+        <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-3xl bg-background">
+          <SheetHeader><SheetTitle className="font-display">{t(N + "eigen.beeldTitel", { naam: kind.name })}</SheetTitle></SheetHeader>
+          <div className="px-4 pb-6"><BeeldKiezer beeld={kort.beeld} naam={kind.name} overslaanTekst={t("common.sluiten")} onKies={(b) => { if (!b && !kort.beeld) {
+        setBeeldOpen(false);
+        return;
+    } zetKindBeeld(kindId, b); bevestig(b ? t(N + "eigen.beeldOpgeslagen") : t(N + "eigen.beeldVerwijderd")); setBeeldOpen(false); }}/></div>
+        </SheetContent>
+      </Sheet>
 
       <div className={`${GLAS} mt-3 px-4`}>
-        <Link to="/kring/$kindId" params={{ kindId: k.id }} className="flex min-h-14 items-center gap-3 py-3">
+        <Link to="/kring/$kindId" params={{ kindId }} className="flex min-h-14 items-center gap-3 py-3">
           <AppIcon functie="contact" maat="md"/>
           <span className="min-w-0 flex-1">
-            <span className="block text-[15.5px] font-black">{t("routes.kinderenKindId.belangrijkePersonen")}</span>
-            <span className="block truncate text-xs text-ink-soft">{t("routes.kinderenKindId.mensen", { count: mensen.length })} · {mensen.slice(0, 2).join(", ")}{mensen.length > 2 ? t("routes.kinderenKindId.enMeer", { n: mensen.length - 2 }) : ""}</span>
+            <span className="block text-[15.5px] font-black">{t(N + "belangrijkePersonen")}</span>
+            <span className="block truncate text-xs text-ink-soft">{t(N + "mensen", { count: mensen.length })} · {mensen.slice(0, 2).join(", ")}{mensen.length > 2 ? t(N + "enMeer", { n: mensen.length - 2 }) : ""}</span>
           </span>
           <Chevron className="size-5 text-ink-soft"/>
         </Link>
-        {contacten.length ? <button onClick={() => setOpen(open === "contact" ? null : "contact")} aria-expanded={open === "contact"} className="flex min-h-12 w-full items-center gap-3 border-t border-[#E9E1D5] py-2.5 text-left">
+        <button onClick={() => { setOpen(open === "contact" ? null : "contact"); setBewerk(null); }} aria-expanded={open === "contact"} className="flex min-h-12 w-full items-center gap-3 border-t border-[#E9E1D5] py-2.5 text-left">
           <AppIcon functie="bellen" maat="md"/>
-          <span className="min-w-0 flex-1"><span className="block text-[15.5px] font-black">{t("routes.kinderenKindId.telefoonnummers")}</span><span className="block truncate text-xs text-ink-soft">{contacten.map((c) => c.naam).join(", ")}</span></span>
-          <Chevron richting="omlaag" open={open === "contact"} className="size-4 text-ink-soft"/>
-        </button> : null}
+          <span className="min-w-0 flex-1"><span className="block text-[15.5px] font-black">{t(N + "telefoonnummers")}</span><span className="block truncate text-xs text-ink-soft">{personen.length ? personen.map((c) => c.naam).join(", ") : t(N + "nogNiets")}</span></span>
+          {personen.length || open === "contact" ? <Chevron richting="omlaag" open={open === "contact"} className="size-4 text-ink-soft"/> : <Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0 text-ink-soft"/>}
+        </button>
         {open === "contact" ? (<div className="mb-3 space-y-2">
-            {contacten.map((c) => (<div key={c.naam} className="flex items-center justify-between gap-3 rounded-md bg-white/60 px-3 py-2">
-                <div><p className="text-sm font-semibold">{c.naam}</p><p className="text-xs text-ink-soft">{c.rol}</p></div>
-                <a href={`tel:${c.telefoon.replace(/\D/g, "")}`} className="flex min-h-11 shrink-0 items-center gap-1.5 text-xs font-semibold text-brand"><AppIcon functie="bellen" maat="sm" vorm="kaal"/>{c.telefoon}</a>
-              </div>))}
+            {bewerk === "contact" ? <Formulier velden={[]} begin={{ personen }} extra={(w, setW) => <LijstVelden titel={t(N + "eigen.contacten")} items={w.personen} onChange={(l) => setW((x) => ({ ...x, personen: l }))} toevoegenTekst={t(N + "eigen.contactToevoegen")} velden={[{ id: "naam", label: t(N + "naam") }, { id: "rol", label: t(N + "eigen.rolLabel"), type: "rol" }, { id: "telefoon", label: t(N + "eigen.telefoon"), type: "tel" }, { id: "email", label: t(N + "eigen.email"), type: "email" }, { id: "nood", label: t(N + "eigen.noodcontact"), type: "vink" }]}/>} voet={t(N + "eigen.contactenUitleg")} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, { profile: { personen: w.personen.filter((c) => schoon(c.naam)).map((c) => ({ id: c.id ?? nieuwId(), naam: schoon(c.naam), rol: c.rol ?? "anders", telefoon: schoon(c.telefoon), email: schoon(c.email), nood: !!c.nood })) } })}/> : <>
+              {personen.map((c) => (<div key={c.id ?? c.naam} className="flex items-center justify-between gap-3 rounded-md bg-white/60 px-3 py-2">
+                  <div className="min-w-0"><p className="text-sm font-semibold">{c.naam}</p><p className="text-xs text-ink-soft">{t(N + `rol.${ROLLEN.includes(c.rol) ? c.rol : "anders"}`)}{c.nood ? ` · ${t(N + "eigen.noodcontact")}` : ""}{c.email ? ` · ${c.email}` : ""}</p></div>
+                  {c.telefoon ? <a href={`tel:${c.telefoon.replace(/[^\d+]/g, "")}`} className="flex min-h-11 shrink-0 items-center gap-1.5 text-xs font-semibold text-brand"><AppIcon functie="bellen" maat="sm" vorm="kaal"/>{c.telefoon}</a> : null}
+                </div>))}
+              {!personen.length ? <p className="text-sm text-ink-soft">{kan ? t(N + "eigen.leegSectie") : t(N + "eigen.leegSectieLezen")}</p> : null}
+              {kan ? <Button variant="ghost" className="min-h-11 gap-1.5 text-brand" onClick={() => setBewerk("contact")}>{personen.length ? <AppIcon functie="notitie" maat="sm" vorm="kaal"/> : <Plus aria-hidden="true" className="size-4"/>}{personen.length ? t("common.bewerken") : t("common.toevoegen")}</Button> : null}
+            </>}
           </div>) : null}
       </div>
 
-      <h2 className="mt-6 px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft">{t("routes.kinderenKindId.vaakNodig")}</h2>
+      <h2 className="mt-6 px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft">{t(N + "vaakNodig")}</h2>
       <div className={`${GLAS} mt-2 divide-y divide-[#E9E1D5] px-4`}>
-        {groepen.filter((g) => g.id !== "basis" && g.id !== "maten").map(toonGroep)}
+        {groepen.filter((g) => ["school", "gezondheid", "activiteiten"].includes(g.id)).map(toonGroep)}
       </div>
 
-      <h2 className="mt-6 px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft">{t("routes.kinderenKindId.afEnToe")}</h2>
+      <h2 className="mt-6 px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft">{t(N + "afEnToe")}</h2>
       <div className={`${GLAS} mt-2 divide-y divide-[#E9E1D5] px-4`}>
-        {groepen.filter((g) => g.id === "maten").map(toonGroep)}
-        <div id="onderdeel-docs">
-          <Rij id="docs" icoon={<AppIcon functie="documenten" maat="md"/>} titel={t("routes.kinderenKindId.documenten")} samenvatting={docs.length ? t("routes.kinderenKindId.aantalDocumenten", { count: docs.length }) : ""}/>
-          {open === "docs" ? (<div className="mb-3 space-y-2">
-              {docs.map((d) => (<Link key={d.id} to="/documenten" className="flex min-h-11 items-center gap-2 rounded-md bg-white/60 px-3 py-2 text-sm"><span className="flex-1">{d.naam}</span><span className="text-[11px] text-ink-soft">{documentCategorieLabel(d.categorie)}</span></Link>))}
-              {docs.length === 0 ? <Link to="/documenten" className="inline-flex min-h-10 items-center text-xs font-semibold text-brand"><MetChevron>{t("routes.kinderenKindId.documentToevoegen")}</MetChevron></Link> : null}
-            </div>) : null}
-        </div>
-
-        <div id="onderdeel-feest">
-          <Rij id="feest" icoon={<AppIcon functie="verjaardag" maat="md"/>} titel={t("routes.kinderenKindId.feest.titel")} samenvatting={`${jarigOver(k.geboortedatum)}${t("routes.kinderenKindId.feest.cadeaulijstAantal", { n: cadeaus.length })}`}/>
-          {open === "feest" ? (<div className="mb-3 space-y-2">
-              <Button asChild variant="ghost" className="min-h-11 w-full justify-between"><Link to="/planning" search={{ toevoegen: "bijzonder", periode: t("routes.kinderenKindId.feest.verjaardag", { naam: k.naam }) }}>{t("routes.kinderenKindId.feest.wieViert")}<Chevron className="size-4 text-ink-soft"/></Link></Button>
-              <Button asChild variant="ghost" className="min-h-11 w-full justify-between"><Link to="/taken" search={{ taak: t("routes.kinderenKindId.feest.traktatieTaak", { naam: k.naam }), kind: k.id }}>{t("routes.kinderenKindId.feest.traktatie")}<Chevron className="size-4 text-ink-soft"/></Link></Button>
-              <Button asChild variant="ghost" className="min-h-11 w-full justify-between"><Link to="/taken" search={{ taak: t("routes.kinderenKindId.feest.uitnodigingenTaak", { naam: k.naam }), kind: k.id }}>{t("routes.kinderenKindId.feest.uitnodigingen")}<Chevron className="size-4 text-ink-soft"/></Link></Button>
-              <div className="border-t border-border pt-3">
-                <p className="font-display text-sm font-bold">{t("routes.kinderenKindId.feest.cadeaulijst")}</p>
-                <div className="mt-2 space-y-2">
-                  <div className="flex gap-2">
-                    <input value={nieuwCadeau} onChange={(e) => setNieuwCadeau(e.target.value)} placeholder={t("routes.kinderenKindId.feest.wensVan", { naam: k.naam })} className="flex-1 rounded-md bg-white/60 px-3 py-2 text-sm"/>
-                    <button onClick={() => { if (nieuwCadeau.trim()) {
-            setCadeaus((c) => [...c, { id: Date.now(), tekst: nieuwCadeau.trim(), door: "" }]);
-            setNieuwCadeau("");
-        } }} className="min-h-11 rounded-md bg-brand px-4 text-sm font-semibold text-primary-foreground">{t("common.toevoegen")}</button>
-                  </div>
-                  {cadeaus.map((c) => (<div key={c.id} className="flex items-center justify-between gap-3 rounded-md bg-white/60 px-3 py-2 text-sm">
-                      <div><p className="flex items-center gap-1.5 font-medium"><AppIcon functie="cadeau" maat="sm" vorm="kaal"/>{c.tekst}</p>{c.door ? <p className="text-xs text-ink-soft">{t("routes.kinderenKindId.feest.gekochtDoor", { naam: c.door })}</p> : null}</div>
-                      {!c.door ? <button onClick={() => setCadeaus((l) => l.map((x) => (x.id === c.id ? { ...x, door: t("routes.kinderenKindId.feest.sanneJij") } : x)))} className="shrink-0 rounded-full bg-brand-soft px-3 py-1.5 text-xs font-semibold text-brand">{t("routes.kinderenKindId.feest.ikKoop")}</button> : null}
-                    </div>))}
-                  <p className="text-[11px] text-ink-soft">{t("routes.kinderenKindId.feest.geenDubbel", { naam: k.naam })}</p>
-                </div>
-              </div>
-            </div>) : null}
-        </div>
-        {groepen.filter((g) => g.id === "basis").map(toonGroep)}
+        {groepen.filter((g) => ["maten", "praktisch", "basis"].includes(g.id)).map(toonGroep)}
       </div>
+
+      <PriveNotitie kindId={kindId} notitie={notitie}/>
 
       <section className="mt-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-[19px] font-black">{t("routes.kinderenKindId.momenten.titel", { naam: k.naam })}</h2>
-          <button onClick={() => setToevoegen((v) => !v)} className="inline-flex min-h-11 items-center gap-1 text-[13.5px] font-extrabold text-brand"><Plus aria-hidden="true" strokeWidth={2.25} className="size-4 shrink-0"/>{t("routes.kinderenKindId.momenten.toevoegen").replace(/^\+\s*/, "")}</button>
+          <h2 className="text-[19px] font-black">{t(N + "momenten.titel", { naam: kind.name })}</h2>
+          <button onClick={() => setToevoegen((v) => !v)} className="inline-flex min-h-11 items-center gap-1 text-[13.5px] font-extrabold text-brand"><Plus aria-hidden="true" strokeWidth={2.25} className="size-4 shrink-0"/>{t(N + "momenten.toevoegen").replace(/^\+\s*/, "")}</button>
         </div>
         {toevoegen ? (<div className="mt-2 space-y-2 border-y border-border py-3">
-            <Button variant="ghost" className="min-h-11 w-full justify-between" onClick={() => { setToevoegen(false); setDeelOpen(true); }}>{t("routes.kinderenKindId.momenten.delen")}<Chevron className="size-4 text-ink-soft"/></Button>
+            <Button variant="ghost" className="min-h-11 w-full justify-between" onClick={() => { setToevoegen(false); setDeelOpen(true); }}>{t(N + "momenten.delen")}<Chevron className="size-4 text-ink-soft"/></Button>
             <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!mijlpaalTekst.trim())
-            return; voegMijlpaal({ kind: k.id, jaar: new Date().getFullYear(), tekst: mijlpaalTekst.trim() }); setMijlpaalTekst(""); setToevoegen(false); }}>
-              <input aria-label={t("routes.kinderenKindId.momenten.mijlpaal")} className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm" placeholder={t("routes.kinderenKindId.momenten.mijlpaalPlaceholder")} value={mijlpaalTekst} onChange={(e) => setMijlpaalTekst(e.target.value)}/>
-              <button className="min-h-11 rounded-md bg-brand px-3 text-sm font-semibold text-primary-foreground">{t("routes.kinderenKindId.momenten.bewaar")}</button>
+            return; voegMijlpaal({ kind: kindId, jaar: new Date().getFullYear(), tekst: mijlpaalTekst.trim() }); setMijlpaalTekst(""); setToevoegen(false); }}>
+              <input aria-label={t(N + "momenten.mijlpaal")} className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm" placeholder={t(N + "momenten.mijlpaalPlaceholder")} value={mijlpaalTekst} onChange={(e) => setMijlpaalTekst(e.target.value)}/>
+              <button className="min-h-11 rounded-md bg-brand px-3 text-sm font-semibold text-primary-foreground">{t(N + "momenten.bewaar")}</button>
             </form>
           </div>) : null}
         <div className={`${GLAS} mt-2 space-y-3 px-4 py-3`}>
           {zichtbaar.map((x) => x.soort === "Momentje"
-            ? <div key={`momentje-${x.m.id}`}><p className="mb-1 text-[11px] font-semibold text-ink-soft">{t("routes.kinderenKindId.momenten.momentje")}</p><MomentjeKaart m={x.m}/></div>
-            : <div key={`mijlpaal-${x.p.id}`} className="flex items-start gap-2 border-b border-border pb-3"><AppIcon functie="mijlpaal" maat="sm"/><div><p className="text-sm font-semibold">{x.p.tekst}</p><p className="text-[11px] text-ink-soft">{t("routes.kinderenKindId.momenten.mijlpaalJaar", { jaar: x.p.jaar })}</p></div></div>)}
-          {momenten.length === 0 ? <p className="text-sm text-ink-soft">{t("routes.kinderenKindId.momenten.leeg", { naam: k.naam })} <button type="button" onClick={() => setDeelOpen(true)} className="font-semibold text-brand">{t("routes.kinderenKindId.momenten.eerste")}</button></p> : null}
+            ? <div key={`momentje-${x.m.id}`}><p className="mb-1 text-[11px] font-semibold text-ink-soft">{t(N + "momenten.momentje")}</p><MomentjeKaart m={x.m}/></div>
+            : <div key={`mijlpaal-${x.p.id}`} className="flex items-start gap-2 border-b border-border pb-3"><AppIcon functie="mijlpaal" maat="sm"/><div><p className="text-sm font-semibold">{x.p.tekst}</p><p className="text-[11px] text-ink-soft">{t(N + "momenten.mijlpaalJaar", { jaar: x.p.jaar })}</p></div></div>)}
+          {momenten.length === 0 ? <p className="text-sm text-ink-soft">{t(N + "momenten.leeg", { naam: kind.name })} <button type="button" onClick={() => setDeelOpen(true)} className="font-semibold text-brand">{t(N + "momenten.eerste")}</button></p> : null}
         </div>
-        {momenten.length > 2 || alleMomenten ? (<button onClick={() => setAlleMomenten((v) => !v)} className="mt-3 min-h-11 text-sm font-semibold text-brand">{alleMomenten ? t("routes.kinderenKindId.momenten.minder") : <MetChevron>{t("routes.kinderenKindId.momenten.alle")}</MetChevron>}</button>) : null}
-        {alleMomenten ? <Mijlpalen kindId={k.id} naam={k.naam} momentjesPerJaar={mijn.reduce((acc, m) => { const j = m.datum ? Number(m.datum.slice(0, 4)) : NaN; return Number.isFinite(j) ? { ...acc, [j]: (acc[j] ?? 0) + 1 } : acc; }, {})}/> : null}
+        {momenten.length > 2 || alleMomenten ? (<button onClick={() => setAlleMomenten((v) => !v)} className="mt-3 min-h-11 text-sm font-semibold text-brand">{alleMomenten ? t(N + "momenten.minder") : <MetChevron>{t(N + "momenten.alle")}</MetChevron>}</button>) : null}
+        {alleMomenten ? <Mijlpalen kindId={kindId} naam={kind.name} momentjesPerJaar={mijn.reduce((acc, m) => { const j = m.datum ? Number(m.datum.slice(0, 4)) : NaN; return Number.isFinite(j) ? { ...acc, [j]: (acc[j] ?? 0) + 1 } : acc; }, {})}/> : null}
       </section>
-      <DeelMomentje open={deelOpen} onSluit={() => setDeelOpen(false)} kindId={k.id}/>
+      <DeelMomentje open={deelOpen} onSluit={() => setDeelOpen(false)} kindId={kindId}/>
     </AppShell>);
 }
-const GLAS = "rounded-[22px] border border-white/85 bg-white/60";
-/** "Over 5 maanden jarig · " uit een Nederlandse datum zoals "14 april 2016"; leeg als die niet te lezen is. */
-function jarigOver(geboren) {
-    // De bron is altijd Nederlandse tekst ("14 april 2016"); de uitkomst volgt de huidige taal.
-    const maanden = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
-    const m = geboren.toLowerCase().match(/(\d{1,2})\s+([a-z]+)/);
-    const mi = m ? maanden.indexOf(m[2]) : -1;
-    if (!m || mi < 0)
-        return "";
-    const nu = new Date();
-    nu.setHours(0, 0, 0, 0);
-    let volgende = new Date(nu.getFullYear(), mi, Number(m[1]));
-    if (volgende < nu)
-        volgende = new Date(nu.getFullYear() + 1, mi, Number(m[1]));
-    const dagen = Math.round((volgende.getTime() - nu.getTime()) / 864e5);
-    if (dagen === 0)
-        return i18n.t("routes.kinderenKindId.jarig.vandaag");
-    if (dagen < 32)
-        return i18n.t("routes.kinderenKindId.jarig.dagen", { count: dagen });
-    const mnd = (volgende.getFullYear() - nu.getFullYear()) * 12 + volgende.getMonth() - nu.getMonth();
-    return i18n.t("routes.kinderenKindId.jarig.maanden", { count: mnd });
+/** Naam, geboortedatum, korte omschrijving en kleur — gedeeld met de andere ouder. */
+function BasisFormulier({ kind, onKlaar }) {
+    const { t } = useTranslation();
+    return (<Formulier velden={[
+            { id: "name", label: t(N + "naam"), verplicht: true }, { id: "last_name", label: t(N + "eigen.achternaam") },
+            { id: "date_of_birth", label: t(N + "eigen.geboortedatum"), type: "datum" }, { id: "description", label: t(N + "korteOmschrijving"), type: "lang" },
+        ]} begin={{ name: kind.name ?? "", last_name: kind.last_name ?? "", date_of_birth: kind.date_of_birth ?? "", description: kind.description ?? "", color_code: kind.color_code ?? "" }} extra={(w, setW) => (<div>
+          <p className="text-xs font-semibold">{t(N + "eigen.kleurVan", { naam: w.name || kind.name })}</p>
+          <div className="mt-1 flex gap-2" role="group" aria-label={t(N + "eigen.kleurKiezen", { naam: w.name || kind.name })}>
+            {kindKleuren.map((c) => (<button type="button" key={c.id} onClick={() => setW((x) => ({ ...x, color_code: c.hex }))} aria-label={t(N + "eigen.kleur", { naam: c.naam })} aria-pressed={w.color_code === c.hex} className="size-8 rounded-full border-2" style={{ backgroundColor: c.hex, borderColor: w.color_code === c.hex ? c.hex : "transparent", opacity: w.color_code === c.hex ? 1 : 0.45 }}/>))}
+          </div>
+        </div>)} voet={t(N + "eigen.basisGedeeld")} onAnnuleer={onKlaar} onBewaar={async (w) => {
+            if (!w.name.trim())
+                return false;
+            const ok = await bewaarKind(kind.id, { name: w.name.trim(), last_name: schoon(w.last_name), date_of_birth: w.date_of_birth || null, description: schoon(w.description), ...(w.color_code ? { color_code: w.color_code } : {}) });
+            if (ok)
+                bevestig(t(N + "eigen.opgeslagen"));
+            return ok;
+        }}/>);
+}
+/** Privénotitie per ouder: alleen de ingelogde ouder ziet en bewaart deze (child_private_notes). */
+function PriveNotitie({ kindId, notitie }) {
+    const { t } = useTranslation();
+    const [tekst, setTekst] = useState(notitie);
+    const [bezig, setBezig] = useState(false);
+    useEffect(() => { setTekst(notitie); }, [notitie]);
+    const gewijzigd = tekst !== notitie;
+    return (<section className={`${GLAS} mt-6 p-4`}>
+      <div className="flex items-start gap-3">
+        <AppIcon functie="slot" maat="md"/>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[15.5px] font-black">{t(N + "eigen.notitieTitel")}</h2>
+          <p className="text-xs text-ink-soft">{t(N + "eigen.notitieUitleg")}</p>
+        </div>
+      </div>
+      <textarea aria-label={t(N + "eigen.notitieTitel")} rows={3} value={tekst} onChange={(e) => setTekst(e.target.value)} placeholder={t(N + "eigen.notitiePlaceholder")} className={`${veld} mt-3`}/>
+      {gewijzigd ? <div className="mt-2 flex gap-2">
+        <Button disabled={bezig} onClick={async () => { setBezig(true); const ok = await bewaarNotitie(kindId, tekst); setBezig(false); if (ok)
+            bevestig(t(N + "eigen.notitieOpgeslagen")); }} className="min-h-11 bg-brand text-primary-foreground shadow-none">{t("common.opslaan")}</Button>
+        <Button variant="ghost" onClick={() => setTekst(notitie)}>{t("common.annuleren")}</Button>
+      </div> : null}
+    </section>);
 }

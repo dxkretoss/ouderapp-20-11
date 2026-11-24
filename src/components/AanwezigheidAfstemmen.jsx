@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { kindIdsVan } from "@/lib/agenda-store";
 import { useTranslation } from "react-i18next";
 import { useServerFn } from "@/lib/server-fn";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -102,7 +103,7 @@ export function AanwezigheidBlok({ afspraakId, titel, kind, datum }) {
     const [besproken, setBesproken] = useState("");
     const [gemaakteAfspraken, setGemaakteAfspraken] = useState("");
     const voorbij = datum < new Date().toISOString().slice(0, 10);
-    const taakKind = /allebei|&|kinderen|both|children/i.test(kind) ? "beide" : kind.toLowerCase();
+    const taakKind = /allebei|&|kinderen|both|children/i.test(kind) ? "beide" : kindIdsVan(kind)[0] ?? "beide";
     const kies = (keuze, opties) => {
         startAfstemming(afspraakId, keuze, "sanne", { ...opties, kind: taakKind, afspraakTitel: titel });
         setKiezerOpen(false);

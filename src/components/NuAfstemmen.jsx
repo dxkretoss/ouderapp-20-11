@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { kinderen } from "@/lib/demo-data";
+import { startState, useStart } from "@/lib/start-store";
 import { categorieLabel, reactieLabel, reageerNuAfstemmen, startNuAfstemmen, } from "@/lib/nu-afstemmen-store";
-const kindNamen = (ids) => ids.map((id) => kinderen.find((k) => k.id === id)?.naam ?? id).join(" & ");
+const kindNamen = (ids) => ids.map((id) => startState().kinderen.find((k) => k.id === id)?.naam).filter(Boolean).join(" & ");
 /** Oplossingskaart: warm amber/klei, nooit fel rood. Gedeeld door Home en Berichten. */
 export function NuAfstemmenKaart({ n }) {
     const { t } = useTranslation();
@@ -28,6 +28,7 @@ export function NuAfstemmenKaart({ n }) {
 /** Korte flow: categorie, kind, tijdsdruk, één zin. */
 export function NuAfstemmenStart({ open, onSluit }) {
     const { t } = useTranslation();
+    const { kinderen } = useStart();
     const [cat, setCat] = useState(null);
     const [kids, setKids] = useState([]);
     const [reactie, setReactie] = useState("zsm");

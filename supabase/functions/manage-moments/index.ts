@@ -1,270 +1,157 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-// Phase 1: session required (see _shared/phase2-guard.ts)
-import { phase2Guard } from "../_shared/phase2-guard.ts";
+// manage-moments — "Momentjes" (photo/text moments) and milestones per child, with one reaction per
+// other parent. Session required. Private moments ("Alleen voor mij") are only ever returned to their
+// author. Photos live in the PRIVATE bucket "moments" and are served as 1 h signed URLs.
+import { db } from "../_shared/db.ts";
+import { check, err, ok, serveActions } from "../_shared/respond.ts";
+import { requireUser } from "../_shared/session.ts";
+import { optDate, optText, requireUuid } from "../_shared/util.ts";
+import { resolveAvatars, uploadImage } from "../_shared/storage.ts";
+import { CaregiverAccess, caregiverAccess, caregiverProfilesFor, canSee, Family, familyFor, familyMembers } from "../_shared/practical-scope.ts";
+import { notify } from "../_shared/practical-audit.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-session-token",
-};
+const VISIBILITY = ["private", "parents", "circle"];
+const PHASES = ["geen", "vooraf", "tijdens", "na"];
+const MILESTONES = ["Eerste stapjes", "Eerste woordje", "Eerste schooldag", "Eerste tand", "Zwemdiploma", "Verjaardag", "Sportprestatie", "Rapport", "Iets bijzonders"];
+const REACTIONS = ["leuk", "lief", "trots", "watGoed", "tekst", "duim"];
+const COLS = "id, user_id, child_id, title, description, photo_url, is_milestone, is_private, visibility, circle_ids, phase, milestone, entry_kind, happened_on, created_at, deleted_at";
 
-const isUUID = (str: any) =>
-  typeof str === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+type Row = Record<string, any>;
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+/** Parent rule, plus: circle members' moments for my children, and (as a caregiver) moments shared with my circle record. */
+function mayRead(f: Family, cg: CaregiverAccess, circleAuthors: Set<string>, r: Row): boolean {
+  if (r.deleted_at) return false;
+  const isPrivate = r.visibility === "private" || r.is_private;
+  if (r.user_id === f.userId) return true;
+  if (r.child_id && f.childIds.includes(r.child_id) && (canSee(f, r.user_id, [r.child_id], isPrivate) || (!isPrivate && circleAuthors.has(r.user_id)))) return true;
+  return r.visibility === "circle" && !!r.child_id && cg.view("momentjes").includes(r.child_id) && (r.circle_ids ?? []).some((id: string) => cg.caregiverIds.includes(id));
+}
 
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+const visible = (f: Family, r: Row) => !r.deleted_at && canSee(f, r.user_id, r.child_id ? [r.child_id] : [], r.visibility === "private" || r.is_private);
 
-    const body = await req.json();
-    const __denied = await phase2Guard(req, body);
-    if (__denied) return __denied;
-    const { action } = body;
+async function out(rows: Row[], f: Family) {
+  const ids = rows.map((r) => r.id);
+  const reactions = ids.length
+    ? ((check(await db().from("moment_reactions").select("moment_id, user_id, reaction, reaction_text, created_at").in("moment_id", ids), "reactions") ?? []) as Row[])
+    : [];
+  const urls = await resolveAvatars(rows.map((r) => r.photo_url));
+  return rows.map((r, i) => ({
+    id: r.id,
+    child_id: r.child_id,
+    author_id: r.user_id,
+    text: r.description ?? r.title,
+    photo_url: urls[i],
+    visibility: r.visibility === "private" || r.is_private ? "private" : r.visibility,
+    circle_ids: r.circle_ids ?? [],
+    phase: r.phase || "geen",
+    milestone: r.milestone ?? null,
+    kind: r.entry_kind || "moment",
+    happened_on: r.happened_on ?? String(r.created_at).slice(0, 10),
+    created_at: r.created_at,
+    // Only reactions of parents in this family (never other people's data).
+    reactions: reactions
+      .filter((x) => x.moment_id === r.id && familyMembers(f).includes(x.user_id))
+      .map((x) => ({ user_id: x.user_id, reaction: x.reaction, text: x.reaction_text ?? null, created_at: x.created_at })),
+  }));
+}
 
-    // 0. UPLOAD PHOTO (Service-Role execution completely prevents RLS errors)
-    if (action === "upload-photo") {
-      const { fileBase64, fileName, fileType, userId } = body;
-      if (!fileBase64) {
-        return new Response(JSON.stringify({ success: false, error: "fileBase64 is required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+async function loadMoment(f: Family, id: unknown): Promise<Row> {
+  const mid = requireUuid(id, "moment_id");
+  const row = check(await db().from("shared_moments").select(COLS).eq("id", mid).maybeSingle(), "load moment") as Row | null;
+  if (!row || !visible(f, row)) throw err.notFound("Moment not found");
+  return row;
+}
 
-      // Ensure 'moments' bucket exists and is public
-      try {
-        const { data: buckets } = await adminClient.storage.listBuckets();
-        const hasMoments = (buckets || []).some((b: any) => b.name === "moments" || b.id === "moments");
-        if (!hasMoments) {
-          await adminClient.storage.createBucket("moments", {
-            public: false, // Phase 1: private bucket
-            fileSizeLimit: 10485760,
-            allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"],
-          });
-        }
-        // Phase 1: buckets stay PRIVATE (never flip "moments" back to public).
-      } catch (bucketErr) {
-        console.warn("[manage-moments] bucket ensure notice:", bucketErr);
-      }
+Deno.serve(serveActions("manage-moments", {
+  async list(req) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const cg = await caregiverAccess(me.id);
+    const kids = [...new Set([...f.childIds, ...cg.view("momentjes")])];
+    const [own, perKind] = await Promise.all([
+      db().from("shared_moments").select(COLS).in("user_id", familyMembers(f)).is("deleted_at", null).order("created_at", { ascending: false }).limit(500),
+      kids.length
+        ? db().from("shared_moments").select(COLS).in("child_id", kids).is("deleted_at", null).order("created_at", { ascending: false }).limit(500)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    const alle = [...((check(own, "list moments") ?? []) as Row[]), ...((check(perKind, "list moments per child") ?? []) as Row[])];
+    const rows = [...new Map(alle.map((r) => [r.id, r])).values()].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    // Moments written by circle members (caregivers with an account) of my children are shared with the parents.
+    const circleAuthors = await caregiverProfilesFor(f.childIds);
+    return ok({ moments: await out(rows.filter((r) => mayRead(f, cg, circleAuthors, r)), f) });
+  },
 
-      const ext = (fileName?.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const cleanName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
-      const filePath = userId ? `${userId}/${cleanName}` : `moments/${cleanName}`;
+  /** kind "moment" (text and/or photo) or "mijlpaal" (a short milestone line on the child profile). */
+  async create(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const childId = requireUuid(body.child_id, "child_id");
+    // A caregiver may add a moment (shared with the parents) only with "bijdragen" for momentjes of this child.
+    const asCaregiver = !f.childIds.includes(childId);
+    if (asCaregiver && !(await caregiverAccess(me.id)).contribute("momentjes").includes(childId)) throw err.notFound("Child not found");
+    if (asCaregiver) body.visibility = "parents";
+    const kind = asCaregiver ? "moment" : body.kind ?? "moment";
+    if (!["moment", "mijlpaal"].includes(kind)) throw err.validation("kind is invalid");
+    const text = optText(body.text, "text", 2000) ?? null;
+    if (!text && !body.photo_base64) throw err.validation("text or photo is required");
+    const visibility = body.visibility ?? "parents";
+    if (!VISIBILITY.includes(visibility)) throw err.validation("visibility is invalid");
+    const phase = body.phase ?? "geen";
+    if (!PHASES.includes(phase)) throw err.validation("phase is invalid");
+    const milestone = body.milestone ?? null;
+    if (milestone !== null && !MILESTONES.includes(milestone)) throw err.validation("milestone is invalid");
+    const circle = Array.isArray(body.circle_ids) && visibility === "circle"
+      ? body.circle_ids.filter((x: unknown) => typeof x === "string" && x.length <= 80).slice(0, 30)
+      : [];
+    const photo = body.photo_base64 ? await uploadImage("moments", childId, body.photo_base64) : null;
+    const row = check(
+      await db().from("shared_moments").insert({
+        user_id: me.id,
+        child_id: childId,
+        title: (text ?? "").slice(0, 200) || "-",
+        description: text,
+        photo_url: photo,
+        is_milestone: kind === "mijlpaal" || !!milestone,
+        is_private: visibility === "private",
+        visibility,
+        circle_ids: circle,
+        phase,
+        milestone,
+        entry_kind: kind,
+        happened_on: optDate(body.happened_on, "happened_on") ?? new Date().toISOString().slice(0, 10),
+      }).select(COLS).single(),
+      "create moment",
+    ) as Row;
+    // Moments are not part of the change history; Activities reads shared moments directly.
+    return ok({ moment: (await out([row], f))[0] });
+  },
 
-      const rawBase64 = fileBase64.includes(",") ? fileBase64.split(",")[1] : fileBase64;
-      const binaryString = atob(rawBase64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
+  /** One reaction per parent; never on your own moment. The author is notified. */
+  async react(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadMoment(f, body.moment_id);
+    if (row.user_id === me.id) throw err.forbidden("You cannot react to your own moment");
+    if (!REACTIONS.includes(body.reaction)) throw err.validation("reaction is invalid");
+    const text = optText(body.text, "text", 80) ?? null;
+    check(
+      await db().from("moment_reactions").upsert(
+        { moment_id: row.id, user_id: me.id, reaction: body.reaction, reaction_text: text, created_at: new Date().toISOString() },
+        { onConflict: "moment_id,user_id" },
+      ),
+      "react",
+    );
+    await notify({ to: row.user_id, actorId: me.id, type: "moment", category: "info", key: "momentReactie", link: "/momentjes", entityType: "moment", entityId: row.id, childIds: row.child_id ? [row.child_id] : [] });
+    return ok({ moment: (await out([row], f))[0] });
+  },
 
-      const { data: uploadData, error: uploadErr } = await adminClient.storage
-        .from("moments")
-        .upload(filePath, bytes, {
-          contentType: fileType || "image/jpeg",
-          upsert: true,
-        });
+  /** Soft delete by the author (history of shared items is never rewritten for others). */
+  async delete(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadMoment(f, body.moment_id);
+    if (row.user_id !== me.id) throw err.forbidden("Only the author can remove a moment");
+    check(await db().from("shared_moments").update({ deleted_at: new Date().toISOString() }).eq("id", row.id), "delete moment");
+    return ok({});
+  },
+}));
 
-      if (uploadErr) {
-        console.error("[manage-moments] storage upload error:", uploadErr);
-        return new Response(JSON.stringify({ success: false, error: uploadErr.message }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: urlData } = adminClient.storage.from("moments").getPublicUrl(filePath);
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          url: urlData.publicUrl,
-          filePath,
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const getConnectedParentIds = async (userId: string) => {
-      const ids = [userId];
-      if (!isUUID(userId)) return ids;
-
-      try {
-        const { data: conns } = await adminClient
-          .from("parent_connections")
-          .select("parent_1_id, parent_2_id")
-          .or(`parent_1_id.eq.${userId},parent_2_id.eq.${userId}`)
-          .in("status", ["active", "connected"]);
-
-        if (conns) {
-          conns.forEach((c: any) => {
-            if (c.parent_1_id && !ids.includes(c.parent_1_id)) ids.push(c.parent_1_id);
-            if (c.parent_2_id && !ids.includes(c.parent_2_id)) ids.push(c.parent_2_id);
-          });
-        }
-
-        const { data: acceptedInvs } = await adminClient
-          .from("invitations")
-          .select("from_parent_id, to_parent_id")
-          .or(`from_parent_id.eq.${userId},to_parent_id.eq.${userId}`)
-          .eq("status", "accepted");
-
-        if (acceptedInvs) {
-          acceptedInvs.forEach((inv: any) => {
-            if (inv.from_parent_id && !ids.includes(inv.from_parent_id)) ids.push(inv.from_parent_id);
-            if (inv.to_parent_id && !ids.includes(inv.to_parent_id)) ids.push(inv.to_parent_id);
-          });
-        }
-      } catch (err) {
-        console.warn("Error finding connected parents:", err);
-      }
-      return ids;
-    };
-
-    // 1. LIST MOMENTS
-    if (action === "list") {
-      const { user_id } = body;
-      if (!user_id || !isUUID(user_id)) {
-        return new Response(JSON.stringify({ success: true, moments: [] }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Fetch accessible children for user_id
-      const { data: parentLinks } = await adminClient
-        .from("child_parents")
-        .select("child_id")
-        .eq("parent_id", user_id);
-
-      const { data: createdKids } = await adminClient
-        .from("children")
-        .select("id")
-        .eq("created_by", user_id);
-
-      const accessibleChildIds = new Set<string>();
-      (parentLinks || []).forEach((l: any) => l.child_id && accessibleChildIds.add(l.child_id));
-      (createdKids || []).forEach((k: any) => k.id && accessibleChildIds.add(k.id));
-
-      const { data: userInvs } = await adminClient
-        .from("invitations")
-        .select("child_ids")
-        .or(`from_parent_id.eq.${user_id},to_parent_id.eq.${user_id}`)
-        .eq("status", "accepted");
-
-      (userInvs || []).forEach((inv: any) => {
-        if (Array.isArray(inv.child_ids)) {
-          inv.child_ids.forEach((cid: string) => isUUID(cid) && accessibleChildIds.add(cid));
-        }
-      });
-
-      const parentIds = await getConnectedParentIds(user_id);
-
-      const { data: allMoments, error } = await adminClient
-        .from("shared_moments")
-        .select("*")
-        .in("user_id", parentIds)
-        .order("created_at", { ascending: false });
-
-      if (error) throw new Error(error.message);
-
-      // Filter: user sees own moments, or co-parent moments that are not private and belong to accessible children
-      const filteredMoments = (allMoments || []).filter((m: any) => {
-        if (m.user_id === user_id) return true;
-        if (m.is_private) return false;
-        if (m.child_id) {
-          return accessibleChildIds.has(m.child_id);
-        }
-        return true;
-      });
-
-      return new Response(JSON.stringify({ success: true, moments: filteredMoments }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 2. CREATE MOMENT
-    if (action === "create") {
-      const { user_id, child_id, title, description, photo_url, is_milestone = false, is_private = false } = body;
-      if (!user_id || (!title?.trim() && !description?.trim())) {
-        return new Response(JSON.stringify({ success: false, error: "user_id and text/title are required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const insertData: any = {
-        user_id,
-        title: (title || description || "Moment").trim(),
-        description: description?.trim() || null,
-        photo_url: photo_url || null,
-        is_milestone: Boolean(is_milestone),
-        is_private: Boolean(is_private),
-      };
-
-      if (isUUID(child_id)) insertData.child_id = child_id;
-
-      const { data, error } = await adminClient
-        .from("shared_moments")
-        .insert([insertData])
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, moment: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 3. DELETE MOMENT
-    if (action === "delete") {
-      const { id } = body;
-      if (!id) {
-        return new Response(JSON.stringify({ success: false, error: "id is required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: moment } = await adminClient
-        .from("shared_moments")
-        .select("photo_url")
-        .eq("id", id)
-        .maybeSingle();
-
-      if (moment?.photo_url) {
-        try {
-          const path = moment.photo_url.split("/").pop();
-          if (path) await adminClient.storage.from("moments").remove([path]);
-        } catch {
-          // ignore storage delete errors
-        }
-      }
-
-      const { error } = await adminClient.from("shared_moments").delete().eq("id", id);
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, id }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ success: false, error: "Unknown action" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});

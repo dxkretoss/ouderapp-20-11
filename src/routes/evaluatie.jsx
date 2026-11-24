@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AppShell, PageHeader } from "@/components/AppShell";
-import { useStart } from "@/lib/start-store";
 import { AppIcon } from "@/components/AppIcon";
-import { leesEvaluaties, schrijfEvaluaties } from "@/lib/evaluatie-store";
+import { bewaarEvaluatie, useEvaluaties } from "@/lib/evaluatie-store";
+import { useGezin } from "@/lib/gezin";
 import { useTranslation, Trans } from "react-i18next";
 import i18n, { taalLocale } from "@/i18n";
 const N = "routes.evaluatie.";
@@ -57,8 +57,8 @@ function Cirkel() {
 }
 function EvaluatiePagina() {
     const { t } = useTranslation();
-    const st = useStart();
-    const ander = st.eigen ? t("common.deAndereOuder") : "Joris";
+    const g = useGezin();
+    const ander = g.ander?.naam || t("common.deAndereOuder");
     const [stap, setStap] = useState("start");
     const [goed, setGoed] = useState("");
     const [anders, setAnders] = useState("");
@@ -67,24 +67,25 @@ function EvaluatiePagina() {
     const [zelf, setZelf] = useState("");
     const [loslaten, setLoslaten] = useState("");
     const [delen, setDelen] = useState({ goed: false, anders: false, werkt: false });
-    const [eerder, setEerder] = useState([]);
-    useEffect(() => { setEerder(leesEvaluaties()); }, []);
+    const eerder = useEvaluaties();
+    const [bewaard, setBewaard] = useState(false);
     const laatste = eerder[0];
     const ga = (s) => { setStap(s); if (typeof window !== "undefined")
         window.scrollTo({ top: 0 }); };
     const concept = [
-        st.eigen ? t(N + "concept.aanhefZonderNaam") : t(N + "concept.aanhef", { naam: "Joris" }),
+        g.ander?.naam ? t(N + "concept.aanhef", { naam: g.ander.naam }) : t(N + "concept.aanhefZonderNaam"),
         delen.goed && goed.trim() ? t(N + "concept.goed", { tekst: goed.trim() }) : "",
         delen.anders && anders.trim() ? t(N + "concept.anders", { tekst: anders.trim() }) : "",
         delen.werkt && werkt ? t(N + "concept.werkt", { antwoord: t(N + `werkt.${werkt}`) }) : "",
         t(N + "concept.afsluiting"),
     ].filter(Boolean).join("\n");
     const ietsGedeeld = (delen.goed && goed.trim()) || (delen.anders && anders.trim()) || (delen.werkt && werkt);
+    // Eén keer per doorloop bewaren (ook als de ouder daarna nog naar Berichten gaat).
     const bewaar = () => {
-        const e = { datum: new Date().toISOString().slice(0, 10), goed, anders, werkt, nodig, zelf };
-        const l = [e, ...eerder].slice(0, 12);
-        setEerder(l);
-        schrijfEvaluaties(l);
+        if (bewaard)
+            return;
+        setBewaard(true);
+        bewaarEvaluatie({ goed, anders, werkt, nodig, zelf });
     };
     return (<AppShell>
       <PageHeader titel={t(N + "titel")} subtitel={t(N + "subtitel")} terug="/meer"/>

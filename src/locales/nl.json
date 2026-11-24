@@ -835,7 +835,11 @@
         "categorie": "Categorie",
         "verdeling": "Verdeling",
         "toegevoegdDoor": "Toegevoegd door",
-        "laatstGewijzigd": "Laatst gewijzigd"
+        "laatstGewijzigd": "Laatst gewijzigd",
+        "tijd": "Tijd",
+        "van": "Van",
+        "naar": "Naar",
+        "betaaldDoor": "Betaald door"
       },
       "wijzigingsverzoek": "Wijzigingsverzoek {{actie}}",
       "pdf": {
@@ -899,7 +903,10 @@
       "nogNiet": "Nog niet",
       "delenKnop": "Delen",
       "vastgelegd": "Dat dit dossier is gemaakt staat in de wijzigingsgeschiedenis. Naar wie je het stuurt wordt niet vastgelegd.",
-      "nieuwDossier": "Nieuw dossier samenstellen"
+      "nieuwDossier": "Nieuw dossier samenstellen",
+      "wisselmoment": "Wisselmoment",
+      "overdrachtGedeeld": "Overdracht gedeeld",
+      "heleGezin": "Hele gezin"
     },
     "professionals": {
       "meta": {
@@ -1264,7 +1271,7 @@
         "wijzigingVoorgesteld": "Wijziging voorgesteld. De huidige afspraak blijft gelden tot de andere ouder akkoord geeft.",
         "nuGedeeld": "Afspraak is nu gedeeld met de andere ouder.",
         "aangepast": "Afspraak aangepast.",
-        "voorgesteld": "Afspraak voorgesteld in het voorbeeldgezin. Nog niet bevestigd in de agenda.",
+        "voorgesteld": "Afspraak voorgesteld. Nog niet bevestigd in de agenda.",
         "toegevoegdApparaat": "Afspraak toegevoegd op dit apparaat.",
         "toegevoegdVoorbeeld": "Afspraak toegevoegd in het voorbeeldgezin.",
         "toegevoegdPrive": "Persoonlijke afspraak toegevoegd. Alleen jij ziet hem.",
@@ -1273,7 +1280,14 @@
         "geannuleerd": "Afspraak geannuleerd.",
         "priveVraag": "Persoonlijke afspraak bewaard en je vraag is verstuurd. De andere ouder ziet niets van je afspraak.",
         "wordtAfgestemd": "De afspraak wordt nog afgestemd. Gezien is nog geen akkoord, en geen reactie ook niet.",
-        "vraagGestuurd": "Afspraak toegevoegd en de vraag naar wie het regelt is gestuurd."
+        "vraagGestuurd": "Afspraak toegevoegd en de vraag naar wie het regelt is gestuurd.",
+        "akkoordGegeven": "Je ging akkoord. De agenda is bijgewerkt.",
+        "nietAkkoordGegeven": "Niet akkoord. De huidige afspraak blijft gelden.",
+        "meerTijdGevraagd": "Je hebt meer tijd gevraagd. Het voorstel blijft open; er verandert niets.",
+        "anderVoorstelMaken": "Het voorstel is gesloten. Doe nu je eigen voorstel.",
+        "voorgesteldEigen": "Afspraak voorgesteld. Hij komt in de agenda zodra de andere ouder akkoord geeft.",
+        "toegevoegd": "Afspraak toegevoegd.",
+        "toegevoegdGedeeld": "Afspraak toegevoegd. De andere ouder ziet hem ook."
       },
       "audit": {
         "wachtOpAnder": "Wacht op de ander",
@@ -1305,7 +1319,7 @@
           "uitleg": "Zoals een ziek kind of ophalen dat niet lukt."
         }
       },
-      "eigenAgenda": "Jouw agenda. Alleen jij ziet dit.",
+      "eigenAgenda": "Nog geen andere ouder gekoppeld: wat je hier zet, geldt meteen.",
       "onderdeel": {
         "label": "Agenda onderdeel",
         "vakanties": "Vakanties"
@@ -1370,7 +1384,7 @@
       },
       "annuleren": {
         "titel": "Afspraak annuleren?",
-        "melding": "De andere ouder krijgt een melding van je voorstel zodra jullie accounts veilig gekoppeld zijn. In dit voorbeeld wordt geen echte melding verstuurd. De afspraak blijft staan tot akkoord.",
+        "melding": "De andere ouder krijgt je voorstel. De afspraak blijft staan tot akkoord.",
         "afgestemd": "Deze afspraak was afgestemd met de andere ouder. Wil je laten weten dat hij niet doorgaat?",
         "concept": "De afspraak {{titel}} op {{datum}} om {{tijd}} gaat niet door. We hadden dit afgestemd; ik laat het je daarom weten. De verwijdering leg ik apart ter akkoord voor.",
         "berichtVoorbereiden": "Bericht voorbereiden",
@@ -1434,10 +1448,11 @@
         "naOpslaan": "Na opslaan ziet de andere ouder: titel, datum, tijd, locatie en toelichting van deze afspraak.",
         "vanuitBericht": "De oorspronkelijke berichttekst staat bij Toelichting. Controleer zelf de datum, tijd, het kind en de omschrijving; er zijn geen ontbrekende details ingevuld.",
         "uitleg": {
-          "voorstel": "Bij een gezamenlijke afspraak krijgt de andere ouder een melding van je voorstel zodra jullie accounts veilig gekoppeld zijn. In dit voorbeeld wordt geen echte melding verstuurd. De afspraak blijft gelden tot akkoord.",
-          "eigen": "Bewaard op dit apparaat. Delen kan zodra de andere ouder echt gekoppeld is.",
+          "voorstel": "De andere ouder krijgt je voorstel. De huidige afspraak blijft gelden tot akkoord; geen reactie betekent geen akkoord.",
+          "eigen": "Er is nog geen andere ouder gekoppeld: je wijzigingen gelden meteen.",
           "voorbeeld": "Deze afspraak wordt toegevoegd aan het voorbeeldgezin.",
-          "prive": "Alleen jij ziet deze afspraak; je wijziging wordt direct opgeslagen."
+          "prive": "Alleen jij ziet deze afspraak; je wijziging wordt direct opgeslagen.",
+          "gedeeld": "De andere ouder ziet deze afspraak ook. Later wijzigen of verwijderen gaat via een voorstel."
         },
         "knop": {
           "selectie": "Selectie bevestigen",
@@ -1527,7 +1542,14 @@
           "wijzig": "Wijziging voorgesteld"
         },
         "nieuw": "Nieuw:",
-        "reactieOpen": "Reactie open · de huidige afspraak blijft gelden. Geen reactie betekent geen akkoord."
+        "reactieOpen": "Reactie open · de huidige afspraak blijft gelden. Geen reactie betekent geen akkoord.",
+        "vanAnder": {
+          "nieuw": "De andere ouder stelt een nieuwe afspraak voor",
+          "verwijder": "De andere ouder stelt voor deze afspraak te verwijderen",
+          "wijzig": "De andere ouder stelt een wijziging voor"
+        },
+        "jijMeerTijd": "Je vroeg meer tijd. Het voorstel blijft open.",
+        "anderMeerTijd": "De andere ouder vraagt meer tijd. Het voorstel blijft open."
       },
       "geschiedenis": "Wijzigingsgeschiedenis",
       "meerOpties": "Meer opties",
@@ -1542,7 +1564,7 @@
         "alleenJij": "Alleen jij"
       },
       "vast": {
-        "uitleg": "Bij een gezamenlijke afspraak krijgt de andere ouder een melding van je wijziging of annulering zodra jullie accounts veilig gekoppeld zijn. In dit voorbeeld wordt geen echte melding verstuurd. De afspraak blijft gelden tot akkoord."
+        "uitleg": "Bij een gedeelde afspraak gaat een wijziging of annulering via een voorstel aan de andere ouder."
       },
       "rijOpenen": "{{titel}} {{datum}} {{tijd}} openen",
       "wisselmoment": "Wisselmoment",
@@ -1745,7 +1767,8 @@
       "totAkkoord": "Tot er akkoord is, blijft de huidige verdeling van de week gelden.",
       "melding": {
         "akkoord": "Afgesproken. Fijn dat er duidelijkheid is.",
-        "nietAkkoord": "Je gaat niet akkoord. De vakantie is nog niet geregeld; de verdeling van de week blijft gelden."
+        "nietAkkoord": "Je gaat niet akkoord. De vakantie is nog niet geregeld; de verdeling van de week blijft gelden.",
+        "meerTijd": "Je hebt meer tijd gevraagd. Het voorstel blijft open; er verandert niets."
       },
       "wijzigen": "Afspraak wijzigen",
       "oorspronkelijk": "De oorspronkelijke afspraak blijft gelden: {{periode}}.",
@@ -1757,7 +1780,8 @@
         "agenda": "In de agenda bekijken",
         "taken": "Paklijst & taken",
         "kosten": "Kosten van deze vakantie"
-      }
+      },
+      "meerTijdGevraagd": "Meer tijd gevraagd. Het voorstel blijft open."
     },
     "wissel": {
       "meta": {
@@ -1901,7 +1925,8 @@
         "bijUitgaven": "staat bij Uitgaven",
         "budget": "budget {{bedrag}}",
         "geenBudget": "nog geen budget",
-        "voor": "vóór {{datum}}"
+        "voor": "vóór {{datum}}",
+        "budgetWacht": "budget {{bedrag}} · wacht op reactie"
       },
       "ikKoop": "Ik koop dit",
       "budget": "Budget",
@@ -1926,7 +1951,8 @@
           "schoen": "{{kind}} heeft maat {{maat}}",
           "kleding": "{{kind}} heeft kledingmaat {{maat}}"
         }
-      }
+      },
+      "laden": "Lijst wordt geladen…"
     },
     "abonnement": {
       "meta": {
@@ -2065,7 +2091,9 @@
         "vraagIntrekken": "Vraag intrekken",
         "voorbeeldAccepteren": "Voorbeeld: accepteren",
         "overdragen": "Taak overdragen",
-        "gesprek": "Oorspronkelijk gesprek bekijken"
+        "gesprek": "Oorspronkelijk gesprek bekijken",
+        "gevraagdDoor": "{{naam}} vraagt of jij dit wilt regelen",
+        "lieverNiet": "Liever niet"
       },
       "form": {
         "wat": "Wat moet er gebeuren?",
@@ -2088,7 +2116,8 @@
         "herhaling": "Herhaling?",
         "hoeVaak": "Hoe vaak",
         "herhalingPlaceholder": "Bijv. elk half jaar",
-        "toevoegen": "Taak toevoegen"
+        "toevoegen": "Taak toevoegen",
+        "heleGezin": "Hele gezin"
       }
     },
     "spullen": {
@@ -2108,7 +2137,8 @@
         "placeholder": "Bijv. schooltas",
         "vanWelkKind": "Van welk kind?",
         "watErmee": "Wat ermee?",
-        "voorWie": "Voor wie?"
+        "voorWie": "Voor wie?",
+        "eerstKind": "Voeg eerst een kind toe om spullen bij te houden."
       },
       "leeg": {
         "titel": "Hier is het nog rustig",
@@ -2130,7 +2160,9 @@
         "sanne": "bij Sanne",
         "joris": "bij Joris",
         "school": "op school",
-        "onbekend": "plek nog onbekend"
+        "onbekend": "plek nog onbekend",
+        "bijJou": "bij jou",
+        "bijNaam": "bij {{naam}}"
       },
       "paklijst": {
         "weekend": {
@@ -2179,7 +2211,8 @@
         "r1": "Gymtas Emma mee naar school",
         "r2": "Zwemtas Emma",
         "r3": "Voetbalschoenen Noah",
-        "r4": "Neusspray Emma aanvullen"
+        "r4": "Neusspray Emma aanvullen",
+        "leeg": "Nog geen vaste spullen. Je kunt ze toevoegen bij de wissel."
       },
       "vergeten": {
         "titel": "Niet vergeten",
@@ -2189,7 +2222,9 @@
         "winterjas": "Winterjas",
         "moetTerug": "Moet terug",
         "terug": "Terug",
-        "placeholder": "Bijv. knuffel, jas"
+        "placeholder": "Bijv. knuffel, jas",
+        "terugNaarJou": "Terug naar jou",
+        "naarWie": "Terug naar wie?"
       },
       "paklijsten": {
         "titel": "Paklijsten voor uitjes",
@@ -2208,7 +2243,8 @@
         "anders": "Anders",
         "placeholder": "Bijv. school, oma",
         "anderePlek": "Andere plek",
-        "vanzelf": "Dit komt vanzelf op de lijst bij de volgende overdracht."
+        "vanzelf": "Dit komt vanzelf op de lijst bij de volgende overdracht.",
+        "bijJou": "Bij jou"
       },
       "detail": {
         "plekAanpassen": "Plek aanpassen",
@@ -2227,7 +2263,8 @@
         "jouwReactie": "Jouw reactie nodig",
         "wachtOpAnder": "Wacht op reactie van de andere ouder",
         "afgerekend": "Afgerekend",
-        "binnenBudget": "Binnen budget"
+        "binnenBudget": "Binnen budget",
+        "meerTijd": "Meer tijd gevraagd"
       },
       "toevoegen": {
         "titel": "Wat wil je toevoegen?",
@@ -2243,17 +2280,18 @@
       },
       "saldo": {
         "titel": "Nog te verrekenen",
-        "wachtJoris": "Wacht op bevestiging van Joris",
+        "wachtJoris": "Wacht op bevestiging van de andere ouder",
         "allesVerrekend": "Alles is verrekend",
-        "jorisBetaaltJou": "Joris betaalt jou",
-        "jijBetaaltJoris": "Jij betaalt Joris",
+        "jorisBetaaltJou": "De andere ouder betaalt jou",
+        "jijBetaaltJoris": "Jij betaalt de andere ouder",
         "klaar": "Er staat iets klaar om te verrekenen",
         "nietNu": "Je hoeft het nu niet te bekijken",
         "tussenstand": "Tussenstand · jullie rekenen iedere maand af.",
         "verberg": "Verberg bedrag",
         "toon": "Toon bedrag",
         "verrekenen": "Verrekenen",
-        "afspraak": "Jullie afspraak: jij {{jij}}% · Joris {{joris}}%"
+        "afspraak": "Jullie afspraak: jij {{jij}}% · de andere ouder {{joris}}%",
+        "afspraakGrens": "Jullie afspraak: jij {{jij}}% · de andere ouder {{joris}}% · grens {{grens}}"
       },
       "wacht": {
         "titel": "Wacht op jou",
@@ -2263,7 +2301,8 @@
         "openLabel": "Open {{titel}}",
         "toonMinder": "Toon minder",
         "bekijkAlle": "Bekijk alle openstaande acties",
-        "bedragenPas": "Bedragen zie je pas als je een item opent."
+        "bedragenPas": "Bedragen zie je pas als je een item opent.",
+        "afspraak": "Kostenafspraak"
       },
       "budgetten": {
         "titel": "Budgetten",
@@ -2314,12 +2353,13 @@
         "intro": "Zo hebben we berekend wie nog welk bedrag betaalt.",
         "totaal": "Totaal openstaand",
         "jouwAandeel": "Jouw aandeel",
-        "aandeelNaam": "Aandeel {{naam}}",
+        "aandeelNaam": "Aandeel van de andere ouder",
         "voorgeschotenJou": "Voorgeschoten door jou",
-        "voorgeschotenNaam": "Voorgeschoten door {{naam}}",
+        "voorgeschotenNaam": "Voorgeschoten door de andere ouder",
         "teBetalen": "Te betalen door {{van}} aan {{aan}}",
         "totaalBedrag": "Totaal {{bedrag}}",
-        "naVerrekening": "Na verrekening"
+        "naVerrekening": "Na verrekening",
+        "jou": "jou"
       },
       "instellingen": {
         "titel": "Verdeling & afrekenen",
@@ -2342,7 +2382,8 @@
         "ontvangstBevestigd": "Ontvangst bevestigd.",
         "ikHebOntvangen": "Ik heb {{bedrag}} ontvangen",
         "afgerond": "Afrekening afgerond.",
-        "afronden": "Afrekening afronden"
+        "afronden": "Afrekening afronden",
+        "leeg": "Nog geen afrekeningen."
       },
       "melding": {
         "opgeslagen": "Uitgave opgeslagen"
@@ -2388,7 +2429,7 @@
         "volgensAfspraak": "Volgens jouw afspraak ({{sanne}} / {{joris}})",
         "volgensStandaard": "Volgens standaardverdeling ({{sanne}} / {{joris}})",
         "anderPercentage": "Ander percentage",
-        "volledig": "Volledig voor één ouder",
+        "volledig": "Helemaal voor mij (niet verrekenen)",
         "overschreden": "Afgesproken budget overschreden met {{bedrag}}",
         "binnenAfspraak": "{{budget}} valt binnen de afspraak. Wat doe je met de extra {{extra}}?",
         "extra": {
@@ -2400,14 +2441,19 @@
         "meerOpties": "Meer opties",
         "meerOptiesSub": "Categorie ({{categorie}}), bon of bijlage",
         "toelichting": "Toelichting (vrijwillig)",
-        "opslaan": "Uitgave opslaan"
+        "opslaan": "Uitgave opslaan",
+        "eerstBudget": "Dit is meer dan jullie grensbedrag van {{grens}}. Daarvoor komt er eerst een budgetvoorstel.",
+        "budgetDoen": "Budgetvoorstel doen",
+        "bonVerplicht": "Boven het grensbedrag is een bon nodig."
       },
       "bon": {
         "bonnetje": "Bonnetje",
         "optioneel": "(optioneel)",
         "foto": "Foto maken",
         "bestand": "Bestand kiezen",
-        "andereBijlage": "Andere bijlage toevoegen"
+        "andereBijlage": "Andere bijlage toevoegen",
+        "teGroot": "Dit bestand is te groot (maximaal 10 MB).",
+        "soort": "Kies een foto (jpg, png, webp) of een pdf."
       },
       "detail": {
         "toegevoegd": "Toegevoegd aan jullie verrekening",
@@ -2435,7 +2481,11 @@
         "notitieBedrag": "bedrag {{bedrag}}",
         "notitieVerdeling": "verdeling {{verdeling}}",
         "correctieVastgelegd": "Correctie vastgelegd. De bestaande bedragen en verrekening blijven gelden.",
-        "geschiedenis": "Bekijk geschiedenis"
+        "geschiedenis": "Bekijk geschiedenis",
+        "voorgesteld": "Ander voorstel:",
+        "meerTijdVastgelegd": "Vastgelegd: je kijkt er later naar. Er verandert niets.",
+        "anderMeerTijd": "De andere ouder heeft meer tijd gevraagd. Er verandert niets.",
+        "bijlageOpgeslagen": "Bijlage opgeslagen"
       },
       "eigen": {
         "afrekenen": "{{moment}} afrekenen",
@@ -2454,7 +2504,30 @@
         "hoeVerdelen": "Hoe wil je de kosten verdelen?",
         "jouwPercentage": "Jouw percentage",
         "andereOuderPct": "% / andere ouder {{pct}}%",
-        "naKoppelen": "Na het koppelen van de andere ouder kan die dit voorstel bekijken. Pas na akkoord van jullie beiden wordt het een gezamenlijke afspraak."
+        "naKoppelen": "Na het koppelen van de andere ouder kan die dit voorstel bekijken. Pas na akkoord van jullie beiden wordt het een gezamenlijke afspraak.",
+        "voorlopigKort": "voorlopig",
+        "grensKort": "grens {{grens}}",
+        "samenIntro": "Jullie spreken dit samen af. De andere ouder bevestigt je voorstel; tot dan blijft de huidige afspraak gelden.",
+        "bevestigd": "Afgesproken:",
+        "voorlopigKop": "Nu (voorlopig):",
+        "voorstelVanAnder": "De andere ouder stelt deze afspraak voor",
+        "anderVoorstelUitleg": "Wil je iets anders? Pas hieronder aan en leg je eigen voorstel voor.",
+        "wachtOpAnder": "Je voorstel wacht op bevestiging van de andere ouder.",
+        "grens": "Grensbedrag",
+        "grensUitleg": "Tot dit bedrag mag je iets kopen zonder vooraf akkoord. Daarboven komt er eerst een budgetvoorstel, ook bij de kindrekening. Leeg laten = geen grens.",
+        "grensLeeg": "Geen grens",
+        "plan": "Staat er in jullie ouderschapsplan of convenant iets anders, dan geldt dat.",
+        "voorleggen": "Opslaan en aan de andere ouder voorleggen",
+        "voorgelegd": "Voorgelegd aan de andere ouder. Tot die bevestigt, blijft de huidige afspraak gelden.",
+        "opgeslagen": "Afspraak opgeslagen",
+        "bevestigdMelding": "Geregeld! Jullie kostenafspraak is bevestigd.",
+        "afgewezenMelding": "Niet akkoord. De vorige afspraak blijft gelden."
+      },
+      "laden": "Kosten worden geladen…",
+      "solo": {
+        "saldo": "Je houdt de kosten nu voor jezelf bij. Verrekenen kan zodra de andere ouder is gekoppeld.",
+        "uitnodigen": "De andere ouder uitnodigen",
+        "eerstUitnodigen": "Budgetten spreek je samen af. Nodig eerst de andere ouder uit."
       }
     },
     "activiteiten": {
@@ -2556,7 +2629,8 @@
         "jouwAandeel": "Jouw aandeel in kosten van de andere ouder",
         "aandeelAnder": "Aandeel van de andere ouder in jouw kosten",
         "totaal": "{{bedrag}} totaal",
-        "betalingBekijken": "Betaling bekijken"
+        "betalingBekijken": "Betaling bekijken",
+        "uitgaveAkkoord": "Uitgave: {{omschrijving}}"
       },
       "tip": {
         "spullen": "Leg spullen die mee moeten alvast op één plek.",
@@ -2594,14 +2668,14 @@
         "nogMee_other": "{{count}} dingen moeten nog mee"
       },
       "overdracht": {
-        "titel": "Overdracht voor Joris",
+        "titel": "Overdracht voor de andere ouder",
         "wissel": {
           "vandaag": "Wissel vandaag 14:30.",
           "morgen": "Wissel morgen 14:30.",
           "vrijdag": "Wissel vrijdag 14:30."
         },
-        "nietZien": "Jullie zien elkaar niet bij de wissel. Vul alvast in wat Joris moet weten.",
-        "invullen": "Vul alvast in wat Joris moet weten."
+        "nietZien": "Jullie zien elkaar niet bij de wissel. Vul alvast in wat de andere ouder moet weten.",
+        "invullen": "Vul alvast in wat de andere ouder moet weten."
       },
       "binnenkort": "Binnenkort",
       "alleAfspraken": "Alle afspraken",
@@ -2630,6 +2704,15 @@
         "meenemen_one": "1 ding om mee te nemen",
         "meenemen_other": "{{count}} dingen om mee te nemen",
         "heleOverdracht": "Hele overdracht bekijken"
+      },
+      "agendaVoorstel": {
+        "jouw": "Jouw voorstel voor een afspraak",
+        "vanAnder": "Afspraak: voorstel van de andere ouder"
+      },
+      "paklijst": {
+        "titel": "Paklijst voor {{dag}}",
+        "ingepakt": "{{n}} van {{totaal}} ingepakt",
+        "leeg": "Nog niets op de lijst"
       }
     },
     "welkom": {
@@ -2749,11 +2832,15 @@
       "uitgenodigd": "Je bent uitgenodigd als {{rol}} rondom {{kinderen}}.",
       "en": " en ",
       "privacy": "Om je privacy en die van de kinderen te beschermen, log je eerst in of maak je een account.",
-      "inloggen": "Inloggen of account maken",
+      "inloggen": "Inloggen",
       "email": "E-mailadres",
       "demo": "Voorbeeld: in deze demo wordt nog geen echt account aangemaakt.",
       "teZien": "Wat je straks kunt zien",
-      "bevestigen": "Uitnodiging bevestigen"
+      "bevestigen": "Uitnodiging bevestigen",
+      "door": "Uitnodiging van {{naam}}",
+      "registreren": "Account maken",
+      "ingelogdAls": "Je bent ingelogd als {{email}}.",
+      "eigenKind": "Je bent zelf ouder van dit kind; een kring-uitnodiging is niet nodig."
     },
     "solo": {
       "meta": {
@@ -2903,14 +2990,16 @@
         "onsWisselmoment": "ons wisselmoment",
         "minuten": "Ik ben ongeveer {{min}} minuten later voor {{wat}}. Sorry voor het ongemak, ik laat het weten als ik er ben.",
         "tijd": "Ik ben later voor {{wat}}. Ik verwacht er rond {{tijd}} te zijn.",
-        "klaar": "Bericht klaargezet voor de andere ouder (voorbeeld). De planning blijft hetzelfde.",
+        "klaar": "Je bericht is naar de andere ouder gestuurd. De planning blijft hetzelfde.",
         "hoeveel": "Hoeveel later?",
         "plusMin": "+{{m}} min",
         "andereTijd": "Andere tijd",
         "verwachteTijd": "Verwachte tijd",
         "berichtAan": "Bericht aan de andere ouder",
         "versturen": "Bericht versturen"
-      }
+      },
+      "wisselmoment": "Wisselmoment",
+      "geenMomenten": "Geen wissels of gedeelde afspraken in de komende twee weken."
     },
     "berichten": {
       "meta": {
@@ -3001,7 +3090,9 @@
       "foutAlgemeen": "Er ging iets mis.",
       "gesprek": {
         "conceptNietGekoppeld": "Concept · de andere ouder is nog niet gekoppeld",
-        "deelnemers": "Sanne en Joris"
+        "deelnemers": "Sanne en Joris",
+        "jullieTweeen": "Jij en de andere ouder",
+        "nietMeerGekoppeld": "Alleen lezen · jullie zijn niet meer gekoppeld"
       },
       "samenvatting": {
         "titel": "Samenvatting · alleen voor jou",
@@ -3022,7 +3113,9 @@
         "taak": "Maak er een taak van",
         "kosten": "Als kosten",
         "vastleggen": "Leg dit vast",
-        "deadline": "Deadline opslaan"
+        "deadline": "Deadline opslaan",
+        "nietVerstuurd": "Niet verstuurd",
+        "versturen": "Versturen…"
       },
       "evenKijken": "Even kijken…",
       "waarschuwing": {
@@ -3121,6 +3214,10 @@
         "tekst": "Dit lijkt wellicht af te wijken van jullie afspraak. Wil je er een voorstel van maken?",
         "uitleg": "Een inschatting van de schrijfhulp, geen vaststelling. Er verandert niets aan jullie afspraken.",
         "knop": "Maak er een voorstel van"
+      },
+      "leeg": {
+        "titel": "Nog geen gesprekken",
+        "tekst": "Start een onderwerp met de plusknop. Je leest je bericht eerst na voordat het verstuurd wordt."
       }
     },
     "halenBrengen": {
@@ -3133,7 +3230,7 @@
       "afspraken": "Afspraken over halen en brengen",
       "bekijkAfgesproken": "Bekijk wat jullie hebben afgesproken.",
       "volgende": "Volgende overdracht",
-      "momentRegel": "{{dag}} · {{tijd}} uur · naar Joris",
+      "momentRegel": "{{dag}} · {{tijd}} uur",
       "voorbereiden": "Overdracht voorbereiden",
       "onderweg": "{{wie}} is onderweg",
       "bevestigd": "Aankomst bevestigd · {{tijd}} uur",
@@ -3142,11 +3239,11 @@
       "uitleg1": "Je bevestigt zelf dat je op de afgesproken plek bent.",
       "uitleg2": "We leggen alleen vast: wie, bij welke overdracht en hoe laat.",
       "uitleg3": "Je locatie wordt niet gebruikt. De app volgt je niet.",
-      "uitleg4": "Wie ziet dit? Jij en Joris.",
+      "uitleg4": "Wie ziet dit? Jij en de andere ouder.",
       "duidelijk": "Duidelijk",
-      "zelfBevestigen": "Je bevestigt zelf dat je op de afgesproken plek bent. Jij en Joris zien de tijd.",
+      "zelfBevestigen": "Je bevestigt zelf dat je op de afgesproken plek bent. Jij en de andere ouder zien de tijd.",
       "ikBenOnderweg": "Ik ben onderweg",
-      "melding": "Joris kreeg één rustige melding: \"{{wie}} is onderweg voor de overdracht van {{tijd}} uur.\" Geen locatie, route of aankomsttijd.",
+      "melding": "De andere ouder krijgt één rustige melding: \"{{wie}} is onderweg voor de overdracht van {{tijd}} uur.\" Geen locatie, route of aankomsttijd.",
       "demo": {
         "titel": "Voorbeeld: bekijk de overdrachtsdag",
         "nu": "Nu",
@@ -3340,7 +3437,13 @@
       "voettekst": "Ouderschap & Co · De app die ouders verbindt",
       "ouderNietGekoppeld": "Ouder · nog niemand uitgenodigd",
       "ouderUitgenodigd": "Ouder · andere ouder uitgenodigd",
-      "voorbeeldgezin": "Voorbeeldgezin"
+      "voorbeeldgezin": "Voorbeeldgezin",
+      "verbonden": {
+        "titel": "Verbonden personen",
+        "gekoppeld": "Andere ouder gekoppeld · kring rond de kinderen",
+        "uitgenodigd": "Uitnodiging verstuurd · kring rond de kinderen",
+        "uitleg": "De andere ouder en de kring rond de kinderen"
+      }
     },
     "overdracht": {
       "meta": {
@@ -3394,10 +3497,12 @@
         "l5": {
           "datum": "14 feb",
           "notitie": "Paracetamol om 8 uur gehad, lichte verhoging."
-        }
+        },
+        "vanJou": "Van jou",
+        "vanAnder": "Van de andere ouder"
       },
       "titel": "Wissel",
-      "subtitel": "Paklijst en overdracht voor vrijdag 14:30",
+      "subtitel": "Paklijst en overdracht voor de volgende wissel",
       "onderdelen": "Onderdelen van de wissel",
       "tab": {
         "paklijst": "Paklijst",
@@ -3407,18 +3512,24 @@
       "nogInTeVullen": "nog in te vullen",
       "gedeeld": "gedeeld",
       "veranderd": "Er is iets veranderd? Nu afstemmen",
-      "overdrachtVoorJoris": "Overdracht voor Joris",
-      "vulIn": "Vul in wat Joris moet weten voor de wissel",
+      "overdrachtVoorJoris": "Overdracht voor de andere ouder",
+      "vulIn": "Vul in wat de andere ouder moet weten voor de wissel",
       "wanneer": "vrijdag 14:30",
-      "terugblikUitleg": "Een neutraal overzicht van jouw eigen eerdere notities. Alleen voor jou zichtbaar. Er worden geen conclusies getrokken.",
+      "terugblikUitleg": "Een neutraal overzicht van de overdrachten tussen jullie. Er worden geen conclusies getrokken.",
       "stat": {
-        "soepel": "Soepele overgang",
+        "soepel": "Alles goed gemeld",
         "onrustig": "Onrustig geslapen",
         "mooi": "Mooie momenten"
       },
       "vanDeLaatste": "Van de laatste {{n}} overdrachten. Valt je iets op? Je kunt het altijd bespreken met de andere ouder of een professional.",
       "slaapLabel": "Slaap: {{waarde}}",
-      "overgangLabel": "Overgang: {{waarde}}"
+      "overgangLabel": "Overgang: {{waarde}}",
+      "subtitelMoment": "Paklijst en overdracht voor {{wanneer}}",
+      "geenWissel": "Er staat nog geen wisselmoment in de agenda. Vul eerst de verdeling in; dan verschijnt hier de volgende wissel.",
+      "verdelingInstellen": "Naar de verdeling op Home",
+      "vorigeNalopen": "Is alles meegekomen bij de vorige wissel?",
+      "naarVolgende": "Naar de volgende wissel",
+      "terugblikLeeg": "Nog geen overdrachten gedeeld."
     },
     "privacy": {
       "meta": {
@@ -3433,7 +3544,13 @@
       "alleenOuders": "Alleen jullie als ouders zien informatie over {{naam}}.",
       "professionals": "Professionals",
       "professionalZiet": "Een professional ziet alleen de onderdelen die jullie samen hebben gekozen.",
-      "privacyverklaring": "Lees de privacyverklaring"
+      "privacyverklaring": "Lees de privacyverklaring",
+      "ouder": "Ouder",
+      "ouderZiet": "Ziet de gedeelde gegevens van {{naam}}. Jouw persoonlijke notities niet.",
+      "nogNietBevestigd": "Uitgenodigd · ziet nog niets tot de uitnodiging is bevestigd",
+      "geenProfessionals": "Er is geen professional betrokken.",
+      "geenKinderen": "Voeg eerst een kind toe; daarna zie je hier wie wat ziet.",
+      "alleenJij": "Alleen jij ziet informatie over {{naam}}."
     },
     "afspraken": {
       "meta": {
@@ -3476,7 +3593,8 @@
         "wijzigingVerstuurd": "Je wijzigingsvoorstel is verstuurd. De huidige afspraak blijft gelden tot er akkoord is.",
         "ingetrokken": "Voorstel ingetrokken. De huidige afspraken blijven gelden.",
         "proNieuw": "Je voorstel staat klaar voor beide ouders. Het geldt pas als zij allebei akkoord zijn.",
-        "nieuw": "Je voorstel is verstuurd naar Joris. Het geldt pas als hij akkoord is."
+        "nieuw": "Je voorstel is verstuurd naar Joris. Het geldt pas als hij akkoord is.",
+        "vastgelegd": "Vastgelegd. Zodra de andere ouder meedoet, ziet die het ook."
       },
       "terugNaarAfspraken": "Afspraken",
       "houvastTip": "Liever iets vastleggen? Bekijk Extra houvast.",
@@ -3538,7 +3656,9 @@
         "voorstelStoppen": "Voorstellen om afspraak te stoppen",
         "uitkomst": "Samen bekeken — uitkomst:",
         "behouden": "Werkt goed, behouden",
-        "aanpassingVoorstellen": "Aanpassing voorstellen"
+        "aanpassingVoorstellen": "Aanpassing voorstellen",
+        "jijMeerTijd": "Je hebt meer tijd gevraagd. Het voorstel blijft open; er verandert niets.",
+        "anderMeerTijd": "{{naam}} heeft meer tijd gevraagd. Het voorstel blijft open; er verandert niets."
       },
       "nieuw": {
         "waarOver": "Waar willen jullie iets over afspreken?",
@@ -3624,7 +3744,12 @@
       "demoJoris": "Demo als Joris:",
       "verbergLogboek": "Verberg logboek",
       "logboek": "Logboek ({{n}})",
-      "voetnoot": "Eerdere registraties worden nooit stilletjes aangepast: correcties verschijnen als nieuwe regel in het logboek."
+      "voetnoot": "Eerdere registraties worden nooit stilletjes aangepast: correcties verschijnen als nieuwe regel in het logboek.",
+      "placeholderEigen": "Bijv. zwemles op zaterdag",
+      "nogNietGekoppeld": "Nog niemand gekoppeld: je legt het nu vast voor jezelf. Na het uitnodigen ziet de andere ouder het ook.",
+      "voorstellenAan": "Voorstellen aan {{naam}}",
+      "delenMet": "Delen met {{naam}}",
+      "leeg": "Nog geen beslissingen vastgelegd."
     },
     "gezag": {
       "meta": {
@@ -3680,9 +3805,9 @@
       "titel": "Gezag & afspraken",
       "subtitel": "Per kind vastleggen wat voor jullie situatie geldt.",
       "situatieVan": "Gezagssituatie van {{naam}}",
-      "bevestigd": "Bevestigd door beide ouders · uittreksel gezagsregister toegevoegd",
-      "nogNietBevestigd": "Nog niet bevestigd",
-      "bevestigen": "Bevestigen + document",
+      "bevestigd": "Bevestigd door beide ouders",
+      "nogNietBevestigd": "Ingevuld door de andere ouder · nog niet door jou bevestigd",
+      "bevestigen": "Bevestigen",
       "tip": "Tip: het gezagsregister van de rechtbank laat zien wie gezag heeft. Voeg het uittreksel of een beschikking toe bij Documenten.",
       "onduidelijk": "De rechten binnen jouw situatie kunnen afhangen van specifieke afspraken of een rechterlijke beslissing. Controleer daarom altijd welke regeling voor jouw gezin geldt.",
       "heetDit": "In de app heet dit: de {{regeling}}",
@@ -3695,7 +3820,9 @@
       "afwijkend": "Er is een afwijkende rechterlijke uitspraak of regeling",
       "afwijkendUitleg": "Bekijk welke onderwerpen bij jullie regeling horen. Dit verandert geen toegang. De app bepaalt nooit zelf welke beperking geldt.",
       "goedOmTeWeten": "Goed om te weten",
-      "algemeneInfo": "Algemene informatie over het Nederlandse systeem — geen persoonlijk juridisch advies."
+      "algemeneInfo": "Algemene informatie over het Nederlandse systeem — geen persoonlijk juridisch advies.",
+      "geenKind": "Voeg eerst een kind toe; daarna kun je hier per kind het gezag vastleggen.",
+      "wachtOpAndere": "Door jou ingevuld · wacht op bevestiging van de andere ouder"
     },
     "juridisch": {
       "meta": {
@@ -3741,7 +3868,8 @@
         "kosten": "Kosten",
         "taak": "Taak",
         "spul": "Spul",
-        "gezondheid": "Gezondheid"
+        "gezondheid": "Gezondheid",
+        "document": "Document"
       },
       "titel": "Terugkijken",
       "subtitel": "Feitelijk overzicht van wat er is veranderd.",
@@ -4011,7 +4139,7 @@
       "dempen": "Dempen",
       "vanaf": "Vanaf",
       "tot": "Tot",
-      "nietsVoorJoris": "Dit verandert niets voor Joris.",
+      "nietsVoorJoris": "Dit verandert niets voor de andere ouder.",
       "voetnoot": "Een betrokken professional ziet gesprekken of opnames niet automatisch. Dat kan alleen als jullie dat apart hebben gedeeld."
     },
     "samenRegelen": {
@@ -4031,7 +4159,9 @@
         "titel": "Voorbeeld: de kring",
         "uitleg": "Bekijk de app zoals iemand uit de kring hem ziet. Iedereen ziet alleen wat ouders met hem of haar delen.",
         "geenToegang": " · geen toegang meer",
-        "terug": "Terug naar de ouder-app"
+        "terug": "Terug naar de ouder-app",
+        "nogNietBevestigd": " · nog niet bevestigd",
+        "leeg": "Er is nog niemand uitgenodigd voor de app."
       },
       "verlopen": {
         "titel": "Deze link werkt niet meer",
@@ -4083,7 +4213,8 @@
         "huisarts": "Huisarts",
         "allergieen": "Allergieën",
         "medicatie": "Medicatie",
-        "goedOmTeWeten": "Goed om te weten"
+        "goedOmTeWeten": "Goed om te weten",
+        "ouder": "ouder"
       }
     },
     "kringKindId": {
@@ -4126,7 +4257,9 @@
         "watOpNoodkaart": "Wat staat op de noodkaart?",
         "onderdelenGedeeld_one": "{{count}} onderdelen gedeeld",
         "onderdelenGedeeld_other": "{{count}} onderdelen gedeeld",
-        "bekijkKring": "Bekijk hoe de kring het ziet (voorbeeld)"
+        "bekijkKring": "Bekijk hoe de kring het ziet (voorbeeld)",
+        "uitgenodigdNogNiet": "Uitgenodigd · ziet nog niets tot de uitnodiging is bevestigd",
+        "geenMomenten": "Er staan nog geen ophaal- of brengmomenten klaar."
       },
       "toevoegen": {
         "professionalTitel": "Professional betrekken",
@@ -4188,7 +4321,10 @@
         "rechtenAanpassen": "Rechten aanpassen",
         "intrekken": "Toegang intrekken",
         "bekijkWat": "Bekijk wat {{naam}} ziet",
-        "intrekkenUitleg": "{{naam}} kan daarna niet langer bij de gedeelde informatie van {{kinderen}}."
+        "intrekkenUitleg": "{{naam}} kan daarna niet langer bij de gedeelde informatie van {{kinderen}}.",
+        "doorJouToegevoegd": "Door jou toegevoegd",
+        "toegevoegdDoorAndere": "Toegevoegd door de andere ouder",
+        "ingetrokken": "De toegang is ingetrokken. Deze persoon ziet niets meer."
       },
       "nood": {
         "titel": "Noodkaart {{naam}}",
@@ -4200,7 +4336,10 @@
           "allergieen": "Allergieën",
           "medicatie": "Medicatie-instructies",
           "extra": "Extra praktische info"
-        }
+        },
+        "extraLabel": "Goed om te weten (op de noodkaart)",
+        "extraPlaceholder": "Bijvoorbeeld: inhalator zit in het voorvak van de tas",
+        "alleenMetRecht": "Alleen mensen met toegang tot de noodkaart zien dit, en alleen de onderdelen die hierboven aan staan."
       }
     },
     "kinderenKindId": {
@@ -4225,7 +4364,44 @@
         "gezag": "Gezag",
         "ingevuldDoor": "Ingevuld door {{naam}} · nog niet bevestigd door de andere ouder",
         "invullen": "Invullen",
-        "later": "School, gezondheid en belangrijke personen voor {{naam}} kun je later aanvullen. Hier staan nu de gegevens die je bij de start hebt ingevuld. Gezag is alleen informatie en verandert niets aan toegang."
+        "later": "School, gezondheid en belangrijke personen voor {{naam}} kun je later aanvullen. Hier staan nu de gegevens die je bij de start hebt ingevuld. Gezag is alleen informatie en verandert niets aan toegang.",
+        "leerkrachten": "Leerkrachten",
+        "leerkrachtToevoegen": "Leerkracht toevoegen",
+        "opvangDagen": "Opvangdagen",
+        "opvangContact": "Contact opvang",
+        "telefoon": "Telefoon",
+        "email": "E-mail",
+        "huisarts": "Huisarts",
+        "huisartsKlein": "huisarts",
+        "tandarts": "Tandarts",
+        "allergieen": "Allergieën",
+        "allergieenKlein": "allergieën",
+        "medicatie": "Medicatie",
+        "gezondheidOverig": "Overig",
+        "hobbys": "Hobby's",
+        "activiteit": "Activiteit",
+        "wanneer": "Wanneer",
+        "activiteitToevoegen": "Activiteit toevoegen",
+        "praktisch": "Praktisch",
+        "routines": "Routines",
+        "praktischOverig": "Overig",
+        "ouders": "Ouders",
+        "leegSectie": "Nog niets ingevuld. Voeg toe wat handig is om te weten.",
+        "leegSectieLezen": "Nog niets ingevuld.",
+        "naamLeeftijd": "{{naam}}, {{leeftijd}}",
+        "omschrijvingLeeg": "Voeg een korte omschrijving toe",
+        "contacten": "Contacten",
+        "contactToevoegen": "Contact toevoegen",
+        "rolLabel": "Rol",
+        "noodcontact": "Noodcontact",
+        "contactenUitleg": "Beide ouders zien deze contacten. Noodcontacten kunnen op de noodkaart voor de kring staan.",
+        "achternaam": "Achternaam",
+        "basisGedeeld": "Beide ouders zien en gebruiken dezelfde gegevens.",
+        "opgeslagen": "Opgeslagen",
+        "notitieTitel": "Alleen voor jou",
+        "notitieUitleg": "Een persoonlijke notitie. Alleen jij ziet dit; de andere ouder en de kring niet.",
+        "notitiePlaceholder": "Iets wat je voor jezelf wilt onthouden",
+        "notitieOpgeslagen": "Notitie bewaard"
       },
       "cadeau": {
         "lego": "Lego-set",
@@ -4272,7 +4448,7 @@
       "mensen_one": "{{count}} persoon",
       "mensen_other": "{{count}} mensen",
       "enMeer": " en {{n}} meer",
-      "telefoonnummers": "Telefoonnummers",
+      "telefoonnummers": "Contacten en telefoonnummers",
       "vaakNodig": "Vaak nodig",
       "afEnToe": "Af en toe",
       "documenten": "Documenten",
@@ -4315,6 +4491,16 @@
         "dagen_other": "Over {{count}} dagen jarig · ",
         "maanden_one": "Over {{count}} maand jarig · ",
         "maanden_other": "Over {{count}} maanden jarig · "
+      },
+      "rol": {
+        "ouder": "Ouder",
+        "grootouder": "Opa of oma",
+        "verzorger": "Verzorger",
+        "oppas": "Oppas",
+        "familie": "Familie",
+        "school": "School of opvang",
+        "zorg": "Zorg",
+        "anders": "Anders"
       }
     },
     "kinderenIndex": {
@@ -4413,7 +4599,10 @@
         "voorWieLabel": "Document voor wie",
         "emmaEnNoah": "Emma & Noah",
         "voorbeeld": "In deze voorbeeldomgeving blijft het document op je apparaat; de naam verschijnt in dit overzicht.",
-        "toevoegen": "Toevoegen aan overzicht"
+        "toevoegen": "Toevoegen aan overzicht",
+        "categorie": "Soort document",
+        "veilig": "Het bestand wordt beveiligd bewaard en is alleen zichtbaar voor de ouders van dit kind.",
+        "teGroot": "Dit bestand is groter dan 10 MB. Kies een kleiner bestand."
       },
       "export": {
         "titel": "Overzicht bewaren of delen",
@@ -4430,7 +4619,11 @@
         "d3": "Allergie Noah",
         "d4": "Zorgverzekering kinderen",
         "d5": "Paspoorten"
-      }
+      },
+      "veiligGedeeldMet": "Veilig gedeeld tussen jou en {{naam}}",
+      "veiligSolo": "Veilig bewaard. Alleen jij ziet ze, tot je de andere ouder uitnodigt.",
+      "openen": "{{naam}} openen",
+      "vanNaam": " · van {{naam}}"
     },
     "meer": {
       "meta": {
@@ -4503,6 +4696,10 @@
         },
         "nogNodigStandaard": {
           "tekst": "Bestaande aankoopideeën"
+        },
+        "verbondenPersonen": {
+          "titel": "Verbonden personen",
+          "tekst": "De andere ouder en de kring"
         }
       },
       "kind": "Kind",
@@ -4663,6 +4860,47 @@
       "codeOpnieuw": "Als er een account is voor {{email}}, is er een nieuwe code verstuurd.",
       "fout": {
         "nietGelijk": "De wachtwoorden zijn niet hetzelfde."
+      }
+    },
+    "verbondenPersonen": {
+      "titel": "Verbonden personen",
+      "beschrijving": "Wie er met jullie gezin verbonden is: de andere ouder, uitnodigingen en de kring rond de kinderen.",
+      "intro": "Iedereen die met jullie gezin verbonden is, op één plek. Je ziet per persoon wat die met de app kan.",
+      "ouders": {
+        "kop": "Ouders",
+        "rol": "Ouder",
+        "gekoppeld": "Gekoppeld",
+        "deelt": "Samen voor {{kinderen}}",
+        "geenKinderen": "Nog geen kinderen gedeeld",
+        "sinds": "sinds {{datum}}",
+        "ontkoppelen": "Ontkoppelen",
+        "leeg": "Er is nog geen andere ouder gekoppeld. Je kunt de app ook alleen gebruiken."
+      },
+      "status": {
+        "contact": "Contact · geen app",
+        "uitgenodigd": "Uitgenodigd · wacht op bevestiging",
+        "actief": "Heeft toegang",
+        "verlopen": "Toegang verlopen"
+      },
+      "kring": {
+        "kop": "Kring rond de kinderen",
+        "geenApp": "alleen als contact bewaard",
+        "naBevestigen": "na bevestigen: {{wat}}",
+        "leeg": "Nog niemand in de kring. Denk aan opa en oma, een oppas of een bonusouder.",
+        "toevoegen": "Iemand toevoegen of uitnodigen",
+        "toevoegenUitleg": "Opa, oma, oppas of een andere verzorger",
+        "eerstKind": "Voeg eerst een kind toe",
+        "uitleg": "Iemand toevoegen geeft geen toegang tot de app. Alleen na een uitnodiging, inloggen en bevestigen ziet iemand precies wat je per kind kiest.",
+        "voorWie": "Voor welk kind?"
+      },
+      "wieZietWat": "Bekijk wie wat ziet",
+      "ontkoppel": {
+        "titel": "Ontkoppelen van {{naam}}?",
+        "uitleg": "Jullie delen daarna {{kinderen}} niet meer in de app. Ieder houdt de eigen kinderen en eigen notities.",
+        "uitlegZonder": "Jullie zijn daarna niet meer met elkaar verbonden in de app.",
+        "geschiedenis": "De geschiedenis van wat jullie samen deden blijft bewaard. Je kunt later opnieuw uitnodigen.",
+        "ja": "Ontkoppelen",
+        "klaar": "Ontkoppeld"
       }
     }
   },
@@ -4887,8 +5125,9 @@
         "bestemming": "Bestemming",
         "geenReistoestemming": "Een vakantieafspraak is geen reistoestemming. Het officiële formulier regel je apart.",
         "annulering": "Annulering voorstellen",
-        "eigenGezin": "Een vakantievoorstel versturen kan zodra twee ouderaccounts veilig gekoppeld zijn. Er worden geen voorbeeldafspraken voor jouw gezin gebruikt.",
-        "versturen": "Voorstel versturen"
+        "eigenGezin": "Er is nog geen andere ouder gekoppeld: je voorstel wordt meteen zo vastgelegd. Koppel de andere ouder via Instellingen.",
+        "versturen": "Voorstel versturen",
+        "vastgelegd": "Vastgelegd. Er is nog geen andere ouder gekoppeld, dus dit geldt meteen."
       }
     },
     "AgendaWissels": {
@@ -4953,7 +5192,8 @@
         "afgewezen": "Voorstel afgewezen. Er verandert niets.",
         "meerTijd": "Je hebt meer tijd gevraagd. Het voorstel blijft open; er verandert niets.",
         "herinnering": "Herinnering verstuurd. De ander kan reageren wanneer daar gelegenheid voor is.",
-        "ingetrokken": "Voorstel ingetrokken. De verdeling blijft gelden."
+        "ingetrokken": "Voorstel ingetrokken. De verdeling blijft gelden.",
+        "direct": "Vastgelegd. Er is nog geen andere ouder gekoppeld, dus de verdeling is meteen aangepast."
       },
       "kop": "Wijzigingsvoorstellen",
       "omTeReageren_one": " · {{count}} om op te reageren",
@@ -4996,7 +5236,7 @@
       "sheet": {
         "titel": "Wijziging zorgverdeling voorstellen",
         "beschrijving": "De bestaande verdeling blijft gelden tot akkoord.",
-        "bron": "Je bericht en gekozen tijdstip staan hieronder. Deze voorbeeldkalender kan de genoemde dag niet betrouwbaar overnemen. Er wordt vanuit deze suggestie niets verstuurd of gewijzigd.",
+        "bron": "Je bericht en gekozen tijdstip staan hieronder. Kies zelf de datum in de agenda; er wordt niets vanzelf overgenomen.",
         "zelfKiezen": "Zelf de kinderen en dagen kiezen",
         "alternatief": "Het oorspronkelijke voorstel is niet goedgekeurd. Controleer de kinderen, dagen en verdeling voor jouw alternatief.",
         "type": {
@@ -5099,10 +5339,11 @@
       "melding": {
         "voorstelVerstuurd": "Voorstel verstuurd. Wacht op antwoord.",
         "akkoord": "Geregeld! Het budget is afgesproken.",
-        "afgewezen": "Afgewezen. Joris krijgt dit te zien. Je vindt het onder Eerdere voorstellen.",
+        "afgewezen": "Niet akkoord. De andere ouder krijgt dit te zien. Je vindt het onder Eerdere voorstellen.",
         "herinnering": "Herinnering verstuurd. De ander kan reageren wanneer daar gelegenheid voor is.",
         "wijziging": "Wijzigingsvoorstel verstuurd. Het afgesproken budget blijft gelden.",
-        "toegevoegd": "Budgetvoorstel toegevoegd. Wacht op antwoord."
+        "toegevoegd": "Budgetvoorstel toegevoegd. Wacht op antwoord.",
+        "ingetrokken": "Voorstel ingetrokken. Het blijft zichtbaar onder Eerdere voorstellen."
       },
       "herinneringSturen": "Herinnering sturen",
       "overschreden": "Afgesproken budget overschreden met {{bedrag}}",
@@ -5141,7 +5382,8 @@
         "reactieDatum": "Graag reactie voor (vrijwillig)",
         "verzoek": "Dit is een verzoek, geen harde grens. Zonder reactie verandert er nooit automatisch iets.",
         "versturen": "Voorstel versturen"
-      }
+      },
+      "andereOuder": "De andere ouder"
     },
     "Afrekenen": {
       "standaardOmschrijving": "Afrekening gezamenlijke kosten",
@@ -5150,8 +5392,9 @@
         "ontvangen": "Ontvangst bevestigd.",
         "afgerond": "Afrekening afgerond.",
         "fout": "Deze actie kon niet worden opgeslagen. Controleer de huidige status.",
-        "verzoekOpgeslagen": "Betaalverzoek opgeslagen in het voorbeeldgezin.",
-        "linkFout": "De link kon niet worden opgeslagen."
+        "verzoekOpgeslagen": "Betaalverzoek gedeeld met de andere ouder.",
+        "linkFout": "De link kon niet worden opgeslagen.",
+        "bankGedeeld": "Je rekeninggegevens staan bij dit betaalverzoek."
       },
       "betaalverzoek": "Betaalverzoek",
       "bedragVerzoek": "Bedrag betaalverzoek",
@@ -5166,22 +5409,26 @@
       "bestemming": "Bestemming: {{host}}. Controleer bedrag en ontvanger bij de betaaldienst; vul hier geen wachtwoord of betaalgegevens in.",
       "linkControlerenKnop": "Link controleren",
       "onveilig": "Deze bestemming is onbekend of de link is onveilig. Gebruik een herkende HTTPS-link van Tikkie, Rabobank of ABN AMRO.",
-      "voorbeeldSessie": "Voorbeeldgezin: de link blijft alleen tijdens deze sessie beschikbaar. Dit deelt niets met een echt ouderaccount.",
+      "voorbeeldSessie": "De andere ouder ziet deze link bij dit betaalverzoek. Opslaan verandert niets aan de betaalstatus.",
       "gecontroleerd": "Ik heb gecontroleerd dat deze link bij het getoonde bedrag, de ontvanger en deze afrekening hoort.",
       "verzoekToevoegen": "Betaalverzoek toevoegen",
       "nogGeenVerzoek": "De ontvangende ouder heeft nog geen betaalverzoek toegevoegd.",
       "jijBetaalt": "Jij betaalt in deze afrekening. Alleen de ontvangende ouder kan hier een betaalverzoek toevoegen.",
       "bankoverschrijving": "Bankoverschrijving",
       "bank": {
-        "vraagIban": "Vraag het IBAN en de tenaamstelling rechtstreeks aan de ontvangende ouder. Bankgegevens delen in de app kan zodra beide ouders veilig gekoppeld zijn.",
-        "geenOpslag": "Er worden hier geen bankgegevens opgeslagen. Bevestig een daadwerkelijke betaling altijd bij je eigen bank.",
+        "vraagIban": "Deel je IBAN en de naam van de rekeninghouder. De andere ouder ziet ze bij dit betaalverzoek en betaalt in de eigen bankapp.",
+        "geenOpslag": "Je gegevens zijn alleen zichtbaar voor jullie tweeën, bij deze afrekening. Bevestig een betaling altijd zelf bij je bank.",
         "naamHouder": "Naam rekeninghouder",
         "iban": "IBAN",
         "kenmerk": "Betalingskenmerk",
-        "tijdelijk": "Alleen tijdelijk op dit scherm; niet gedeeld met de andere ouder. Controleer zelf bij je bank.",
+        "tijdelijk": "Er wordt geen geld via de app overgemaakt.",
         "houder": "Rekeninghouder",
         "omschrijving": "Betalingsomschrijving",
-        "voorbereiden": "Betalingsomschrijving voorbereiden"
+        "voorbereiden": "Betalingsomschrijving voorbereiden",
+        "ibanOngeldig": "Dit IBAN klopt niet. Controleer het nummer.",
+        "delen": "Rekeninggegevens delen",
+        "gedeeldDoorAnder": "De andere ouder heeft deze rekening gedeeld. Betaal in je eigen bankapp.",
+        "nogNiet": "De andere ouder heeft nog geen rekeninggegevens gedeeld."
       },
       "geenBewijs": "Een melding van de betaler is geen bewijs van ontvangst. Alleen de ontvangende ouder bevestigt dat het geld is ontvangen.",
       "ikHebBetaald": "Ik heb {{bedrag}} betaald",
@@ -5196,13 +5443,17 @@
       "ontvanger": "Ontvanger",
       "optie": {
         "verzoek": "Betalen via betaalverzoek",
-        "alBetaald": "Ik heb al betaald"
+        "alBetaald": "Ik heb al betaald",
+        "ontvangstBevestigen": "Ontvangst bevestigen"
       },
       "kopieer": {
         "label": "{{label}} kopiëren",
         "gekopieerd": "{{label}} gekopieerd.",
         "fout": "Kopiëren lukt nu niet. Je kunt de gegevens selecteren en kopiëren."
-      }
+      },
+      "andereOuder": "de andere ouder",
+      "anderBetaaltJou": "De andere ouder betaalt jou",
+      "jijBetaaltAnder": "Jij betaalt de andere ouder"
     },
     "BonScanner": {
       "docCategorie": {
@@ -5214,7 +5465,7 @@
         "brieven": "Brieven",
         "overig": "Overig"
       },
-      "volledigSanne": "Volledig Sanne",
+      "volledigSanne": "Helemaal voor mij",
       "volledigJoris": "Volledig Joris",
       "herkend": "Herkend — controleer de gegevens en pas aan waar nodig.",
       "weinigHerkend": "Weinig herkend. Vul de gegevens zelf in.",
@@ -5256,7 +5507,8 @@
       "perMaand": "Per maand",
       "opslaan": "Vaste last opslaan",
       "mnd": "/mnd",
-      "samen": "Samen {{totaal}} per maand · jouw deel {{deel}}"
+      "samen": "Samen {{totaal}} per maand · jouw deel {{deel}}",
+      "voor": "Voor wie"
     },
     "VerdeelHulp": {
       "titel": "Hulp bij verdelen",
@@ -5290,7 +5542,13 @@
       },
       "nu": "Nu",
       "bel": "Meldingen",
-      "belNieuws": "Meldingen, er is iets nieuws"
+      "belNieuws": "Meldingen, er is iets nieuws",
+      "taakVerzoek": {
+        "titel": "Wil jij dit regelen?"
+      },
+      "besluitVerzoek": {
+        "titel": "Beslissing wacht op jou"
+      }
     },
     "Assistent": {
       "voorbeelden": [
@@ -5679,7 +5937,9 @@
       "gekopieerd": "Link gekopieerd",
       "kopieren": "Link kopiëren",
       "delen": "Delen via…",
-      "uitleg": "Wie de link heeft, krijgt niet vanzelf toegang. {{naam}} moet eerst inloggen of een account maken en de uitnodiging bevestigen. Intrekken kan altijd; de link werkt dan niet meer."
+      "uitleg": "Wie de link heeft, krijgt niet vanzelf toegang. {{naam}} moet eerst inloggen of een account maken en de uitnodiging bevestigen. Intrekken kan altijd; de link werkt dan niet meer.",
+      "mailVerstuurd": "E-mail verstuurd naar {{email}}",
+      "mailMislukt": "E-mail lukte niet · deel de link op een andere manier"
     },
     "CoPrivacy": {
       "titel": "Co & je privacy",
@@ -5766,13 +6026,13 @@
       "sparren": "Even sparren met Co",
       "sparrenVraag": "Even sparren met Co?",
       "beschrijving": "Co is je digitale meedenker. Een moment voor jezelf, voordat je reageert.",
-      "priveHulp": "Privé-hulp van Co · voorbeeldfunctie. Niets wordt naar de andere ouder verstuurd. Privacycontrole voor echte gezinsgegevens is nog nodig.",
+      "priveHulp": "Privé-hulp van Co. Niets wordt naar de andere ouder verstuurd.",
       "eigenNietBeschikbaar": "Co met echte gezinsgegevens is nog niet beschikbaar. Je eigen concept blijft behouden.",
       "intro": "Soms wil je even je verhaal kwijt, je gedachten ordenen of hulp bij het formuleren van een bericht. Co denkt met je mee, zodat jij zelf kunt bepalen wat je wilt doen.",
       "waarmee": "Waar kan Co je mee helpen?",
       "andereKeuze": "Andere keuze",
       "magIk": "Mag ik dit gesprek meenemen?",
-      "maxZes": "Maximaal zes recente fictieve voorbeeldberichten. De geselecteerde berichten worden verwerkt door de AI-dienst.",
+      "maxZes": "Hooguit zes recente berichten uit dit gesprek. De geselecteerde berichten worden verwerkt door de AI-dienst.",
       "bekijkGeselecteerd": "Bekijk geselecteerde berichten",
       "andereOuder": "Andere ouder",
       "jaGebruik": "Ja, gebruik dit gesprek",
@@ -5780,7 +6040,7 @@
       "geselecteerd_one": "{{count}} fictieve voorbeeldberichten geselecteerd.",
       "geselecteerd_other": "{{count}} fictieve voorbeeldberichten geselecteerd.",
       "geenMeegenomen": "Geen gespreksberichten meegenomen.",
-      "gebruikFictief": "Gebruik fictieve afspraken, vakantieplanning en agenda",
+      "gebruikFictief": "Gebruik vastgelegde afspraken en vakantieplanning",
       "jijAanCo": "Jij aan Co",
       "nadenken": "Even nadenken…",
       "fout": "{{fout}} Je tekst staat opnieuw in het invoerveld.",
@@ -5799,7 +6059,7 @@
       "placeholder": "Vertel of vraag iets met fictieve gegevens…",
       "terugGesprek": "Terug naar gesprek",
       "vraagCo": "Vraag het Co",
-      "alleenFictief": "Alleen fictieve gegevens. AI-tekst wordt voor het antwoord verwerkt, niet in de app bewaard."
+      "alleenFictief": "Je tekst wordt alleen voor het antwoord verwerkt en niet in de app bewaard. Co verstuurt nooit iets."
     },
     "HulpVragen": {
       "bevestig": "Hulpverzoek klaargezet voor de gekozen personen.",
@@ -5819,7 +6079,8 @@
       "regeltDit": "{{naam}} regelt dit",
       "ingetrokken": "Ingetrokken",
       "intrekken": "Intrekken",
-      "voorbeeldgezin": "Voorbeeldgezin · er worden geen echte meldingen verstuurd"
+      "voorbeeldgezin": "Voorbeeldgezin · er worden geen echte meldingen verstuurd",
+      "nogLokaal": "Hulpverzoeken staan nog alleen op dit apparaat · er worden nog geen meldingen verstuurd"
     },
     "OnderwegStatus": {
       "onderweg": "{{wie}} is onderweg"
@@ -5927,7 +6188,7 @@
       "verschuiven": "Wissel verschuiven",
       "allesMeegekomen": "Is alles meegekomen?",
       "viaSchool": "<b>De wissel is via school.</b> Spullen die niet mee naar school kunnen, zoals een grote tas, breng je los naar het huis van de ander.",
-      "standaard": "Spullen die standaard meewisselen komen er vanzelf op. Vaste-plek- en dubbele spullen niet.",
+      "standaard": "Vaste spullen komen vanzelf op de lijst. Wat je zelf typt, staat de volgende keer tussen de keuzes.",
       "weerOpLijst_one": "{{items}} staat weer op de lijst",
       "weerOpLijst_other": "{{items}} staan weer op de lijst",
       "fijnAlles": "Fijn, alles is meegekomen",
@@ -5937,13 +6198,37 @@
       "komtWeer_one": "{{items}} komt vanzelf weer op de lijst. De andere ouder ziet dit.",
       "komtWeer_other": "{{items}} komen vanzelf weer op de lijst. De andere ouder ziet dit.",
       "bevestigen": "Bevestigen",
-      "terugLijst": "Terug naar de lijst"
+      "terugLijst": "Terug naar de lijst",
+      "optie": {
+        "zwemspullen": "Zwemspullen",
+        "gymtas": "Gymtas",
+        "medicijnen": "Medicijnen",
+        "voetbalspullen": "Voetbalspullen",
+        "sportkleding": "Sportkleding",
+        "schooltas": "Schooltas",
+        "knuffel": "Knuffel",
+        "pyjama": "Pyjama",
+        "jas": "Jas",
+        "oplader": "Oplader",
+        "tablet": "Tablet",
+        "huiswerk": "Huiswerk"
+      },
+      "bron": {
+        "vast": "Vast",
+        "verzoek": "Verzoek van de andere ouder",
+        "jouwVerzoek": "Jouw verzoek",
+        "nietMeegekomen": "Niet meegekomen vorige keer"
+      },
+      "geenTijd": "Wissel",
+      "naarJou": "naar jou",
+      "naarAnder": "naar de andere ouder",
+      "kiesUitLijst": "Kies uit de lijst"
     },
     "VasteRoutines": {
-      "titel": "Vaste routines",
-      "uitleg": "Spullen die op een vaste dag mee moeten. Alleen voor jou — geen afspraak met de andere ouder.",
+      "titel": "Vaste spullen",
+      "uitleg": "Spullen die bij elke wissel mee moeten. Jij en de andere ouder kunnen deze lijst aanpassen.",
       "elkeKind": "Elke {{dag}} · {{kind}}",
-      "verwijderen": "Routine {{item}} verwijderen",
+      "verwijderen": "{{item}} verwijderen",
       "hoortBij": "De {{item}} hoort bij {{kind}}s {{titel}} op {{dag}}.",
       "voortaanVraag": "Voortaan vanzelf voorstellen bij de overdracht?",
       "redenTitel": "Elke {{dag}} {{titel}}",
@@ -5954,8 +6239,10 @@
       "watMoetMee": "Wat moet mee",
       "dag": "Dag",
       "kind": "Kind",
-      "bewaren": "Routine bewaren",
-      "toevoegen": "+ Routine toevoegen"
+      "bewaren": "Bewaren",
+      "toevoegen": "Vast spul toevoegen",
+      "elkeWissel": "Elke wissel",
+      "elkeWisselKind": "Elke wissel · {{kind}}"
     },
     "Communicatiemeter": {
       "signaal": "Communicatiesignaal",
@@ -6026,7 +6313,8 @@
       "geldtNu": " · geldt nu voor {{naam}}",
       "hangtAf": "Wie betrokken moet worden bij deze medische beslissing, hangt af van het gezag, de leeftijd van het kind en de behandeling.",
       "toevoegen": "Medische beslissing toevoegen",
-      "geenToestemming": "Een akkoord in de app is geen juridisch geldige medische toestemming voor een zorgverlener. In een spoedsituatie neem je altijd direct contact op met een zorgverlener of bel je 112 — wacht nooit op de app."
+      "geenToestemming": "Een akkoord in de app is geen juridisch geldige medische toestemming voor een zorgverlener. In een spoedsituatie neem je altijd direct contact op met een zorgverlener of bel je 112 — wacht nooit op de app.",
+      "naarGezag": "Gezag bekijken of aanpassen"
     },
     "MeerLijst": {
       "wachtOpJou": "{{n}} wacht op jou"
@@ -8952,7 +9240,8 @@
         "budget": "Budget: {{wat}}",
         "vakantie": "Vakantie: {{naam}}",
         "kost": "Uitgave: {{omschrijving}}",
-        "aanwezigheid": "Aanwezigheid afstemmen"
+        "aanwezigheid": "Aanwezigheid afstemmen",
+        "agenda": "Agenda: {{titel}}"
       },
       "budgetOmschrijving": "€ {{bedrag}} · verdeling {{sanne}} / {{ander}}"
     },
@@ -9026,7 +9315,8 @@
       "actie": {
         "annuleringAfgesproken": "Annulering afgesproken",
         "afgesproken": "Afgesproken",
-        "ingetrokken": "Ingetrokken"
+        "ingetrokken": "Ingetrokken",
+        "voorgesteld": "Voorgesteld"
       },
       "vakantiewijziging": "Vakantiewijziging"
     },
@@ -9142,7 +9432,9 @@
         "wacht": "Afstemmen",
         "bevestigd": "Bevestigd",
         "verrekend": "Afgerekend",
-        "betwist": "Nog niet geregeld · geen akkoord"
+        "betwist": "Nog niet geregeld · geen akkoord",
+        "opgeslagen": "Niet verrekenen",
+        "ingetrokken": "Ingetrokken"
       },
       "categorie": {
         "Algemeen": "Algemeen",
@@ -9299,7 +9591,8 @@
         "budget": "Budgetvoorstel",
         "vakantie": "Vakantieafspraak",
         "kost": "Uitgave",
-        "aanwezigheid": "Afspraak in de agenda"
+        "aanwezigheid": "Afspraak in de agenda",
+        "agenda": "Afspraak in de agenda"
       },
       "geregeld": "{{term}} geregeld",
       "audit": {
@@ -9309,7 +9602,11 @@
         "kosten": "Uitgave",
         "taak": "Taak",
         "spul": "Spul",
-        "dossier": "Dossier"
+        "dossier": "Dossier",
+        "document": "Document",
+        "spullen": "Spul",
+        "overdracht": "Overdracht",
+        "vakantie": "Vakantie"
       },
       "detail": {
         "wat": "Wat",
@@ -9816,7 +10113,9 @@
         "gaatIn": "Afspraak gaat in.",
         "gestopt": "Afspraak gestopt.",
         "nieuweVersie": "Nieuwe versie ingegaan. Tekst gewijzigd van ‘{{oud}}’ naar ‘{{nieuw}}’.",
-        "ingetrokken": "{{door}} trok het voorstel in. Ingetrokken · {{tekst}}. De huidige afspraken blijven gelden."
+        "ingetrokken": "{{door}} trok het voorstel in. Ingetrokken · {{tekst}}. De huidige afspraken blijven gelden.",
+        "meerTijd": "{{wie}} vroeg meer tijd. Het voorstel blijft open.",
+        "vastgelegd": "Vastgelegd door {{wie}}."
       },
       "seed": {
         "a1": {
@@ -9894,8 +10193,8 @@
     "gezagStore": {
       "label": {
         "gezamenlijk": "Beide ouders hebben gezamenlijk gezag",
-        "ouder1": "Sanne heeft eenhoofdig gezag",
-        "ouder2": "Joris heeft eenhoofdig gezag",
+        "ouder1": "Jij hebt eenhoofdig gezag",
+        "ouder2": "De andere ouder heeft eenhoofdig gezag",
         "voogd": "Er is een voogd",
         "anders": "Anders / bijzondere situatie",
         "onbekend": "Nog niet ingesteld"
@@ -9984,7 +10283,15 @@
         "kosten": "Kostenpost",
         "taak": "Taak",
         "spul": "Spul",
-        "dossier": "Dossier"
+        "dossier": "Dossier",
+        "budget": "Budget",
+        "verrekening": "Verrekening",
+        "kostenafspraak": "Kostenafspraak",
+        "vasteLast": "Vaste last",
+        "document": "Document",
+        "vakantie": "Vakantie",
+        "overdracht": "Overdracht",
+        "kring": "Belangrijke persoon"
       },
       "mediator": "Mediator",
       "rol": {
@@ -10002,7 +10309,36 @@
         "EXPORTED": "gegenereerd"
       },
       "kopWijzigde": "{{actor}} wijzigde {{veld}}",
-      "kop": "{{soort}} {{actie}} door {{actor}}"
+      "kop": "{{soort}} {{actie}} door {{actor}}",
+      "veld": {
+        "verantwoordelijke": "verantwoordelijke",
+        "gevraagdAan": "gevraagd aan",
+        "gedaan": "geregeld",
+        "contactStatus": "contactstatus",
+        "naam": "naam",
+        "meewisselen": "meewisselen",
+        "plek": "plek",
+        "wieRegelt": "wie regelt dit",
+        "terug": "terug in het andere huis",
+        "categorie": "soort",
+        "reactie": "reactie"
+      },
+      "waarde": {
+        "niemand": "nog niemand",
+        "ja": "ja",
+        "nee": "nee",
+        "akkoord": "akkoord",
+        "niet": "niet akkoord",
+        "mee": "Wisselt mee",
+        "vast": "Vaste plek",
+        "dubbel": "In beide huizen",
+        "terug": "Moet terug",
+        "nog-te-regelen": "Nog te regelen",
+        "contact-opgenomen": "Contact opgenomen",
+        "wacht-op-reactie": "Wacht op reactie",
+        "afgerond": "Afgerond",
+        "niet-mogelijk": "Niet mogelijk"
+      }
     },
     "samenRegelen": {
       "afgerond": "Afgerond",
@@ -10455,6 +10791,90 @@
         "NETWORK": "Geen verbinding. Controleer je internet en probeer het opnieuw.",
         "NOT_CONFIGURED": "De app is nog niet met de server verbonden.",
         "GONE": "Deze functie bestaat niet meer. Ververs de app."
+      }
+    },
+    "overdrachtStore": {
+      "wisselmoment": "Wisselmoment"
+    },
+    "berichtenStore": {
+      "zonderTitel": "Onderwerp"
+    },
+    "meldingen": {
+      "taakGevraagd": {
+        "titel": "Gevraagd om een taak",
+        "uitleg": "{{naam}} vraagt of jij dit wilt regelen: {{titel}}"
+      },
+      "taakGeaccepteerd": {
+        "titel": "Taak overgenomen",
+        "uitleg": "{{naam}} regelt dit: {{titel}}"
+      },
+      "taakAfgewezen": {
+        "titel": "Taak niet overgenomen",
+        "uitleg": "{{naam}} kan dit niet oppakken: {{titel}}. De taak staat weer open."
+      },
+      "taakVerzoekIngetrokken": {
+        "titel": "Vraag ingetrokken",
+        "uitleg": "{{naam}} heeft de vraag ingetrokken: {{titel}}"
+      },
+      "afspraakVoorstel": {
+        "titel": "Nieuw voorstel",
+        "uitleg": "{{naam}} stelt een afspraak voor: {{titel}}"
+      },
+      "afspraakWijzigVoorstel": {
+        "titel": "Voorstel om aan te passen",
+        "uitleg": "{{naam}} wil een afspraak aanpassen: {{titel}}"
+      },
+      "afspraakStopVoorstel": {
+        "titel": "Voorstel om te stoppen",
+        "uitleg": "{{naam}} wil een afspraak stoppen: {{titel}}"
+      },
+      "afspraakAkkoord": {
+        "titel": "Afspraak geldt nu",
+        "uitleg": "{{naam}} ging akkoord: {{titel}}"
+      },
+      "afspraakReactie": {
+        "titel": "Reactie op je voorstel",
+        "uitleg": "{{naam}} heeft gereageerd: {{titel}}"
+      },
+      "afspraakAnderVoorstel": {
+        "titel": "Ander voorstel",
+        "uitleg": "{{naam}} doet een ander voorstel: {{titel}}"
+      },
+      "afspraakNietAkkoord": {
+        "titel": "Niet akkoord",
+        "uitleg": "{{naam}} ging niet akkoord: {{titel}}. De huidige afspraken blijven gelden."
+      },
+      "afspraakMeerTijd": {
+        "titel": "Meer tijd gevraagd",
+        "uitleg": "{{naam}} heeft meer tijd nodig: {{titel}}. Er verandert niets."
+      },
+      "afspraakIngetrokken": {
+        "titel": "Voorstel ingetrokken",
+        "uitleg": "{{naam}} heeft het voorstel ingetrokken: {{titel}}"
+      },
+      "besluitVoorstel": {
+        "titel": "Beslissing voorgesteld",
+        "uitleg": "{{naam}} vraagt je akkoord: {{titel}}"
+      },
+      "besluitGedeeld": {
+        "titel": "Beslissing gedeeld",
+        "uitleg": "{{naam}} deelt: {{titel}}"
+      },
+      "besluitAkkoord": {
+        "titel": "Samen akkoord",
+        "uitleg": "{{naam}} ging akkoord: {{titel}}"
+      },
+      "besluitNietAkkoord": {
+        "titel": "Niet akkoord",
+        "uitleg": "{{naam}} ging niet akkoord: {{titel}}"
+      },
+      "momentReactie": {
+        "titel": "Reactie op je moment",
+        "uitleg": "{{naam}} reageerde op je moment"
+      },
+      "documentToegevoegd": {
+        "titel": "Nieuw document",
+        "uitleg": "{{naam}} voegde toe: {{titel}}"
       }
     }
   },

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { alGereageerd, bouwCoachVerzoek } from "./coach.functions";
+import { alGereageerd } from "./coach.functions";
+// Phase 2: prompts en de detailcontrole staan server-side (supabase/functions/_shared/ai-coach-prompts.js).
+import { bouwCoachVerzoek, nieuweDetails } from "../../supabase/functions/_shared/ai-coach-prompts.js";
 describe("schrijfhulp leest het hele gesprek mee", () => {
     test("eigen antwoord ná het bericht telt als al gereageerd", () => {
         expect(alGereageerd([{ van: "ander" }, { van: "ik" }])).toBe(true);
@@ -22,7 +24,6 @@ describe("schrijfhulp leest het hele gesprek mee", () => {
         expect(instructions).toContain("Schrijf NOOIT wat een kind wil");
     });
 });
-import { nieuweDetails } from "./coach.functions";
 describe("geen verzonnen details", () => {
     test("'bij de BSO' zonder BSO in het gesprek wordt gevonden", () => {
         expect(nieuweDetails("Ik laat je weten of ik Noah bij de BSO kan ophalen.", "Kun jij vrijdag Noah ophalen?")).toContain("bij de BSO");

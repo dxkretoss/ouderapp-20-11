@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { kleurVanKind } from "@/lib/demo-data";
+import { startState } from "@/lib/start-store";
 /** Groepswaarden voor "kind" ("Beide kinderen", "Gezin/algemeen" …) blijven als waarde bewaard; alleen de weergave wordt vertaald. Namen blijven namen. */
 const KIND_GROEPEN = { "Beide kinderen": "beideKinderen", "Gezin/algemeen": "gezinAlgemeen", "Alle kinderen": "alleKinderen", "Allebei": "allebei", "Beide": "beide" };
 export const kindLabel = (naam) => (KIND_GROEPEN[naam] ? i18n.t(`components.KostenTabs.kind.${KIND_GROEPEN[naam]}`) : naam);
@@ -18,7 +18,7 @@ export function KostenTabs({ actief }) {
 export function KindPil({ naam, kleur }) {
     useTranslation();
     const label = kindLabel(naam);
-    const c = kleur ?? kleurVanKind(naam);
+    const c = kleur ?? startState().kinderen.find((k) => k.naam === naam)?.kleur ?? "#8A7E72";
     return (<span className="inline-flex h-6 items-center gap-1.5 rounded-full pl-0.5 pr-2.5 text-[13px] font-extrabold" style={{ background: `${c}26`, color: "#26211D" }}>
       <span className="grid size-[18px] place-items-center rounded-full text-[10px] font-black text-white" style={{ background: c }}>{label.slice(0, 1)}</span>
       {label}

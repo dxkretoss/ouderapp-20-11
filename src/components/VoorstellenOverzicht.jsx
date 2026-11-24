@@ -37,7 +37,7 @@ export function VoorstellenOverzicht() {
     <ul className="divide-y divide-border">{zichtbaar.map((v) => <li key={v.sleutel} className="py-3">
       <Button variant="ghost" className="h-auto min-h-11 w-full justify-start whitespace-normal px-0 text-left" onClick={() => router.navigate({ href: v.naar })}><span><span className="block font-semibold">{v.titel}</span><span className="block text-xs font-normal text-ink-soft">{v.omschrijving}</span><span className="block text-xs text-brand">{statusTekst[v.status]}</span></span></Button>
       {v.reactieDatum && isOpen(v) ? <p className="text-xs text-ink-soft">{t("components.VoorstellenOverzicht.reactieDatum", { datum: v.reactieDatum })}</p> : null}
-      {mag(v) ? <Button variant="link" className="px-0 text-xs" onClick={() => { const ok = v.bron === "zorg" ? stuurHerinnering(v.bronId) : stuurBudgetHerinnering(v.bronId, "Sanne"); if (ok)
+      {mag(v) ? <Button variant="link" className="px-0 text-xs" onClick={() => { const ok = v.bron === "zorg" ? stuurHerinnering(v.bronId) : stuurBudgetHerinnering(v.bronId); if (ok)
             bevestig(t("components.VoorstellenOverzicht.herinneringVastgelegd")); }}>{t("components.VoorstellenOverzicht.herinneringSturen")}</Button> : null}
     </li>)}</ul>
     {!zichtbaar.length ? <p className="mt-3 text-sm text-ink-soft">{t("components.VoorstellenOverzicht.leeg")}</p> : null}

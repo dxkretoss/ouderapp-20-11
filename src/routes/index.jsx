@@ -4,37 +4,34 @@ import { agendaItems, iso, plusDagen, voorkomens, dt } from "@/lib/agenda-datum"
 import { uur } from "@/lib/tijd-tekst";
 import { AppIcon } from "@/components/AppIcon";
 import { Chevron, MetChevron, MetVinkje, Vinkje } from "@/components/Tekens";
-import { demoUrenTotWissel, useOverdracht } from "@/lib/overdracht-store";
-import { IkBenLater } from "@/components/IkBenLater";
+import { itemsVoor, urenTot, useOverdracht, useWisselMomenten, volgendeVan } from "@/lib/overdracht-store";
+import { useAgenda } from "@/lib/agenda-store";
 import { EigenKinderen, EigenVandaag, EigenVolgende } from "@/components/EersteHome";
 import { useStart } from "@/lib/start-store";
 import { NuAfstemmenKaart } from "@/components/NuAfstemmen";
 import { openNuAfstemmen, useNuAfstemmen } from "@/lib/nu-afstemmen-store";
 import { markeerVanOverzicht, neemHeropen } from "@/lib/terug-store";
 import { accepteer as accepteerZorg, wijsAf as wijsAfZorg } from "@/lib/zorg-store";
-import { reageer as reageerBudget } from "@/lib/budget-store";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { reageer as reageerBudget, useBudgetten } from "@/lib/budget-store";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AppShell } from "@/components/AppShell";
 import { ActiviteitenBel, useActiviteiten } from "@/components/Activiteiten";
-import { useBudgetten } from "@/lib/budget-store";
 import { useZorg } from "@/lib/zorg-store";
 import { eigenOpenVoorstellen, useAfspraken } from "@/lib/afspraken-store";
 import { useVakanties } from "@/lib/vakantie-store";
 import { useTeControleren } from "@/lib/import-store";
-import { useActiesVerwerkt } from "@/lib/acties-store";
-import { useProWerk, voorOudersVan } from "@/lib/pro-journaal-store";
 import { LivingSfeer } from "@/components/LivingHome";
-import { begroeting, bijzonderMoment } from "@/lib/living-home";
+import { begroeting } from "@/lib/living-home";
 import { useVoorkeuren } from "@/lib/voorkeuren-store";
-import { nogTeVerrekenen, useKosten } from "@/lib/kosten-store";
+import { useKostenBron } from "@/lib/kosten-store";
+import { beoordeelKosten, wachtOpJouwAkkoord } from "@/lib/kosten-akkoord";
 import { berekenSaldo } from "@/lib/verrekening";
-import { useWissel } from "@/lib/wissel-store";
+import { kindLabel } from "@/components/KostenTabs";
 import { meeLijst, useTaken } from "@/lib/taken-store";
-import { afspraken, categorieMeta, kinderen, kleurVanKind, zorgweek } from "@/lib/demo-data";
-import { useMomentjes } from "@/lib/momentjes-store";
-import { regelStatus, toggleMee, useKring } from "@/lib/kring-store";
+import { categorieMeta } from "@/lib/demo-data";
+import { mijnKringen, toggleMee, useKring } from "@/lib/kring-store";
 export const Route = createFileRoute("/")({
     head: () => ({
         meta: [
@@ -53,12 +50,28 @@ export const Route = createFileRoute("/")({
 });
 /** Eén Home. Bij een eigen gezin vallen voorbeeldbronnen weg en groeien de onderdelen mee met wat echt bekend is. */
 function HomePagina() {
+    const st = useStart();
+    const nav = useNavigate();
+    // Alleen kringlid (geen eigen kinderen, geen gekoppelde ouder) met actieve kringtoegang: meteen naar de kringweergave.
+    const misschienVerzorger = !st.kinderen.length && !st.coOuders?.length;
+    const [verzorger, setVerzorger] = useState(misschienVerzorger ? undefined : false);
+    useEffect(() => {
+        if (!misschienVerzorger) {
+            setVerzorger(false);
+            return;
+        }
+        let weg = false;
+        mijnKringen().then((v) => { if (!weg)
+            setVerzorger(v.length > 0); }).catch(() => { if (!weg)
+            setVerzorger(false); });
+        return () => { weg = true; };
+    }, [misschienVerzorger]);
+    useEffect(() => { if (verzorger)
+        nav({ to: "/verzorger", replace: true }); }, [verzorger, nav]);
+    if (verzorger !== false)
+        return null;
     return <Dashboard />;
 }
-const acties = [
-    // status is een interne waarde ("Wacht op jou" / "Afstemming loopt"); de weergave gaat via statusLabel.
-    { id: "afspraak-voorstel", icoon: "voorstel", get titel() { return i18n.t("routes.index.demoActie.titel"); }, get sub() { return i18n.t("routes.index.demoActie.sub"); }, status: "Wacht op jou", naar: "/afspraken" },
-];
 const toevoegOpties = [
     { id: "afspraak", icoon: "agenda" },
     { id: "voorstel", to: "/afspraken", icoon: "voorstel" },
@@ -110,7 +123,6 @@ function Dashboard() {
     const vandaagDatum = nu.toLocaleDateString(taalLocale(), { day: "numeric", month: "long" });
     const statusLabel = (s) => (s === "Wacht op jou" ? t("routes.index.status.wachtOpJou") : t("routes.index.status.loopt"));
     const st = useStart();
-    const eigen = st.eigen;
     const [toevoegenOpen, setToevoegenOpen] = useState(false);
     const [voorstelMenu, setVoorstelMenu] = useState(false);
     const [afspraakMenu, setAfspraakMenu] = useState(false);
@@ -124,7 +136,6 @@ function Dashboard() {
     useEffect(() => { if (neemHeropen())
         setPuntenOpen(true); }, []);
     const [spullenOpen, setSpullenOpen] = useState(false);
-    const verwerkt = useActiesVerwerkt();
     const kring = useKring();
     const nuAfstemmen = useNuAfstemmen();
     useTaken();
@@ -132,23 +143,15 @@ function Dashboard() {
     const wisselMoment = kring.momenten.find((m) => m.soort === "wissel");
     const meeItems = wisselMoment ? meeLijst(wisselMoment) : [];
     const meeKlaar = wisselMoment ? kring.meeKlaar[wisselMoment.id] ?? [] : [];
-    const ophalen = regelStatus("w1");
-    const wissel = useWissel();
     const overdrachtSt = useOverdracht();
-    const kostenLijst = useKosten();
-    const saldo = nogTeVerrekenen(kostenLijst);
-    const saldoDetail = berekenSaldo(kostenLijst);
+    // Kosten van het eigen gezin (kosten-store, kijker-relatief "ik"/"ander").
+    const kostenBron = useKostenBron();
+    const kostenLijst = kostenBron.kosten;
+    const saldoDetail = berekenSaldo(kostenLijst, kostenBron.budgetten);
+    const saldo = -saldoDetail.netto; // positief: jij betaalt de andere ouder
     const [kostenOpen, setKostenOpen] = useState(false);
-    const { lijst: momentjes } = useMomentjes();
-    const heeftSaldo = Math.abs(saldo) >= 0.01;
+    const heeftSaldo = !!kostenBron.partnerId && Math.abs(saldo) >= 0.01;
     const saldoTekst = euro(Math.abs(saldo));
-    // Wat de professional aan deze ouder vraagt, komt uit dezelfde bron als in de professionele werkruimte.
-    const vanPro = voorOudersVan(useProWerk(), "bakker", "Sanne");
-    const proItems = [
-        ...vanPro.acties.filter((a) => !a.klaar).map((a) => ({ id: `pro-${a.id}`, icoon: "taken", titel: a.tekst, sub: t("routes.index.pro.gevraagd"), status: "Wacht op jou", naar: "/ondersteuning" })),
-        ...vanPro.gezamenlijk.filter((g) => !g.akkoord["Sanne"] && !g.nietAkkoord?.["Sanne"]).map((g) => ({ id: `pro-${g.id}`, icoon: "afspraak", titel: t("routes.index.pro.terBevestiging"), sub: g.tekst, status: "Wacht op jou", naar: "/ondersteuning" })),
-        ...vanPro.berichten.filter((b) => !b.gezien["Sanne"]).map((b) => ({ id: `pro-${b.id}`, icoon: "post", titel: t("routes.index.pro.bericht"), sub: b.onderwerp, status: "Wacht op jou", naar: "/ondersteuning" })),
-    ];
     // Status komt uit de bron: wat elders is afgehandeld, verdwijnt hier vanzelf.
     const alleBudgetten = useBudgetten();
     const alleZorg = useZorg().voorstellen;
@@ -161,14 +164,25 @@ function Dashboard() {
     ];
     const budgetItems = alleBudgetten.filter((b) => b.status === "wacht" || b.status === "tegenvoorstel").map((b) => ({
         id: `budget-${b.id}`, icoon: "kosten", titel: b.status === "tegenvoorstel" ? t("routes.index.budget.tegenvoorstel") : t("routes.index.budget.voorstel"),
-        sub: `${b.wat} · ${b.kind} · ${euro(b.stappen.at(-1)?.bedrag ?? b.max)}`, status: b.aanZet === "Sanne" ? "Wacht op jou" : "Afstemming loopt", naar: "/kosten",
-        snel: b.aanZet === "Sanne" ? [{ label: t("common.akkoord"), doe: () => reageerBudget(b.id, "Sanne", "akkoord") }] : undefined,
+        sub: `${b.wat} · ${kindLabel(b.kind)} · ${euro([...b.stappen].reverse().find((s) => s.bedrag !== undefined)?.bedrag ?? b.max)}`, status: b.aanZet === "ik" ? "Wacht op jou" : "Afstemming loopt", naar: "/kosten", search: { budget: b.id },
+        snel: b.aanZet === "ik" ? [{ label: t("common.akkoord"), doe: () => reageerBudget(b.id, "ik", "akkoord") }] : undefined,
+    }));
+    // Uitgaven die op jouw akkoord wachten (zelfde regel als het kostenoverzicht).
+    const kostBeoordeling = beoordeelKosten(kostenLijst, alleBudgetten);
+    const kostItems = kostenLijst.filter((k) => k.gedeeld && wachtOpJouwAkkoord(k, kostBeoordeling.get(k.id))).map((k) => ({
+        id: `kost-${k.id}`, icoon: "kosten", titel: t("routes.index.kosten.uitgaveAkkoord", { omschrijving: k.omschrijving }), sub: `${euro(k.bedrag)} · ${kindLabel(k.kind)}`, status: "Wacht op jou", naar: "/kosten",
     }));
     const zorgItems = alleZorg.filter((v) => v.status === "open").map((v) => ({
         id: `zorg-${v.id}`, icoon: "zorgregeling", titel: v.soort === "eenmalig" ? t("routes.index.zorg.eenmalig") : t("routes.index.zorg.vast"),
-        voorstelId: v.id, voorstelKind: v.kinderen[0], sub: v.datumLabel, status: v.van === "Sanne" ? "Afstemming loopt" : "Wacht op jou", naar: "/zorgregeling",
-        snel: v.van === "Sanne" ? undefined : [{ label: t("common.akkoord"), doe: () => accepteerZorg(v.id) }, { label: t("routes.index.afwijzen"), doe: () => wijsAfZorg(v.id) }],
+        voorstelId: v.id, voorstelKind: v.kinderen[0], sub: v.datumLabel, status: v.vanMij ? "Afstemming loopt" : "Wacht op jou", naar: "/zorgregeling",
+        snel: v.vanMij ? undefined : [{ label: t("common.akkoord"), doe: () => accepteerZorg(v.id) }, { label: t("routes.index.afwijzen"), doe: () => wijsAfZorg(v.id) }],
     }));
+    const agendaSt = useAgenda();
+    // Eigen gezin: voorstellen voor gedeelde afspraken uit de agenda (alleen die op jouw reactie wachten of van jou lopen).
+    const agendaVoorstelItems = agendaSt.voorstellen.filter((p) => !p.status).map((p) => {
+        const a = agendaSt.events.find((e) => e.id === p.eventId);
+        return { id: `agenda-${p.id}`, icoon: "agenda", titel: p.mine ? t("routes.index.agendaVoorstel.jouw") : t("routes.index.agendaVoorstel.vanAnder"), sub: p.velden?.titel ?? a?.titel ?? "", status: p.mine ? "Afstemming loopt" : "Wacht op jou", naar: "/agenda" };
+    });
     const afspraakItems = eigenOpenVoorstellen(useAfspraken()).map((v) => ({
         id: `afspraak-${v.id}`, icoon: "voorstel", titel: t("routes.index.jouwVoorstel"), sub: `${v.titel} · ${v.kind}`, status: "Afstemming loopt", naar: "/afspraken",
     }));
@@ -181,65 +195,27 @@ function Dashboard() {
             id: "import-ouderschapsplan", icoon: "documenten", titel: t("routes.index.import.titel"),
             sub: t("routes.index.import.sub", { count: importOpen }), status: "Wacht op jou", naar: "/documenten",
         }] : [];
-    const openActies = eigen ? [...afspraakItems] : [
-        // Geld komt eerst in "Nog te regelen": zo staat het niet los bovenaan, maar tussen de punten die jouw actie vragen.
-        ...(heeftSaldo
-            ? [{
-                    id: "kosten-openstaand",
-                    icoon: "kosten",
-                    titel: t("routes.index.kosten.nogTeBetalen"),
-                    sub: saldo > 0 ? t("routes.index.kosten.betalen", { bedrag: saldoTekst }) : t("routes.index.kosten.ontvangen", { bedrag: saldoTekst }),
-                    status: "Wacht op jou",
-                    naar: "/kosten",
-                }]
-            : []),
-        ...budgetItems,
-        ...vakantieItems,
-        ...importItems,
-        ...afspraakItems,
-        ...zorgItems,
-        ...acties.filter((a) => !verwerkt.has(a.id)),
-        ...proItems,
-    ];
+    // Geld komt eerst in "Nog te regelen": zo staat het niet los bovenaan, maar tussen de punten die jouw actie vragen.
+    const saldoItems = heeftSaldo ? [{
+            id: "kosten-openstaand", icoon: "kosten", titel: t("routes.index.kosten.nogTeBetalen"),
+            sub: saldo > 0 ? t("routes.index.kosten.betalen", { bedrag: saldoTekst }) : t("routes.index.kosten.ontvangen", { bedrag: saldoTekst }),
+            status: saldo > 0 ? "Wacht op jou" : "Afstemming loopt", naar: "/kosten",
+        }] : [];
+    const openActies = [...saldoItems, ...kostItems, ...budgetItems, ...zorgItems, ...vakantieItems, ...agendaVoorstelItems, ...importItems, ...afspraakItems];
     // Wat op jou wacht eerst; wat al loopt bij de ander daarna. Binnen een groep blijft de volgorde gelijk.
-    const zorgVoorJou = eigen ? [] : alleZorg.filter((v) => v.status === "open" && v.van !== "Sanne");
     const voorJou = useActiviteiten().voorstellen.filter((v) => v.aanJou && !["akkoord", "afgerond", "afgewezen", "ingetrokken"].includes(v.status)).length;
     const toonActies = [...openActies].sort((a, b) => Number(a.status !== "Wacht op jou") - Number(b.status !== "Wacht op jou")).slice(0, 3);
     const vk = useVoorkeuren();
     const [klokNu, setKlokNu] = useState(null);
     useEffect(() => setKlokNu(new Date()), []);
     const spullenTeGaan = meeItems.filter((x) => !meeKlaar.includes(x)).length;
-    const huidigeDag = 12;
-    const wisseldag = zorgweek.find((dag) => dag.wissel);
-    const huidigeIndex = zorgweek.findIndex((dag) => dag.datum === huidigeDag);
-    const wisselIndex = zorgweek.findIndex((dag) => dag.wissel);
-    const wisselPct = ((wisselIndex + 14.5 / 24) / zorgweek.length) * 100;
-    const huidigePct = ((huidigeIndex + 0.5) / zorgweek.length) * 100;
-    const dagenTotWissel = wisseldag ? wisseldag.datum - huidigeDag : 2;
-    const zwemtasNodig = !wissel.klaar.has("zwemtas");
-    const dagen = zorgweek.filter((d) => d.datum >= 12 && d.datum <= 15);
-    const vorigJaar = new Date(nu.getFullYear() - 1, nu.getMonth(), nu.getDate());
-    const vorigJaarIso = `${vorigJaar.getFullYear()}-${String(vorigJaar.getMonth() + 1).padStart(2, "0")}-${String(vorigJaar.getDate()).padStart(2, "0")}`;
-    const jaarMomentjes = momentjes.filter((m) => m.datum === vorigJaarIso && !m.prive);
-    const moment = bijzonderMoment({ kinderen, wisselTijd: dagenTotWissel === 0 ? "14:30" : undefined, nu });
-    const tip = dagenTotWissel <= 2
-        ? t("routes.index.tip.spullen")
-        : t("routes.index.tip.overdracht");
-    const overdrachtDichtbij = dagenTotWissel <= 1;
-    // Vertrekmodus: op de wisseldag in de 3 uur vóór 14:30; na de wissel verdwijnt hij.
-    const uurNu = new Date().getHours() + new Date().getMinutes() / 60;
-    const vertrekModus = dagenTotWissel <= 0 && uurNu >= 11.5 && uurNu < 14.5;
-    const wisselLabel = t(`routes.index.wisselLabel.${dagenTotWissel <= 0 ? "vandaag" : dagenTotWissel === 1 ? "morgen" : "vrijdag"}`);
-    const komend = afspraken
-        .filter((a) => a.dag >= huidigeDag && a.categorie !== "wissel")
-        .sort((a, b) => a.dag - b.dag || a.tijd.localeCompare(b.tijd))
-        .slice(0, 3);
-    const dagNaam = (n) => zorgweek.find((d) => d.datum === n)?.dag ?? "";
     const eigenVandaag = klokNu ? iso(klokNu) : "";
-    const eigenKomend = eigenVandaag ? agendaItems(st.agenda).flatMap((a) => voorkomens(a, eigenVandaag, plusDagen(eigenVandaag, 365)).map((datum) => ({ a, datum }))).sort((x, y) => (x.datum + x.a.tijd).localeCompare(y.datum + y.a.tijd)).slice(0, 2) : [];
-    const maandKort = "mrt"; // demo-maand, gelijk aan de agenda
+    const eigenKomend = eigenVandaag ? agendaItems(agendaSt.events).flatMap((a) => voorkomens(a, eigenVandaag, plusDagen(eigenVandaag, 365)).map((datum) => ({ a, datum }))).sort((x, y) => (x.datum + x.a.tijd).localeCompare(y.datum + y.a.tijd)).slice(0, 2) : [];
+    const { moment: volgendeWissel } = volgendeVan(useWisselMomenten(14));
+    const paklijst = volgendeWissel ? itemsVoor(overdrachtSt, volgendeWissel.id) : [];
+    const paklijstTonen = !!volgendeWissel && klokNu && urenTot(volgendeWissel.datum, volgendeWissel.tijd, klokNu) <= 48;
     return (<AppShell>
-      <LivingSfeer moment={eigen ? null : moment}/>
+      <LivingSfeer moment={null}/>
 
       {/* header (stijl A6): Co, meldingen en je profiel rechtsboven */}
       <div className="relative flex items-center justify-end gap-2">
@@ -247,96 +223,25 @@ function Dashboard() {
         <div className="flex items-center gap-1 rounded-full border border-white/90 bg-white/80 p-[3px] shadow-[0_4px_14px_rgba(60,50,40,.08)]">
           <ActiviteitenBel inBalk/>
           <Link to="/instellingen" aria-label={t("routes.index.instellingen")} className="grid size-[38px] place-items-center rounded-full bg-brand-soft font-display text-[15px] font-black text-brand">
-            {(eigen ? st.naam : "Sanne").slice(0, 1).toUpperCase()}
+            {st.naam.slice(0, 1).toUpperCase()}
           </Link>
         </div>
       </div>
 
       {/* begroeting */}
       <div className="relative mt-4">
-        <h1 className="lora text-[30px] leading-tight">{vk.livingHome && klokNu ? begroeting(klokNu, eigen ? st.naam : "Sanne") : t("routes.index.fijneDag", { dag: i18n.resolvedLanguage === "en" ? vandaagNaam : vandaagNaam.toLowerCase(), naam: eigen ? st.naam : "Sanne" })}</h1>
-        {!eigen && vk.livingHome && vk.bijzondereMomenten && moment && <p className="mt-1 text-xs font-semibold text-accent-warm">{moment.tekst}</p>}
+        <h1 className="lora text-[30px] leading-tight">{vk.livingHome && klokNu ? begroeting(klokNu, st.naam) : t("routes.index.fijneDag", { dag: i18n.resolvedLanguage === "en" ? vandaagNaam : vandaagNaam.toLowerCase(), naam: st.naam })}</h1>
         {/* kinderen: tikken opent de kindpagina */}
-        {eigen ? <EigenKinderen /> : <div className="mt-3 flex flex-wrap gap-2.5" role="group" aria-label={t("routes.index.kindPagina")}>
-          {kinderen.map((kind) => (<Link key={kind.id} to="/kinderen/$kindId" params={{ kindId: kind.id }} className="flex items-center gap-2.5 rounded-full border border-white/85 bg-white/60 py-1 pl-1 pr-4 text-[15px]">
-              <span className="grid size-9 place-items-center rounded-full font-display text-base font-black text-white" style={{ background: kind.kleur }}>{kind.naam.slice(0, 1)}</span>
-              <span className="font-extrabold">{kind.naam}</span>
-            </Link>))}
-        </div>}
+        <EigenKinderen />
       </div>
 
       {/* Nu afstemmen doorbreekt tijdelijk de rust */}
-      {openNuAfstemmen(nuAfstemmen).filter((n) => !eigen || n.id !== "na-demo").map((n) => <NuAfstemmenKaart key={n.id} n={n}/>)}
+      {openNuAfstemmen(nuAfstemmen).filter((n) => n.id !== "na-demo").map((n) => <NuAfstemmenKaart key={n.id} n={n}/>)}
 
       {/* vandaag: datum, bij wie de kinderen zijn, volgende wissel en de weeklijn */}
-      {eigen ? <EigenVandaag /> : <section className="relative mt-5 rounded-[26px] border border-white/85 bg-white/60 px-5 pb-4 pt-4 shadow-[0_8px_24px_rgba(60,50,40,.06)]">
-        <p className="text-[12.5px] font-extrabold uppercase tracking-[0.1em] text-brand">{vandaagNaam} {vandaagDatum}</p>
-        <p className="mt-1 font-display text-[21px] font-black leading-snug">{dagenTotWissel <= 0 ? t("routes.index.vandaag.wisseldag") : t("routes.index.vandaag.bijJou")}</p>
-        <p className="mt-0.5 text-[15px] text-brand">{t(`routes.index.vandaag.wissel.${dagenTotWissel <= 0 ? "vandaag" : dagenTotWissel === 1 ? "morgen" : "vrijdag"}`)}</p>
+      <EigenVandaag />
 
-        <div className="relative mx-3 mt-5 h-7" aria-label={t("routes.index.weeklijn")}>
-          <span className="absolute left-0 right-0 top-1/2 h-[4px] -translate-y-1/2 rounded-full" style={{ background: `linear-gradient(to right, #6F8F78 ${wisselPct}%, #A88B72 ${wisselPct}%)` }}/>
-          <span className="home-vandaag-punt absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3F5747]" style={{ left: `${huidigePct}%`, boxShadow: "0 0 0 3px #fff" }}/>
-          <span className="absolute top-1/2 grid size-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-[#6F8F78] bg-white text-[#3F5747]" style={{ left: `${wisselPct}%` }}><WisselIcoon /></span>
-        </div>
-        <div className="mt-2 grid grid-cols-7">
-          {zorgweek.map((d) => (<span key={d.datum} className={`text-center text-[11px] uppercase tracking-[0.12em] ${d.datum === huidigeDag ? "font-black text-ink" : "font-semibold text-ink-soft"}`}>{d.dag}</span>))}
-        </div>
-
-        {/* overdracht: pas binnen 24 uur */}
-        {vertrekModus && meeItems.length && !wissel.overdrachtIngevuld ? (<div className="mt-4 rounded-2xl bg-[#E9EFE3] px-3.5 py-3">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-brand">{t("routes.index.bijnaTijd", { label: wisselLabel })}</p>
-            {wisselMoment ? <IkBenLater momentId={wisselMoment.id}/> : null}
-            <ul className="mt-2 space-y-1.5">
-              {meeItems.map((item) => {
-                    const klaar = meeKlaar.includes(item);
-                    return (<li key={item}>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={klaar} onChange={() => wisselMoment && toggleMee(wisselMoment.id, item)} className="size-4 accent-[var(--brand)]"/>
-                      <span className={klaar ? "text-ink-soft line-through" : ""}>{item}</span>
-                    </label>
-                  </li>);
-                })}
-            </ul>
-            <div className="mt-2 flex items-center justify-between">
-              <span className="text-xs text-ink-soft">{spullenTeGaan === 0 ? <MetVinkje achter>{t("routes.index.mee.allesAf")}</MetVinkje> : t("routes.index.mee.nietAf", { count: spullenTeGaan })}</span>
-              <Link to="/overdracht" className="inline-flex min-h-10 items-center text-xs font-bold text-brand"><MetChevron>{t("routes.index.mee.linkPijl")}</MetChevron></Link>
-            </div>
-          </div>) : overdrachtDichtbij ? (<Link to="/overdracht" className="mt-4 flex items-center gap-3 rounded-2xl bg-[#E9EFE3] px-3.5 py-3">
-            <span className="text-brand"><OverdrachtIcoon /></span>
-            <span className="flex-1">
-              <span className="block text-sm font-extrabold">{wissel.overdrachtIngevuld || spullenTeGaan === 0 ? t("routes.index.mee.allesKlaar") : t("routes.index.mee.titel")}</span>
-              <span className="text-xs text-ink-soft">{wisselLabel}{spullenTeGaan > 0 && !wissel.overdrachtIngevuld ? ` · ${t("routes.index.mee.nogMee", { count: spullenTeGaan })}` : ""}</span>
-            </span>
-            <Chevron className="size-4 text-ink-soft"/>
-          </Link>) : null}
-      </section>}
-
-      {/* Overdracht: herinnering vóór de wissel (24 uur; in het voorbeeldgezin staat de wissel over 2 dagen, daar al zichtbaar) */}
-      {!eigen && !overdrachtSt.gedeeld.some((o) => o.momentId === "w1") && demoUrenTotWissel(wisseldag?.datum) > 0 && demoUrenTotWissel(wisseldag?.datum) <= 48 ? (<Link to="/overdracht" hash="overdracht" className="relative mt-4 flex items-center gap-3.5 rounded-[22px] border-2 border-[#A9BCA8] px-4 py-3.5" style={{ background: "linear-gradient(135deg, rgba(220,230,210,.95), rgba(233,239,227,.9))" }}>
-          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white/80 text-[#3F5747]"><AppIcon functie="documenten" maat="sm" vorm="kaal"/></span>
-          <span className="min-w-0 flex-1"><span className="block font-display text-[17px] font-black text-[#2F4A3A]">{t("routes.index.overdracht.titel")}</span><span className="block text-sm text-[#3F5747]">{t(`routes.index.overdracht.wissel.${dagenTotWissel <= 0 ? "vandaag" : dagenTotWissel === 1 ? "morgen" : "vrijdag"}`)} {/school|opvang|childcare|nursery/i.test(kring.momenten.find((m) => m.id === "w1")?.plek ?? "") ? t("routes.index.overdracht.nietZien") : t("routes.index.overdracht.invullen")}</span></span>
-          <Chevron className="size-5 text-[#3F5747]"/>
-        </Link>) : null}
-
-      {/* Binnenkort: maximaal drie afspraken, met de kindkleur */}
-      {!eigen && komend.length ? (<section className="relative mt-6">
-          <div className="flex items-baseline justify-between">
-            <h2 className="font-display text-[21px] font-black">{t("routes.index.binnenkort")}</h2>
-            <Link to="/agenda" className="text-[15px] font-extrabold text-brand">{t("routes.index.alleAfspraken")}</Link>
-          </div>
-          <ul className="mt-2.5 overflow-hidden rounded-[22px] border border-white/85 bg-white/60">
-            {komend.map((a) => (<li key={a.id} className="border-b border-[#E9E1D5] last:border-0">
-                <Link to="/agenda" search={{ afspraak: a.id }} className="flex items-center gap-4 px-4 py-3">
-                  <span className="w-[4.75rem] shrink-0 whitespace-nowrap leading-tight"><span className="block text-[15px] font-extrabold">{dagNaam(a.dag)} {a.dag}</span><span className="block text-sm text-ink-soft">{uur(a.tijd)}</span></span>
-                  <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: kleurVanKind(a.kind.split(/ & | en /)[0] ?? a.kind) }}/>
-                  <span className="min-w-0 flex-1 truncate text-[16px] font-black">{a.titel.split(" · ")[0]}</span>
-                </Link>
-              </li>))}
-          </ul>
-        </section>) : null}
-
-      {eigen && eigenKomend.length ? <section className="relative mt-6">
+      {eigenKomend.length ? <section className="relative mt-6">
         <div className="flex items-baseline justify-between"><h2 className="font-display text-[21px] font-black">{t("routes.index.binnenkort")}</h2><Link to="/agenda" className="text-[15px] font-extrabold text-brand">{t("routes.index.alleAfspraken")}</Link></div>
         <ul className="mt-2.5 overflow-hidden rounded-[22px] border border-white/85 bg-white/60">{eigenKomend.map(({ a, datum }) => <li key={a.id + datum} className="border-b border-[#E9E1D5] last:border-0"><Link to="/agenda" search={{ afspraak: a.id, dag: datum }} className="flex items-center gap-4 px-4 py-3"><span className="w-[4.75rem] shrink-0 whitespace-nowrap leading-tight"><span className="block text-[15px] font-extrabold">{dt(datum).toLocaleDateString(taalLocale(), { weekday: "short", day: "numeric" })}</span><span className="block text-sm text-ink-soft">{a.tijd ? uur(a.tijd) : ""}</span></span><span className="min-w-0 flex-1 truncate text-[16px] font-black">{a.titel}</span></Link></li>)}</ul>
       </section> : null}
@@ -351,7 +256,13 @@ function Dashboard() {
           <span><span className="block font-display text-[17px] font-black">{t("routes.index.nogTeRegelen")}</span><span className="block text-sm text-ink-soft">{t("routes.index.allesAfgestemdPunt")}</span></span>
         </div>)}
 
-      {eigen ? <EigenVolgende /> : null}
+      {paklijstTonen ? (<Link to="/overdracht" className="relative mt-2.5 flex items-center gap-4 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#E9EFE3] text-[#3F5747]"><OverdrachtIcoon /></span>
+          <span className="min-w-0 flex-1"><span className="block text-[15px] font-black first-letter:uppercase">{t("routes.index.paklijst.titel", { dag: volgendeWissel.dag })}</span><span className="block text-sm text-ink-soft">{paklijst.length ? t("routes.index.paklijst.ingepakt", { n: paklijst.filter((i) => i.ingepakt).length, totaal: paklijst.length }) : t("routes.index.paklijst.leeg")}</span></span>
+          <Chevron className="size-5 text-ink-soft"/>
+        </Link>) : null}
+
+      <EigenVolgende />
 
       {toevoegenOpen ? (<div className="app-modal-achter z-30" onClick={() => { setToevoegenOpen(false); setVoorstelMenu(false); setAfspraakMenu(false); }}>
           <div className="app-modal" onClick={(e) => e.stopPropagation()}>
@@ -418,7 +329,7 @@ function Dashboard() {
                     <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">{statusLabel(groep)} · {items.length}</h3>
                     <ul className="divide-y divide-border">
                       {items.map((a) => (<li key={a.id}>
-                          <Link to={a.naar} search={("voorstelId" in a ? { voorstel: a.voorstelId, kind: a.voorstelKind } : undefined)} onClick={(e) => { setPuntenOpen(false); if (a.id === "kosten-openstaand") {
+                          <Link to={a.naar} search={("voorstelId" in a ? { voorstel: a.voorstelId, kind: a.voorstelKind } : a.search)} onClick={(e) => { setPuntenOpen(false); if (a.id === "kosten-openstaand") {
                         e.preventDefault();
                         setKostenOpen(true);
                     }
@@ -472,7 +383,7 @@ function Dashboard() {
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-xl bg-card">
           <SheetHeader><SheetTitle className="font-display">{saldo > 0 ? t("routes.index.kosten.betalen", { bedrag: saldoTekst }) : t("routes.index.kosten.ontvangen", { bedrag: saldoTekst })}</SheetTitle></SheetHeader>
           <div className="space-y-4 px-4 pb-4">
-            {[[t("routes.index.kosten.jouwAandeel"), saldoDetail.sanneAanJoris], [t("routes.index.kosten.aandeelAnder"), saldoDetail.jorisAanSanne]].map(([titel, kant]) => kant.posten.length === 0 ? null : (<div key={titel}>
+            {[[t("routes.index.kosten.jouwAandeel"), saldoDetail.ikAanAnder], [t("routes.index.kosten.aandeelAnder"), saldoDetail.anderAanIk]].map(([titel, kant]) => kant.posten.length === 0 ? null : (<div key={titel}>
                   <p className="text-xs font-semibold text-ink-soft">{titel}</p>
                   <ul className="mt-1 divide-y divide-border">
                     {kant.posten.map(({ post, aandeel }) => (<li key={post.id} className="flex items-baseline justify-between gap-3 py-2.5 text-sm">

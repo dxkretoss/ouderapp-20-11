@@ -11,7 +11,8 @@ import { AppIcon } from "@/components/AppIcon";
 import { VoorstelIntrekken } from "@/components/VoorstelIntrekken";
 import { Button } from "@/components/ui/button";
 import { zetVoorkeur, useVoorkeuren } from "@/lib/voorkeuren-store";
-import { ANDER, IK, metPro, naam, nodig, ONDERWERPEN, onderwerpLabel, PRO, proLabel, toonDatum, useAfspraken, vandaag, voerUit, voorstelZin, wachtOpMij, zetAfspraken, trekAfspraakIn, isIngevuldeAfspraak } from "@/lib/afspraken-store";
+import { IK, metPro, naam, nodig, ONDERWERPEN, onderwerpLabel, PRO, proLabel, reageerOpVoorstel, stelNieuweAfspraakVoor, stelWijzigingVoor, toonDatum, useAfspraken, vandaag, voerUit, voorstelZin, wachtOpMij, zetAfspraken, trekAfspraakIn, isIngevuldeAfspraak } from "@/lib/afspraken-store";
+import { useGezin } from "@/lib/gezin";
 import { Chevron, MetChevron } from "@/components/Tekens";
 export const Route = createFileRoute("/afspraken")({
     head: () => ({
@@ -30,7 +31,7 @@ export const Route = createFileRoute("/afspraken")({
 // Rechten van de professional, in oplopende volgorde (index wordt vergeleken). Labels via routes.afspraken.recht.<id>.
 const rechtenOpties = ["geen", "bekijken", "voorstellen", "toevoegen", "wijzigen", "status", "evalueren"];
 /** Namen samenvoegen met "en"/"and". */
-const lijstNamen = (namen, t) => namen.join(` ${t("common.en")} `);
+const lijstNamen = (namen, t) => namen.map((o) => naam(o)).join(` ${t("common.en")} `);
 function AfsprakenPagina() {
     const { t } = useTranslation();
     const zoek = Route.useSearch();
@@ -47,9 +48,11 @@ function AfsprakenPagina() {
     const [toegang, setToegang] = useState(false);
     const [melding, setMelding] = useState(null);
     useBevestigPopup(melding);
+    const g = useGezin();
     const update = (id, f) => setLijst((l) => l.map((a) => (a.id === id ? f(a) : a)));
-    const stelVoor = (id, v) => update(id, (a) => ({ ...a, voorstel: { ...v, door: ik, datum: vandaag(), akkoord: rol === "ouder" ? { [IK]: true } : {} }, geschiedenis: [{ datum: vandaag(), tekst: t(v.soort === "stoppen" ? "routes.afspraken.geschiedenis.stelVoorStoppen" : "routes.afspraken.geschiedenis.stelVoorWijziging", { wie: ik }) }, ...a.geschiedenis] }));
-    const reageer = (id, wie, keuze, altTekst) => update(id, (a) => {
+    const stelVoorLokaal = (id, v) => update(id, (a) => ({ ...a, voorstel: { ...v, door: ik, datum: vandaag(), akkoord: rol === "ouder" ? { [IK]: true } : {} }, geschiedenis: [{ datum: vandaag(), tekst: t(v.soort === "stoppen" ? "routes.afspraken.geschiedenis.stelVoorStoppen" : "routes.afspraken.geschiedenis.stelVoorWijziging", { wie: ik }) }, ...a.geschiedenis] }));
+    const stelVoor = (id, v) => (rol === "ouder" ? stelWijzigingVoor(id, v) : stelVoorLokaal(id, v));
+    const reageerLokaal = (id, wie, keuze, altTekst) => update(id, (a) => {
         const v = a.voorstel;
         if (!v || !nodig(v).includes(wie))
             return a;
@@ -61,21 +64,21 @@ function AfsprakenPagina() {
         const na = { ...a, voorstel: { ...v, akkoord: { ...v.akkoord, [wie]: true } }, geschiedenis: [{ datum: d, tekst: t(v.soort === "wijziging" ? "routes.afspraken.geschiedenis.akkoordWijziging" : "routes.afspraken.geschiedenis.akkoord", { wie }) }, ...a.geschiedenis] };
         return nodig(na.voorstel).length ? na : voerUit(na);
     });
+    const reageer = (id, wie, keuze, altTekst) => (rol === "ouder" ? reageerOpVoorstel(id, keuze, altTekst) : reageerLokaal(id, wie, keuze, altTekst));
     const gekozen = lijst.find((a) => a.id === open);
     if (gekozen) {
         return (<AppShell>
         <div className="mt-2 flex items-center gap-2.5"><TerugKnop onClick={() => setOpen(null)}/><span className="text-sm font-extrabold text-ink-soft">{t("routes.afspraken.terugNaarAfspraken")}</span></div>
-        <Detail a={gekozen} rol={rol} magVoorstellen={rol === "ouder" || rechtenOpties.indexOf(recht) >= 2} magEvalueren={rol === "pro" && recht === "evalueren"} onVoorstel={(v) => { stelVoor(gekozen.id, v); setMelding(v.soort === "stoppen" ? t("routes.afspraken.melding.stoppenVerstuurd") : t("routes.afspraken.melding.wijzigingVerstuurd")); }} onReageer={(k, tekst) => {
+        <Detail a={gekozen} rol={rol} magVoorstellen={rol === "ouder" || rechtenOpties.indexOf(recht) >= 2} magEvalueren={rol === "pro" && recht === "evalueren"} onVoorstel={(v) => { stelVoor(gekozen.id, v); setMelding(rol === "ouder" && !g.gekoppeld ? t("routes.afspraken.melding.vastgelegd") : v.soort === "stoppen" ? t("routes.afspraken.melding.stoppenVerstuurd") : t("routes.afspraken.melding.wijzigingVerstuurd")); }} onReageer={(k, tekst) => {
                 reageer(gekozen.id, IK, k, tekst);
                 if (k === "niet" && !gekozen.veiligheid && !vk.extraHouvast && !vk.extraHouvastTipGezien) {
                     zetVoorkeur("extraHouvastTipGezien", true);
                     setHouvastTip(true);
                 }
-            }} onIntrekken={() => { if (trekAfspraakIn(gekozen.id, ik))
+            }} onIntrekken={() => { if (trekAfspraakIn(gekozen.id))
             setMelding(t("routes.afspraken.melding.ingetrokken")); }} onEvalueer={(k) => update(gekozen.id, (x) => ({ ...x, evaluatie: k === "Behouden" ? undefined : x.evaluatie, geschiedenis: [{ datum: vandaag(), tekst: t("routes.afspraken.geschiedenis.evaluatieBehouden") }, ...x.geschiedenis] }))}/>
         {melding ? <p role="status" className="mt-3 text-xs text-ink-soft">{melding}</p> : null}
         {houvastTip ? <Link to="/extra-ondersteuning" className="mt-3 inline-flex min-h-11 items-center text-xs text-brand">{t("routes.afspraken.houvastTip")}</Link> : null}
-        {import.meta.env.DEV && gekozen.voorstel && nodig(gekozen.voorstel).includes(ANDER) ? (<button onClick={() => reageer(gekozen.id, ANDER, "akkoord")} className="mt-3 min-h-11 rounded-md border border-dashed border-border px-3 text-xs text-ink-soft">{t("routes.afspraken.demoJorisAkkoord")}</button>) : null}
       </AppShell>);
     }
     const q = "";
@@ -94,12 +97,20 @@ function AfsprakenPagina() {
           <button onClick={() => setMelding(null)} className="mt-1 min-h-11 text-xs font-semibold text-brand">{t("common.sluiten")}</button>
         </Card>) : null}
 
-      {nieuw ? <NieuweAfspraak pro={rol === "pro"} voorinvul={zoek.bron && !["agenda", "samen-regelen"].includes(zoek.bron) ? zoek.bron : ""} onAnnuleer={() => setNieuw(false)} onVerstuur={(onderwerp, titel, tekst) => {
+      {nieuw ? <NieuweAfspraak pro={rol === "pro"} voorinvul={zoek.bron && !["agenda", "samen-regelen"].includes(zoek.bron) ? zoek.bron : ""} onAnnuleer={() => setNieuw(false)} onVerstuur={async (onderwerp, titel, tekst) => {
+                if (rol === "ouder") {
+                    const a = await stelNieuweAfspraakVoor({ onderwerp, titel, tekst });
+                    if (!a)
+                        return;
+                    setNieuw(false);
+                    setMelding(a.status === "Actief" ? t("routes.afspraken.melding.vastgelegd") : t("routes.afspraken.melding.nieuw"));
+                    return;
+                }
                 const d = vandaag();
-                setLijst((l) => [...l, { id: `n${Date.now()}`, titel, tekst, onderwerp, kind: "Emma & Noah", status: "Voorstel", ...(rol === "pro" ? { bron: metPro } : {}), versies: [],
-                        voorstel: { soort: "nieuw", door: ik, datum: d, akkoord: rol === "ouder" ? { [IK]: true } : {} }, geschiedenis: [{ datum: d, tekst: t("routes.afspraken.geschiedenis.stelDezeVoor", { wie: ik }) }] }]);
+                setLijst((l) => [...l, { id: `n${Date.now()}`, titel, tekst, onderwerp, kind: "", status: "Voorstel", bron: metPro, versies: [],
+                        voorstel: { soort: "nieuw", door: ik, datum: d, akkoord: {} }, geschiedenis: [{ datum: d, tekst: t("routes.afspraken.geschiedenis.stelDezeVoor", { wie: ik }) }] }]);
                 setNieuw(false);
-                setMelding(rol === "pro" ? t("routes.afspraken.melding.proNieuw") : t("routes.afspraken.melding.nieuw"));
+                setMelding(t("routes.afspraken.melding.proNieuw"));
             }}/> : null}
 
       {aandacht.length ? (<Sectie titel={t("routes.afspraken.jouwAandacht")}>
@@ -116,12 +127,13 @@ function AfsprakenPagina() {
         </Sectie>))}
       {gestopt.length ? <Sectie titel={t("routes.afspraken.gestopt")}>{gestopt.map((a) => <Rij key={a.id} a={a} onOpen={() => setOpen(a.id)} status={t("routes.afspraken.gestoptOp", { datum: toonDatum(a.gestoptOp) })}/>)}</Sectie> : null}
 
-      <Card className="mt-6">
+      {/* Toegang van een professional: pas zichtbaar zodra er echt een professional gekoppeld is (portaal: Milestone 3). */}
+      {rol === "pro" ? <Card className="mt-6">
         <p className="text-sm font-semibold">{proLabel()}</p>
         <p className="mt-0.5 text-xs text-ink-soft">{t(`routes.afspraken.kanRecht.${recht}`)}{" "}{t("routes.afspraken.proGeldtPas")}</p>
         <button onClick={() => setToegang(!toegang)} className="mt-1 min-h-11 text-xs font-semibold text-brand">{toegang ? t("routes.afspraken.verbergToegang") : <MetChevron>{t("routes.afspraken.bekijkToegang")}</MetChevron>}</button>
         {toegang ? <Transparantie recht={recht} setRecht={setRecht}/> : null}
-      </Card>
+      </Card> : null}
 
       {rol === "pro" ? <><ProDashboard lijst={lijst}/><Caseload /></> : null}
 
@@ -197,13 +209,15 @@ function Detail({ a, rol, magVoorstellen, magEvalueren, onVoorstel, onReageer, o
       {a.status === "Ingetrokken" ? <p className="mt-1 text-sm text-ink-soft">{t("routes.afspraken.detail.ingetrokken")}</p> : a.status === "Gestopt" ? <p className="mt-1 text-sm text-ink-soft">{t("routes.afspraken.gestoptOp", { datum: toonDatum(a.gestoptOp) })}</p> : a.status === "Voorstel" ? <p className="mt-1 text-sm text-ink-soft">{t("routes.afspraken.detail.voorstelGeenAfspraak")}</p> : null}
 
       {v ? (<div className="mt-4 space-y-2 rounded-md border border-border p-3 text-sm">
-          <p className="font-semibold">{v.door === IK ? t("routes.afspraken.detail.jouwVoorstelKop") : `${voorstelZin(v, v.door)}.`}</p>
+          <p className="font-semibold">{v.door === IK ? t("routes.afspraken.detail.jouwVoorstelKop") : `${voorstelZin(v, naam(v.door))}.`}</p>
+          {v.meerTijd ? <p className="text-xs text-ink-soft">{v.meerTijd.door === IK ? t("routes.afspraken.detail.jijMeerTijd") : t("routes.afspraken.detail.anderMeerTijd", { naam: naam(v.meerTijd.door) })}</p> : null}
           {v.soort === "wijziging" ? <><p><span className="text-xs text-ink-soft">{t("routes.afspraken.detail.nu")}</span><br />{a.tekst}</p><p><span className="text-xs text-ink-soft">{t("routes.afspraken.detail.voorstel")}</span><br />{v.tekst}</p></> : v.soort === "stoppen" ? <p>{t("routes.afspraken.detail.stoptPas")}</p> : <p>{v.tekst ?? a.tekst}</p>}
-          <p className="text-xs text-ink-soft">{nodig(v).length ? t("routes.afspraken.detail.wachtOp", { namen: lijstNamen(nodig(v).map((o) => (o === IK ? t("routes.afspraken.detail.jou") : o)), t) }) : null}{" "}{t("routes.afspraken.detail.geenReactie")}</p>
+          <p className="text-xs text-ink-soft">{nodig(v).length ? t("routes.afspraken.detail.wachtOp", { namen: nodig(v).map((o) => (o === IK ? t("routes.afspraken.detail.jou") : naam(o))).join(` ${t("common.en")} `) }) : null}{" "}{t("routes.afspraken.detail.geenReactie")}</p>
           {rol === "ouder" && wachtOpMij(a) ? (alt === null ? (<div className="grid gap-2 pt-1">
               <button onClick={() => doe(() => onReageer("akkoord"))} className="min-h-11 rounded-full bg-brand text-sm font-semibold text-primary-foreground">{t("common.akkoord")}</button>
               <Button variant="outline" onClick={() => setAlt(v.tekst ?? a.tekst)}>{k.ander}</Button>
               <Button variant="ghost" onClick={() => doe(() => onReageer("niet"))}>{k.niet}</Button>
+              {!v.meerTijd ? <Button variant="ghost" onClick={() => doe(() => onReageer("meer-tijd"))}>{t("common.meerTijdNodig")}</Button> : null}
               <RustigTip moment={a.veiligheid ? null : "voorstel"} veiligheid={!!a.veiligheid}/>
             </div>) : (<div className="space-y-2 pt-1">
               <p className="text-xs text-ink-soft">{t("routes.afspraken.detail.alternatiefUitleg")}</p>
@@ -228,7 +242,7 @@ function Detail({ a, rol, magVoorstellen, magEvalueren, onVoorstel, onReageer, o
 
       <Button variant="ghost" onClick={() => setHistorie(!historie)} className="mt-3 h-auto min-h-11 w-full justify-between border-t border-border px-0 pt-2 text-sm font-semibold">{t("routes.afspraken.detail.geschiedenis")} <Chevron richting="omlaag" open={historie} className="size-4 text-ink-soft"/></Button>
       {historie ? (<div className="space-y-2 text-xs">
-          {v ? <p className="text-ink-soft">{t(v.soort === "nieuw" ? "routes.afspraken.detail.historieNieuw" : "routes.afspraken.detail.historieWijziging", { door: v.door, datum: toonDatum(v.datum), namen: lijstNamen(nodig(v), t) })}</p> : null}
+          {v ? <p className="text-ink-soft">{t(v.soort === "nieuw" ? "routes.afspraken.detail.historieNieuw" : "routes.afspraken.detail.historieWijziging", { door: naam(v.door), datum: toonDatum(v.datum), namen: lijstNamen(nodig(v), t) })}</p> : null}
           {a.geschiedenis.map((g, i) => <p key={i}><span className="text-ink-soft">{toonDatum(g.datum)}</span><br />{g.tekst}</p>)}
           {a.versies.length ? <div className="border-t border-border pt-2"><p className="font-semibold">{t("routes.afspraken.detail.eerdereVersies")}</p>{a.versies.map((x, i) => <p key={i} className="mt-1"><span className="text-ink-soft">{t("routes.afspraken.detail.goldTot", { datum: toonDatum(x.tot) })}</span><br />{x.tekst}</p>)}</div> : null}
           <p className="text-[11px] text-ink-soft">{t("routes.afspraken.detail.nietAanpasbaar")}</p>

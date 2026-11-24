@@ -4,13 +4,15 @@ import { Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { FilterBalk } from "@/components/ui-kit";
-import { accepteer, dienVoorstelIn, kindNamen, statusLabel, stelAlternatiefVoor, stuurHerinnering, trekIn, useZorg, vraagMeerTijd, wijsAf } from "@/lib/zorg-store";
+import { accepteer, dienVoorstelIn, kindNamen, statusLabel, structureelOp, stuurHerinnering, trekIn, useZorg, vraagMeerTijd, wijsAf } from "@/lib/zorg-store";
+import { useStart } from "@/lib/start-store";
+import { useGezin } from "@/lib/gezin";
+import { iso } from "@/lib/agenda-datum";
 import { magHerinnering } from "@/lib/herinneringen";
 import { useGevolgen } from "@/lib/gevolgen";
 import { AppIcon } from "@/components/AppIcon";
 import { Chevron, Kruis, MetChevron, MetVinkje } from "@/components/Tekens";
 import { CornerDownRight } from "lucide-react";
-import { verwerkActie } from "@/lib/acties-store";
 import { Button } from "@/components/ui/button";
 import { VoorstelIntrekken } from "@/components/VoorstelIntrekken";
 import { useVoorkeuren } from "@/lib/voorkeuren-store";
@@ -19,16 +21,20 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { dt, plusDagen } from "@/lib/agenda-datum";
 import { zorgOp } from "@/lib/zorg-store";
 import { ouderLabel } from "@/lib/agenda-zorg";
-export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bronOmschrijving }) {
+export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bronOmschrijving, datum }) {
     const { t } = useTranslation();
     const router = useRouter();
     const zorg = useZorg();
+    const st = useStart();
+    const { gekoppeld } = useGezin();
+    const alleKids = st.kinderen.map((k) => k.id);
+    const vandaagIso = datum && /^\d{4}-\d{2}-\d{2}$/.test(datum) ? datum : iso(new Date());
     const lijst = zorg.voorstellen.filter((v) => (kind === "alle" || v.kinderen.includes(kind)) && (!doel || v.id === doel));
     const [bevestigd, setBevestigd] = useState("");
     useBevestigPopup(bevestigd);
     const [eerderOpen, setEerderOpen] = useState(!!doel);
-    const reageren = lijst.filter((v) => v.status === "open" && v.van !== "Sanne");
-    const eigen = lijst.filter((v) => v.status === "open" && v.van === "Sanne");
+    const reageren = lijst.filter((v) => v.status === "open" && !v.vanMij);
+    const eigen = lijst.filter((v) => v.status === "open" && v.vanMij);
     const eerder = lijst.filter((v) => v.status !== "open");
     const vk = useVoorkeuren();
     const ga = vk.gestructureerdAfstemmen;
@@ -38,16 +44,16 @@ export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bro
     const [altId, setAltId] = useState(null);
     const [nieuw, setNieuw] = useState(startActie === "regeling" ? t("components.ZorgAfstemmen.prefill") : "");
     const [soort, setSoort] = useState(startActie === "regeling" ? "structureel" : "eenmalig");
-    const [voor, setVoor] = useState(kind === "alle" ? ["emma", "noah"] : [kind]);
+    const [voor, setVoor] = useState(kind === "alle" ? alleKids : [kind]);
     const [dagVan, setDagVan] = useState(16);
     const [dagTot, setDagTot] = useState(16);
     const [naar, setNaar] = useState("sanne");
-    const [vanDatum, setVanDatum] = useState("2025-03-16");
-    const [totDatum, setTotDatum] = useState("2025-03-16");
+    const [vanDatum, setVanDatum] = useState(vandaagIso);
+    const [totDatum, setTotDatum] = useState(vandaagIso);
     const [wisseltijd, setWisseltijd] = useState("14:30");
     const [plek, setPlek] = useState("");
     const [alleDagen, setAlleDagen] = useState(false);
-    useEffect(() => setVoor((v) => kind === "alle" ? ["emma", "noah"] : v.includes(kind) ? v : [kind]), [kind]);
+    useEffect(() => setVoor((v) => kind === "alle" ? alleKids : v.includes(kind) ? v : [kind]), [kind, alleKids.join()]);
     useEffect(() => {
         if (!startActie || altId)
             return;
@@ -55,8 +61,7 @@ export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bro
         setSoort(startActie === "regeling" ? "structureel" : "eenmalig");
         window.requestAnimationFrame(() => document.querySelector("#nieuw-voorstel")?.scrollIntoView({ behavior: "smooth", block: "center" }));
     }, [startActie, altId, bronOmschrijving]);
-    const reageer = (id, f) => { const ok = f(); if (ok && id === "v1")
-        verwerkActie("wijzigingsverzoek"); return ok; };
+    const reageer = (id, f) => f();
     const [reactieDatum, setReactieDatum] = useState("");
     const verstuur = () => {
         const eind = soort === "eenmalig" ? totDatum : vanDatum;
@@ -66,23 +71,23 @@ export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bro
         for (let d = vanDatum; d <= eind && datums.length < 366; d = plusDagen(d, 1))
             datums.push(d);
         const tot = Math.max(dagVan, dagTot);
-        if (altId && !reageer(altId, () => stelAlternatiefVoor(altId, nieuw.trim())))
-            return;
-        dienVoorstelIn({
+        const id = dienVoorstelIn({
             soort, kinderen: voor, tekst: nieuw.trim(), naarOuder: naar, datums, wisseltijd, plek,
             dagen: soort === "eenmalig" ? Array.from({ length: tot - dagVan + 1 }, (_, i) => dagVan + i) : [dagVan],
             datumLabel: soort === "eenmalig" ? t("components.ZorgAfstemmen.datumLabel.periode", { van: vanDatum, tot: totDatum }) : t("components.ZorgAfstemmen.datumLabel.vanaf", { van: vanDatum }),
             aanleiding: soort === "structureel" ? "regeling" : voorstelType ?? "wijziging",
             ...(reactieDatum ? { reactieDatum } : {}),
-        });
+        }, altId ?? undefined);
+        if (!id)
+            return;
         setNieuw("");
         setAltId(null);
         setReactieDatum("");
-        setBevestigd(t("components.ZorgAfstemmen.bevestigd.verstuurd"));
+        setBevestigd(gekoppeld ? t("components.ZorgAfstemmen.bevestigd.verstuurd") : t("components.ZorgAfstemmen.bevestigd.direct"));
         sluit();
     };
     const dagOpties = Array.from({ length: 31 }, (_, i) => i + 1);
-    const voorstelOuder = (k, d) => soort === "eenmalig" ? naar : zorgOp({ ...zorg, basis: [...zorg.basis, { id: "preview", kind: k, vanafDag: dagVan, vanafDatum: vanDatum, eersteOuder: naar, omschrijving: nieuw }] }, k, d).ouder;
+    const voorstelOuder = (k, d) => soort === "eenmalig" ? naar : structureelOp(zorg, k, vanDatum, naar, d);
     const vergelijking = voor.flatMap((k) => Array.from({ length: soort === "structureel" ? 14 : Math.max(0, Math.round((dt(totDatum).getTime() - dt(vanDatum).getTime()) / 86400000) + 1) }, (_, i) => plusDagen(vanDatum, i)).slice(0, 366).map((d) => ({ k, d, nu: zorgOp(zorg, k, d).ouder, voorstel: voorstelOuder(k, d) })));
     const sel = "mt-1 w-full rounded-xl bg-surface px-3 py-2 text-sm text-ink outline-none";
     const rij = (l, w) => (<div className="flex items-start justify-between gap-3 py-2">
@@ -131,8 +136,8 @@ export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bro
                 setVoor([...v.kinderen]);
                 setDagVan(v.dagen[0] ?? 16);
                 setDagTot(v.dagen.at(-1) ?? 16);
-                setVanDatum(v.datums?.[0] ?? `2025-03-${String(v.dagen[0] ?? 16).padStart(2, "0")}`);
-                setTotDatum(v.datums?.at(-1) ?? `2025-03-${String(v.dagen.at(-1) ?? 16).padStart(2, "0")}`);
+                setVanDatum(v.datums?.[0] ?? vandaagIso);
+                setTotDatum(v.datums?.at(-1) ?? vandaagIso);
                 setNaar(v.naarOuder ?? "sanne");
                 router.navigate({ to: "/agenda", search: { zorgActie: v.soort === "structureel" ? "regeling" : "wijziging", zorgVoorstel: v.id, kind } });
             }}>{t("common.anderVoorstel")}</Button>
@@ -159,7 +164,7 @@ export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bro
         </div>) : null}
       {ga ? vastgelopen.map((o) => (<div key={o.sleutel} className="mt-3 rounded-xl border border-border bg-surface p-3 text-sm">
           <p className="font-semibold">{t("components.ZorgAfstemmen.nietGeregeld", { datum: o.laatste.datumLabel })}</p>
-          <ul className="mt-1 space-y-0.5 text-xs text-ink-soft">{o.voorstellen.map((v) => <li key={v.id}>{v.van === "Sanne" ? t("components.ZorgAfstemmen.jouwVoorstel") : t("components.ZorgAfstemmen.voorstelVan", { naam: v.van })}: {v.tekst}{v.alternatief ? t("components.ZorgAfstemmen.alternatief", { tekst: v.alternatief }) : ""} · {statusLabel[v.status]}</li>)}</ul>
+          <ul className="mt-1 space-y-0.5 text-xs text-ink-soft">{o.voorstellen.map((v) => <li key={v.id}>{v.vanMij ? t("components.ZorgAfstemmen.jouwVoorstel") : t("components.ZorgAfstemmen.voorstelVan", { naam: t("common.deAndereOuder") })}: {v.tekst}{v.alternatief ? t("components.ZorgAfstemmen.alternatief", { tekst: v.alternatief }) : ""} · {statusLabel[v.status]}</li>)}</ul>
           <p className="mt-2 text-xs">{t("components.ZorgAfstemmen.geenBevestiging")}</p>
           <p className="mt-1 text-xs text-ink-soft">{t("components.ZorgAfstemmen.professional")}</p>
         </div>)) : null}
@@ -167,7 +172,7 @@ export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bro
           <button onClick={() => setEerderOpen(!eerderOpen)} aria-expanded={eerderOpen} className="inline-flex min-h-10 items-center gap-1 py-2 text-sm font-semibold text-ink-soft">{t("components.ZorgAfstemmen.eerder")}<Chevron richting="omlaag" open={eerderOpen} className="size-4"/></button>
           {eerderOpen ? (<ul className="divide-y divide-border border-t border-border">
               {eerder.map((v) => (<li key={v.id} id={`item-${v.id}`} className="zoekdoel flex items-center justify-between gap-2 py-2.5">
-                  <span><span className="block text-sm">{v.tekst}</span><span className="block text-xs text-ink-soft">{v.van} · {v.datumLabel} · {v.soort === "eenmalig" ? t("components.ZorgAfstemmen.alleenDezeKeer") : t("components.ZorgAfstemmen.vanafNu")} · {statusLabel[v.status]}</span></span>
+                  <span><span className="block text-sm">{v.tekst}</span><span className="block text-xs text-ink-soft">{v.vanMij ? t("common.jij") : t("common.deAndereOuder")} · {v.datumLabel} · {v.soort === "eenmalig" ? t("components.ZorgAfstemmen.alleenDezeKeer") : t("components.ZorgAfstemmen.vanafNu")} · {statusLabel[v.status]}</span></span>
                   <GeschiedenisKnop soort="schema" itemId={v.id} naam={v.tekst}/>
                 </li>))}
             </ul>) : null}
@@ -180,7 +185,7 @@ export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bro
         <FilterBalk opties={[{ id: "eenmalig", label: t("components.ZorgAfstemmen.alleenDezeKeer") }, { id: "structureel", label: t("components.ZorgAfstemmen.vanafNu") }]} waarde={soort} onChange={setSoort}/>
         <p className="text-xs text-ink-soft">{soort === "eenmalig" ? t("components.ZorgAfstemmen.sheet.uitlegEenmalig") : t("components.ZorgAfstemmen.sheet.uitlegVast")}</p>
         <div className="flex gap-2">
-          {["emma", "noah"].map((k) => (<button key={k} onClick={() => setVoor((v) => (v.includes(k) ? (v.length > 1 ? v.filter((x) => x !== k) : v) : [...v, k]))} aria-pressed={voor.includes(k)} className={`rounded-full px-3 py-1 text-xs font-semibold ${voor.includes(k) ? "bg-brand text-primary-foreground" : "bg-surface text-ink-soft"}`}>
+          {alleKids.map((k) => (<button key={k} onClick={() => setVoor((v) => (v.includes(k) ? (v.length > 1 ? v.filter((x) => x !== k) : v) : [...v, k]))} aria-pressed={voor.includes(k)} className={`rounded-full px-3 py-1 text-xs font-semibold ${voor.includes(k) ? "bg-brand text-primary-foreground" : "bg-surface text-ink-soft"}`}>
               {kindNamen[k]}
             </button>))}
         </div>

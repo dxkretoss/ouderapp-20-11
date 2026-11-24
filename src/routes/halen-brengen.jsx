@@ -4,7 +4,8 @@ import { AppShell, Card, PageHeader } from "@/components/AppShell";
 import { AppIcon } from "@/components/AppIcon";
 import { Chevron, MetChevron, MetVinkje, Vinkje } from "@/components/Tekens";
 import { IkBenLater } from "@/components/IkBenLater";
-import { useKring } from "@/lib/kring-store";
+import { useWisselMomenten, volgendeVan } from "@/lib/overdracht-store";
+import { useGezin } from "@/lib/gezin";
 import { useGesprekken, voegCheckInToe, zetModule, zetOnderweg } from "@/lib/gesprekken-store";
 import { markeerGebruikt } from "@/lib/gezag-store";
 import { useTranslation } from "react-i18next";
@@ -39,11 +40,12 @@ function faseVan(datum, tijd, nuMs) {
 }
 function HalenBrengen() {
     const { t } = useTranslation();
-    const kring = useKring();
     const s = useGesprekken();
-    // Dezelfde overdracht als op Home en Overdracht: het eerstvolgende wisselmoment.
-    const m = kring.momenten.find((x) => x.soort === "wissel");
-    const bevestigd = m ? s.checkins.find((c) => c.momentId === m.id && c.wie === "Sanne") : undefined;
+    const { ik } = useGezin();
+    const mijnNaam = ik?.naam || t("common.jij");
+    // Dezelfde overdracht als op Home en Overdracht: het eerstvolgende wisselmoment uit de eigen zorgverdeling.
+    const { moment: m } = volgendeVan(useWisselMomenten(21));
+    const bevestigd = m ? s.checkins.find((c) => c.momentId === m.id && c.wie === mijnNaam) : undefined;
     // Voorbeeld: bekijk hoe het er op de overdrachtsdag uitziet, zonder iets aan de planning te veranderen.
     const [demoMinuten, setDemoMinuten] = useState(null);
     const overdrachtMs = m ? new Date(`${m.datum}T${m.tijd}:00`).getTime() : 0;
@@ -55,7 +57,7 @@ function HalenBrengen() {
         if (!m)
             return;
         markeerGebruikt("/halen-brengen");
-        voegCheckInToe({ id: Date.now(), wie: "Sanne", moment: t("routes.halenBrengen.checkinMoment", { dag: m.dag.toLowerCase(), tijd: m.tijd }), momentId: m.id, datum: m.dag, tijd: nu() });
+        voegCheckInToe({ id: Date.now(), wie: mijnNaam, moment: t("routes.halenBrengen.checkinMoment", { dag: m.dag.toLowerCase(), tijd: m.tijd }), momentId: m.id, datum: m.dag, tijd: nu() });
         zetOnderweg(m.id, null);
     };
     return (<AppShell>
@@ -96,8 +98,8 @@ function HalenBrengen() {
                 </div>)) : null}
 
             {!bevestigd && (fase === "vandaag" || fase === "binnen24") ? (<div className="flex flex-wrap items-center gap-x-4 border-t border-border pt-2">
-                <IkBenLater momentId={m.id}/>
-                {fase === "vandaag" && !onderweg ? (<button onClick={() => { zetOnderweg(m.id, "Sanne", m.tijd); markeerGebruikt("/halen-brengen"); }} className="min-h-11 text-sm font-semibold text-brand">{t("routes.halenBrengen.ikBenOnderweg")}</button>) : null}
+                <IkBenLater moment={m}/>
+                {fase === "vandaag" && !onderweg ? (<button onClick={() => { zetOnderweg(m.id, mijnNaam, m.tijd); markeerGebruikt("/halen-brengen"); }} className="min-h-11 text-sm font-semibold text-brand">{t("routes.halenBrengen.ikBenOnderweg")}</button>) : null}
               </div>) : null}
             {fase === "vandaag" && onderweg && !bevestigd ? <p className="text-[11px] text-ink-soft">{t("routes.halenBrengen.melding", { wie: onderweg, tijd: m.tijd })}</p> : null}
           </Card>

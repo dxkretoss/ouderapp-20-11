@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import i18n, { taalLocale, tLijst } from "@/i18n";
 import { AppShell, BackButton, TerugKnop } from "@/components/AppShell";
-import { kinderen as demoKinderen } from "@/lib/demo-data";
 import { useStart } from "@/lib/start-store";
 import { leeftijdGroep, zegPerKind } from "@/lib/lastige-momenten-kind";
 import { Zichtbaar } from "@/components/Zichtbaar";
@@ -49,14 +48,12 @@ const HL = { background: "linear-gradient(135deg, rgba(220,230,210,.95), rgba(23
 function LastigeMomenten() {
     const { t } = useTranslation();
     const st = useStart();
-    const namen = st.eigen ? st.kinderen.map((k) => k.naam) : demoKinderen.map((k) => k.naam);
-    const kleur = st.eigen ? (st.kinderen[0]?.kleur ?? "#C77D8C") : "#C77D8C";
+    const namen = st.kinderen.map((k) => k.naam);
+    const kleur = st.kinderen[0]?.kleur ?? "#C77D8C";
     const jarenUit = (geb) => { if (!geb || !/^\d{4}-\d{2}-\d{2}/.test(geb))
         return null; const g = new Date(geb), n = new Date(); return n.getFullYear() - g.getFullYear() - (n < new Date(n.getFullYear(), g.getMonth(), g.getDate()) ? 1 : 0); };
-    const kinderenInfo = st.eigen
-        ? st.kinderen.map((k) => ({ naam: k.naam, kleur: k.kleur ?? "#8A7E72", jaren: jarenUit(k.geboortedatum) }))
-        : demoKinderen.map((k) => ({ naam: k.naam, kleur: k.kleur, jaren: k.leeftijd }));
-    const ouder = st.eigen ? st.naam : "Sanne";
+    const kinderenInfo = st.kinderen.map((k) => ({ naam: k.naam, kleur: k.kleur ?? "#8A7E72", jaren: jarenUit(k.geboortedatum) }));
+    const ouder = st.naam;
     const { start } = Route.useSearch();
     const [stapel, setStapel] = useState(start ? [{ s: "start" }, { s: start }] : [{ s: "start" }]);
     const scherm = stapel[stapel.length - 1];

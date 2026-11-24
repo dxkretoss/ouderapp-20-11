@@ -1,412 +1,420 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-// Phase 1: session required (see _shared/phase2-guard.ts)
-import { phase2Guard } from "../_shared/phase2-guard.ts";
+// manage-messages — conversations (one per topic) and messages between the two connected parents.
+// Rules: session required; the user comes ONLY from the session; a conversation is visible only to its
+// creator and its other parent; sending needs an ACTIVE connection between the two; messages are
+// append-only (no edit/delete); pin / mute / read state is per user (conversation_reads).
+// A parent without a connected co-parent can prepare topics (other_parent_id NULL, visible only to them);
+// as soon as exactly one co-parent is connected, `list` attaches those topics to that co-parent.
+import { childIdsFor, coParentIdsFor } from "../_shared/access.ts";
+import { db } from "../_shared/db.ts";
+import {
+  CONVERSATION_COLS,
+  ConversationRow,
+  isConnected,
+  loadConversationFor,
+  MESSAGE_COLS,
+  otherOf,
+} from "../_shared/messages-access.ts";
+import { Body, check, err, ok, serveActions } from "../_shared/respond.ts";
+import { requireUser, SessionUser } from "../_shared/session.ts";
+import { resolveAvatars } from "../_shared/storage.ts";
+import { optText, requireUuid } from "../_shared/util.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-session-token",
-};
+const MAX_PINS = 3;
+const MAX_MESSAGE = 4000;
+const MAX_TITLE = 120;
+const TONE_LEVELS = ["geen", "licht", "escalerend", "dreigend"];
 
-const isUUID = (str: any) =>
-  typeof str === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+interface ReadRow {
+  conversation_id: string;
+  user_id: string;
+  last_read_at: string | null;
+  pinned: boolean;
+  muted_until: string | null;
+  archived: boolean;
+}
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+interface CoParent {
+  id: string;
+  name: string;
+  avatar: string | null;
+}
+
+async function coParentsOf(userId: string): Promise<CoParent[]> {
+  const ids = await coParentIdsFor(userId);
+  if (!ids.length) return [];
+  const rows = (check(
+    await db().from("profiles").select("id, name, avatar_url").in("id", ids),
+    "load co-parents",
+  ) ?? []) as Array<{ id: string; name: string; avatar_url: string | null }>;
+  const avatars = await resolveAvatars(rows.map((r) => r.avatar_url));
+  return rows.map((r, i) => ({ id: r.id, name: r.name || "", avatar: avatars[i] }));
+}
+
+async function readsFor(userId: string, conversationIds: string[]): Promise<Map<string, ReadRow>> {
+  const map = new Map<string, ReadRow>();
+  if (!conversationIds.length) return map;
+  const rows = (check(
+    await db().from("conversation_reads").select("*").eq("user_id", userId).in("conversation_id", conversationIds),
+    "load reads",
+  ) ?? []) as ReadRow[];
+  for (const r of rows) map.set(r.conversation_id, r);
+  return map;
+}
+
+async function upsertRead(userId: string, conversationId: string, patch: Partial<ReadRow>): Promise<void> {
+  check(
+    await db()
+      .from("conversation_reads")
+      .upsert({ conversation_id: conversationId, user_id: userId, ...patch }, { onConflict: "conversation_id,user_id" }),
+    "save read state",
+  );
+}
+
+/** Messages from the other parent after my read marker. */
+async function unreadCount(userId: string, c: ConversationRow, read: ReadRow | undefined): Promise<number> {
+  if (!c.other_parent_id || !c.last_message_at) return 0;
+  if (!c.last_message_sender_id || c.last_message_sender_id === userId) {
+    // the latest message is mine: everything before it counts as seen when I replied after it
+    if (read?.last_read_at && read.last_read_at >= c.last_message_at) return 0;
   }
+  let q = db()
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("conversation_id", c.id)
+    .neq("sender_id", userId);
+  if (read?.last_read_at) q = q.gt("created_at", read.last_read_at);
+  const res = await q;
+  if (res.error) {
+    console.error("[manage-messages] unread count:", res.error);
+    return 0;
+  }
+  return res.count ?? 0;
+}
 
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+async function myConversations(userId: string): Promise<ConversationRow[]> {
+  return (check(
+    await db()
+      .from("conversations")
+      .select(CONVERSATION_COLS)
+      .or(`created_by.eq.${userId},other_parent_id.eq.${userId}`)
+      .order("last_message_at", { ascending: false, nullsFirst: false }),
+    "list conversations",
+  ) ?? []) as ConversationRow[];
+}
 
-    const body = await req.json();
-    const __denied = await phase2Guard(req, body);
-    if (__denied) return __denied;
-    const action = body.action;
+/** Prepared topics become real conversations once exactly one co-parent is connected. */
+async function attachDrafts(userId: string, coParents: CoParent[]): Promise<void> {
+  if (coParents.length !== 1) return;
+  check(
+    await db()
+      .from("conversations")
+      .update({ other_parent_id: coParents[0].id })
+      .eq("created_by", userId)
+      .is("other_parent_id", null),
+    "attach prepared topics",
+  );
+}
 
-    // Normalize parameter aliases
-    const userId = body.user_id || body.userId;
-    const conversationId = body.conversation_id || body.conversationId;
-    const otherParentId = body.other_parent_id || body.otherParentId;
-    const childId = body.child_id || body.childId;
-    const initialMessage = body.initial_message || body.initialMessage;
-    const toneLevel = body.tone_level || body.toneLevel;
+async function toApi(
+  me: SessionUser,
+  c: ConversationRow,
+  ctx: { read?: ReadRow; coParents: CoParent[]; myChildren: Set<string>; connected: Set<string>; profiles: Map<string, CoParent> },
+) {
+  const other = otherOf(c, me.id);
+  const read = ctx.read;
+  const mutedUntil = read?.muted_until && new Date(read.muted_until).getTime() > Date.now() ? read.muted_until : null;
+  return {
+    id: c.id,
+    title: c.title || "",
+    related_child_id: c.related_child_id && ctx.myChildren.has(c.related_child_id) ? c.related_child_id : null,
+    created_by: c.created_by,
+    other_parent_id: c.other_parent_id,
+    other_parent: other ? ctx.profiles.get(other) ?? { id: other, name: "", avatar: null } : null,
+    draft: !c.other_parent_id,
+    can_send: !!other && ctx.connected.has(other),
+    last_message_text: c.last_message_text,
+    last_message_at: c.last_message_at,
+    last_message_sender_id: c.last_message_sender_id,
+    created_at: c.created_at,
+    updated_at: c.updated_at,
+    unread: await unreadCount(me.id, c, read),
+    pinned: !!read?.pinned,
+    muted_until: mutedUntil,
+    archived: !!read?.archived,
+  };
+}
 
-    // 1. LIST CONVERSATIONS, CO-PARENTS & CHILDREN
-    if (action === "list") {
-      if (!userId || !isUUID(userId)) {
-        return new Response(JSON.stringify({ success: false, error: "Valid user_id is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+async function buildContext(me: SessionUser, rows: ConversationRow[], coParents?: CoParent[]) {
+  const cps = coParents ?? (await coParentsOf(me.id));
+  const profiles = new Map(cps.map((p) => [p.id, p]));
+  // former co-parents (disconnected) still show their name on old conversations
+  const missing = [...new Set(rows.map((c) => otherOf(c, me.id)).filter((id): id is string => !!id && !profiles.has(id)))];
+  if (missing.length) {
+    const extra = (check(
+      await db().from("profiles").select("id, name").in("id", missing),
+      "load former co-parents",
+    ) ?? []) as Array<{ id: string; name: string }>;
+    for (const p of extra) profiles.set(p.id, { id: p.id, name: p.name || "", avatar: null });
+  }
+  return {
+    coParents: cps,
+    profiles,
+    connected: new Set(cps.map((p) => p.id)),
+    myChildren: new Set(await childIdsFor(me.id)),
+    reads: await readsFor(me.id, rows.map((c) => c.id)),
+  };
+}
 
-      // A. Fetch children accessible to this parent
-      const { data: parentLinks } = await adminClient
-        .from("child_parents")
-        .select("child_id")
-        .eq("parent_id", userId);
-      const userChildIds = (parentLinks || []).map((l: any) => l.child_id).filter(isUUID);
+async function conversationOut(me: SessionUser, c: ConversationRow) {
+  const ctx = await buildContext(me, [c]);
+  return toApi(me, c, { ...ctx, read: ctx.reads.get(c.id) });
+}
 
-      let kidsQuery = adminClient.from("children").select("id, name, last_name, avatar_url, color_code, created_by");
-      if (userChildIds.length > 0) {
-        kidsQuery = kidsQuery.or(`created_by.eq.${userId},id.in.(${userChildIds.join(",")})`);
-      } else {
-        kidsQuery = kidsQuery.eq("created_by", userId);
-      }
-      const { data: childrenList } = await kidsQuery;
-      const allAccessibleChildIds = new Set((childrenList || []).map((k: any) => k.id));
+function messageOut(m: Record<string, any>) {
+  return {
+    id: m.id,
+    conversation_id: m.conversation_id,
+    sender_id: m.sender_id,
+    content: m.content,
+    tone_level: m.tone_level || "geen",
+    is_system: !!m.is_system,
+    created_at: m.created_at,
+    client_id: m.client_id ?? null,
+  };
+}
 
-      // B. Fetch connected co-parents from invitations & parent_connections
-      const coParentMap = new Map<string, any>();
+function clientId(v: unknown): string | null {
+  if (v === undefined || v === null || v === "") return null;
+  if (typeof v !== "string" || !/^[A-Za-z0-9_-]{6,64}$/.test(v)) throw err.validation("client_id is invalid");
+  return v;
+}
 
-      // Check accepted invitations
-      const { data: acceptedInvs } = await adminClient
-        .from("invitations")
-        .select("id, from_parent_id, to_parent_id, to_email, child_ids, status")
-        .or(`from_parent_id.eq.${userId},to_parent_id.eq.${userId}`)
-        .eq("status", "accepted");
+function toneLevel(v: unknown): string {
+  return typeof v === "string" && TONE_LEVELS.includes(v) ? v : "geen";
+}
 
-      if (Array.isArray(acceptedInvs)) {
-        for (const inv of acceptedInvs) {
-          const otherId = inv.from_parent_id === userId ? inv.to_parent_id : inv.from_parent_id;
-          if (otherId && isUUID(otherId)) {
-            const childIds = Array.isArray(inv.child_ids) ? inv.child_ids.filter(isUUID) : [];
-            const existing = coParentMap.get(otherId) || {
-              id: otherId,
-              child_ids: [],
-              invitation_email: inv.to_email || null,
-            };
-            existing.child_ids = [...new Set([...existing.child_ids, ...childIds])];
-            coParentMap.set(otherId, existing);
-          }
-        }
-      }
+function content(v: unknown): string {
+  if (typeof v !== "string") throw err.validation("content is required");
+  const t = v.trim();
+  if (!t) throw err.validation("content is required");
+  if (t.length > MAX_MESSAGE) throw err.validation(`content is too long (max ${MAX_MESSAGE})`);
+  return t;
+}
 
-      // Check parent_connections
-      const { data: directConnections } = await adminClient
-        .from("parent_connections")
-        .select("id, parent_1_id, parent_2_id, invitation_id, status")
-        .or(`parent_1_id.eq.${userId},parent_2_id.eq.${userId}`)
-        .eq("status", "active");
+/** Inserts one message (idempotent per client_id) and moves the conversation's "last message". */
+async function insertMessage(me: SessionUser, c: ConversationRow, text: string, tone: string, cid: string | null) {
+  if (cid) {
+    const existing = check(
+      await db()
+        .from("messages")
+        .select(MESSAGE_COLS)
+        .eq("conversation_id", c.id)
+        .eq("sender_id", me.id)
+        .eq("client_id", cid)
+        .maybeSingle(),
+      "find retried message",
+    ) as Record<string, any> | null;
+    if (existing) return existing;
+  }
+  const msg = check(
+    await db()
+      .from("messages")
+      .insert({ conversation_id: c.id, sender_id: me.id, content: text, tone_level: tone, is_system: false, client_id: cid })
+      .select(MESSAGE_COLS)
+      .single(),
+    "insert message",
+  ) as Record<string, any>;
+  check(
+    await db()
+      .from("conversations")
+      .update({ last_message_text: text.slice(0, 500), last_message_at: msg.created_at, last_message_sender_id: me.id })
+      .eq("id", c.id),
+    "update conversation",
+  );
+  await upsertRead(me.id, c.id, { last_read_at: msg.created_at });
+  c.last_message_text = text.slice(0, 500);
+  c.last_message_at = msg.created_at;
+  c.last_message_sender_id = me.id;
+  return msg;
+}
 
-      if (Array.isArray(directConnections)) {
-        for (const conn of directConnections) {
-          const otherId = conn.parent_1_id === userId ? conn.parent_2_id : conn.parent_1_id;
-          if (otherId && isUUID(otherId)) {
-            const existing = coParentMap.get(otherId) || {
-              id: otherId,
-              child_ids: [],
-              invitation_email: null,
-            };
-            if (conn.invitation_id && isUUID(conn.invitation_id)) {
-              const { data: invData } = await adminClient
-                .from("invitations")
-                .select("child_ids, to_email")
-                .eq("id", conn.invitation_id)
-                .maybeSingle();
-              if (invData?.child_ids && Array.isArray(invData.child_ids)) {
-                existing.child_ids = [...new Set([...existing.child_ids, ...invData.child_ids.filter(isUUID)])];
-              }
-              if (invData?.to_email && !existing.invitation_email) {
-                existing.invitation_email = invData.to_email;
-              }
-            }
-            coParentMap.set(otherId, existing);
-          }
-        }
-      }
+async function assertCanSend(me: SessionUser, c: ConversationRow): Promise<void> {
+  const other = otherOf(c, me.id);
+  if (!other) throw err.forbidden("Connect the other parent before sending");
+  if (!(await isConnected(me.id, other))) throw err.forbidden("You are no longer connected with this parent");
+}
 
-      // Also discover shared children through child_parents table
-      for (const [coParentId, item] of coParentMap.entries()) {
-        const { data: cpLinks } = await adminClient
-          .from("child_parents")
-          .select("child_id")
-          .eq("parent_id", coParentId);
+async function unreadTotal(me: SessionUser): Promise<number> {
+  const rows = (await myConversations(me.id)).filter((c) => c.other_parent_id);
+  const reads = await readsFor(me.id, rows.map((c) => c.id));
+  const counts = await Promise.all(rows.map((c) => unreadCount(me.id, c, reads.get(c.id))));
+  return counts.reduce((s, n) => s + n, 0);
+}
 
-        if (Array.isArray(cpLinks)) {
-          for (const l of cpLinks) {
-            if (isUUID(l.child_id) && allAccessibleChildIds.has(l.child_id)) {
-              item.child_ids.push(l.child_id);
-            }
-          }
-          item.child_ids = [...new Set(item.child_ids)];
-        }
-      }
+const handlers = {
+  /** All conversations of the user + co-parents + total unread. Also attaches prepared topics. */
+  async list(req: Request) {
+    const me = await requireUser(req);
+    const coParents = await coParentsOf(me.id);
+    await attachDrafts(me.id, coParents);
+    const rows = await myConversations(me.id);
+    const ctx = await buildContext(me, rows, coParents);
+    const conversations = await Promise.all(rows.map((c) => toApi(me, c, { ...ctx, read: ctx.reads.get(c.id) })));
+    return ok({
+      conversations,
+      co_parents: coParents,
+      unread_total: conversations.reduce((s, c) => s + (c.archived ? 0 : c.unread), 0),
+    });
+  },
 
-      // Fetch profile data for all co-parents
-      const coParentsList: any[] = [];
-      for (const [coParentId, item] of coParentMap.entries()) {
-        const { data: prof } = await adminClient
-          .from("profiles")
-          .select("id, name, email, avatar_url, role")
-          .eq("id", coParentId)
-          .maybeSingle();
+  /** Lightweight count for the bottom-nav badge. */
+  async unread(req: Request) {
+    const me = await requireUser(req);
+    return ok({ unread_total: await unreadTotal(me) });
+  },
 
-        coParentsList.push({
-          id: coParentId,
-          name: prof?.name || item.invitation_email?.split("@")[0] || "Co-ouder",
-          email: prof?.email || item.invitation_email || "",
-          avatar_url: prof?.avatar_url || null,
-          role: prof?.role || "parent",
-          child_ids: item.child_ids,
-        });
-      }
-
-      // C. Fetch conversations involving user
-      const { data: convs, error: convErr } = await adminClient
-        .from("conversations")
-        .select(`
-          id,
-          title,
-          type,
-          related_child_id,
-          created_by,
-          other_parent_id,
-          is_pinned,
-          is_archived,
-          last_message_text,
-          last_message_at,
-          created_at,
-          updated_at
-        `)
-        .or(`created_by.eq.${userId},other_parent_id.eq.${userId}`)
-        .order("is_pinned", { ascending: false })
-        .order("last_message_at", { ascending: false, nullsFirst: false });
-
-      if (convErr) throw new Error(convErr.message);
-
-      // Enhance conversations with child info & co-parent info
-      const enhancedConvs = (convs || []).map((c: any) => {
-        const otherId = c.created_by === userId ? c.other_parent_id : c.created_by;
-        const cp = coParentsList.find((p) => p.id === otherId) || null;
-        const child = (childrenList || []).find((k: any) => k.id === c.related_child_id) || null;
-        return {
-          ...c,
-          other_parent: cp,
-          child: child ? {
-            id: child.id,
-            name: child.name,
-            last_name: child.last_name || "",
-            avatar_url: child.avatar_url || null,
-            color_code: child.color_code || "#3C6E71",
-          } : null,
-        };
-      });
-
-      return new Response(JSON.stringify({
-        success: true,
-        conversations: enhancedConvs,
-        co_parents: coParentsList,
-        children: childrenList || [],
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+  /** New topic. Without a connected co-parent it is a prepared topic (visible only to the creator). */
+  async create(req: Request, body: Body) {
+    const me = await requireUser(req);
+    const title = optText(body.title, "title", MAX_TITLE);
+    if (!title) throw err.validation("title is required");
+    const coParents = await coParentIdsFor(me.id);
+    let other: string | null = null;
+    if (body.other_parent_id !== undefined && body.other_parent_id !== null) {
+      other = requireUuid(body.other_parent_id, "other_parent_id");
+      if (!coParents.includes(other)) throw err.forbidden("Not a connected co-parent");
+    } else if (coParents.length === 1) {
+      other = coParents[0];
     }
-
-    // 2. CREATE TOPIC / CONVERSATION
-    if (action === "create_topic") {
-      const title = body.title;
-      if (!userId || !title || !title.trim()) {
-        return new Response(JSON.stringify({ success: false, error: "userId and title are required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const validOtherId = isUUID(otherParentId) ? otherParentId : null;
-      const validChildId = isUUID(childId) ? childId : null;
-
-      const { data: newConv, error: createErr } = await adminClient
+    let childId: string | null = null;
+    if (body.child_id !== undefined && body.child_id !== null && body.child_id !== "") {
+      childId = requireUuid(body.child_id, "child_id");
+      if (!(await childIdsFor(me.id)).includes(childId)) throw err.notFound("Child not found");
+    }
+    const initial = body.initial_message === undefined || body.initial_message === null || body.initial_message === ""
+      ? null
+      : content(body.initial_message);
+    if (initial && !other) throw err.forbidden("Connect the other parent before sending");
+    const now = new Date().toISOString();
+    const c = check(
+      await db()
         .from("conversations")
         .insert({
-          title: title.trim(),
+          title,
           type: "topic",
-          created_by: userId,
-          other_parent_id: validOtherId,
-          related_child_id: validChildId,
-          last_message_text: initialMessage?.trim() || null,
-          last_message_at: new Date().toISOString(),
+          created_by: me.id,
+          other_parent_id: other,
+          related_child_id: childId,
           is_pinned: false,
           is_archived: false,
+          last_message_text: null,
+          last_message_at: now,
         })
-        .select()
-        .single();
+        .select(CONVERSATION_COLS)
+        .single(),
+      "create conversation",
+    ) as ConversationRow;
+    await upsertRead(me.id, c.id, { last_read_at: now });
+    let message: ReturnType<typeof messageOut> | null = null;
+    if (initial) message = messageOut(await insertMessage(me, c, initial, toneLevel(body.tone_level), clientId(body.client_id)));
+    return ok({ conversation: await conversationOut(me, c), message });
+  },
 
-      if (createErr) throw new Error(createErr.message);
-
-      let createdMessage = null;
-      if (initialMessage && initialMessage.trim()) {
-        const { data: msg, error: msgErr } = await adminClient
-          .from("messages")
-          .insert({
-            conversation_id: newConv.id,
-            sender_id: userId,
-            content: initialMessage.trim(),
-            tone_level: toneLevel || "geen",
-            is_system: false,
-          })
-          .select()
-          .single();
-
-        if (!msgErr) {
-          createdMessage = msg;
-        }
-      }
-
-      return new Response(JSON.stringify({
-        success: true,
-        conversation: newConv,
-        message: createdMessage,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+  /**
+   * Messages of one conversation, oldest first. `since` (ISO) returns only newer ones (polling).
+   * Marks the conversation as read unless `mark_read: false`.
+   */
+  async messages(req: Request, body: Body) {
+    const me = await requireUser(req);
+    const c = await loadConversationFor(me.id, requireUuid(body.conversation_id, "conversation_id"));
+    let since: string | null = null;
+    if (body.since !== undefined && body.since !== null && body.since !== "") {
+      if (typeof body.since !== "string" || Number.isNaN(Date.parse(body.since))) throw err.validation("since is invalid");
+      since = new Date(body.since).toISOString();
     }
-
-    // 3. GET MESSAGES FOR CONVERSATION
-    if (action === "get_messages") {
-      if (!conversationId || !isUUID(conversationId)) {
-        return new Response(JSON.stringify({ success: false, error: "Valid conversation_id is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: msgs, error: msgErr } = await adminClient
-        .from("messages")
-        .select("id, conversation_id, sender_id, content, tone_level, is_system, created_at")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
-
-      if (msgErr) throw new Error(msgErr.message);
-
-      return new Response(JSON.stringify({
-        success: true,
-        messages: msgs || [],
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let q = db().from("messages").select(MESSAGE_COLS).eq("conversation_id", c.id);
+    if (since) q = q.gt("created_at", since);
+    // newest 500, returned oldest first
+    const rows = ((check(await q.order("created_at", { ascending: false }).limit(500), "load messages") ?? []) as Record<string, any>[])
+      .reverse();
+    if (body.mark_read !== false && c.other_parent_id) {
+      const last = rows.length ? rows[rows.length - 1].created_at : null;
+      const stamp = last && last > new Date().toISOString() ? last : new Date().toISOString();
+      await upsertRead(me.id, c.id, { last_read_at: stamp });
     }
+    return ok({ conversation: await conversationOut(me, c), messages: rows.map(messageOut) });
+  },
 
-    // 4. SEND MESSAGE
-    if (action === "send_message") {
-      const content = body.content;
-      if (!userId || !conversationId || !content || !content.trim()) {
-        return new Response(JSON.stringify({ success: false, error: "userId, conversation_id, and content are required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+  /** Send a message. Needs an attached other parent with an ACTIVE connection. */
+  async send(req: Request, body: Body) {
+    const me = await requireUser(req);
+    const c = await loadConversationFor(me.id, requireUuid(body.conversation_id, "conversation_id"));
+    const text = content(body.content);
+    await assertCanSend(me, c);
+    const msg = await insertMessage(me, c, text, toneLevel(body.tone_level), clientId(body.client_id));
+    return ok({ message: messageOut(msg), conversation: await conversationOut(me, c) });
+  },
+
+  /** Mark as read up to now. */
+  async "mark-read"(req: Request, body: Body) {
+    const me = await requireUser(req);
+    const c = await loadConversationFor(me.id, requireUuid(body.conversation_id, "conversation_id"));
+    await upsertRead(me.id, c.id, { last_read_at: new Date().toISOString() });
+    return ok({ conversation: await conversationOut(me, c) });
+  },
+
+  /**
+   * Per-user preferences: `pinned` (max 3), `muted_until` (ISO or null), `archived`;
+   * `title` only by the creator.
+   */
+  async update(req: Request, body: Body) {
+    const me = await requireUser(req);
+    const c = await loadConversationFor(me.id, requireUuid(body.conversation_id, "conversation_id"));
+    const patch: Partial<ReadRow> = {};
+    if (body.pinned !== undefined) {
+      if (typeof body.pinned !== "boolean") throw err.validation("pinned must be a boolean");
+      if (body.pinned) {
+        const pins = (check(
+          await db().from("conversation_reads").select("conversation_id").eq("user_id", me.id).eq("pinned", true),
+          "count pins",
+        ) ?? []) as Array<{ conversation_id: string }>;
+        if (pins.filter((p) => p.conversation_id !== c.id).length >= MAX_PINS) throw err.validation("PIN_LIMIT");
       }
-
-      const { data: newMsg, error: insertErr } = await adminClient
-        .from("messages")
-        .insert({
-          conversation_id: conversationId,
-          sender_id: userId,
-          content: content.trim(),
-          tone_level: toneLevel || "geen",
-          is_system: false,
-        })
-        .select()
-        .single();
-
-      if (insertErr) throw new Error(insertErr.message);
-
-      // Update conversation last message timestamp & text
-      await adminClient
-        .from("conversations")
-        .update({
-          last_message_text: content.trim(),
-          last_message_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", conversationId);
-
-      return new Response(JSON.stringify({
-        success: true,
-        message: newMsg,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      patch.pinned = body.pinned;
     }
-
-    // 5. UPDATE TOPIC (pin/archive)
-    if (action === "update_topic") {
-      if (!conversationId || !isUUID(conversationId)) {
-        return new Response(JSON.stringify({ success: false, error: "Valid conversation_id is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const updates: any = {};
-      if (typeof body.is_pinned === "boolean") updates.is_pinned = body.is_pinned;
-      if (typeof body.is_archived === "boolean") updates.is_archived = body.is_archived;
-
-      const { data: updatedConv, error: updateErr } = await adminClient
-        .from("conversations")
-        .update(updates)
-        .eq("id", conversationId)
-        .select()
-        .single();
-
-      if (updateErr) throw new Error(updateErr.message);
-
-      return new Response(JSON.stringify({
-        success: true,
-        conversation: updatedConv,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (body.muted_until !== undefined) {
+      if (body.muted_until === null || body.muted_until === "") patch.muted_until = null;
+      else if (typeof body.muted_until === "string" && !Number.isNaN(Date.parse(body.muted_until))) {
+        patch.muted_until = new Date(body.muted_until).toISOString();
+      } else throw err.validation("muted_until is invalid");
     }
-
-    // 6. DELETE TOPIC
-    if (action === "delete_topic") {
-      if (!conversationId || !isUUID(conversationId)) {
-        return new Response(JSON.stringify({ success: false, error: "Valid conversation_id is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Delete messages first if foreign key cascade is not enabled, then delete conversation
-      await adminClient
-        .from("messages")
-        .delete()
-        .eq("conversation_id", conversationId);
-
-      const { error: delErr } = await adminClient
-        .from("conversations")
-        .delete()
-        .eq("id", conversationId);
-
-      if (delErr) throw new Error(delErr.message);
-
-      return new Response(JSON.stringify({
-        success: true,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (body.archived !== undefined) {
+      if (typeof body.archived !== "boolean") throw err.validation("archived must be a boolean");
+      patch.archived = body.archived;
     }
+    if (body.title !== undefined) {
+      if (c.created_by !== me.id) throw err.forbidden("Only the creator can rename a topic");
+      const title = optText(body.title, "title", MAX_TITLE);
+      if (!title) throw err.validation("title is required");
+      check(await db().from("conversations").update({ title }).eq("id", c.id), "rename conversation");
+      c.title = title;
+    }
+    if (Object.keys(patch).length) await upsertRead(me.id, c.id, patch);
+    return ok({ conversation: await conversationOut(me, c) });
+  },
 
-    return new Response(JSON.stringify({ success: false, error: `Unknown action: ${action}` }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  /** Only a prepared topic without messages can be removed (by its creator); sent messages are history. */
+  async delete(req: Request, body: Body) {
+    const me = await requireUser(req);
+    const c = await loadConversationFor(me.id, requireUuid(body.conversation_id, "conversation_id"));
+    if (c.created_by !== me.id) throw err.forbidden("Only the creator can remove a topic");
+    const res = await db().from("messages").select("id", { count: "exact", head: true }).eq("conversation_id", c.id);
+    if (res.error) check(res as any, "count messages");
+    if ((res.count ?? 0) > 0) throw err.forbidden("A conversation with messages cannot be removed");
+    check(await db().from("conversations").delete().eq("id", c.id), "delete conversation");
+    return ok({});
+  },
+};
 
-  } catch (err: any) {
-    return new Response(JSON.stringify({ success: false, error: err.message || "Internal server error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
+
+Deno.serve(serveActions("manage-messages", handlers));

@@ -3,7 +3,7 @@
  * Eén bron voor de houding, het stappenpad, wat Co nooit doet en 35 voorbeeldsituaties.
  * Wordt meegegeven aan de instructies van Co (Sparren met Co en de schrijfhulp). Wijzigingen na feedback van de mediator: alleen hier.
  */
-import i18n from "@/i18n";
+// Server-side copy (Phase 2): the only source of Co's conflict-coaching knowledge; moved from src/lib/co-conflictcoaching.js.
 export const coachHouding = `HOUDING BIJ CONFLICTEN TUSSEN OUDERS
 Co is een rustige coach naast één ouder en helpt die ouder samen te werken met de andere ouder als ouders, niet als ex-partners.
 Cirkel van invloed: help steeds uit elkaar halen
@@ -108,9 +108,9 @@ export const conflictVoorbeelden = [
     { nr: 35, titel: "De wissel loopt uit de hand", trefwoorden: ["ruzie", "wissel", "escaleert", "kinderen", "erbij", "huilde"], ouder: "Sanne: Bij de wissel kregen Joris en ik ruzie, waar de kinderen bij stonden. Emma huilde.", niet: "Wie begon er?", wel: "Wat naar, voor jou en voor de kinderen. Adem eerst even. Voor Emma en Noah is het belangrijkste dat ze weten dat het niet hun schuld is. Daarna kun je met Joris afspreken dat jullie bij de wissel alleen het praktische bespreken.", bericht: "Hoi Joris, het spijt me hoe het vandaag ging bij de wissel. Emma was er erg van geschrokken. Zullen we afspreken dat we bij de wissel alleen kort het praktische doen, en lastige dingen later bespreken, zonder de kinderen? Hoe zie jij dat?" },
 ];
 /** Kiest de voorbeelden die het best passen bij wat de ouder schreef (eenvoudige woordmatch), aangevuld met voorbeeld 1. */
-export function kiesVoorbeelden(tekst, max = 3) {
+export function kiesVoorbeelden(tekst, max = 3, isEn = false) {
     const t = tekst.toLowerCase();
-    const woorden = (v) => (i18n.resolvedLanguage === "en" ? [...v.trefwoorden, ...(trefwoordenEn[v.nr] ?? [])] : v.trefwoorden);
+    const woorden = (v) => (isEn ? [...v.trefwoorden, ...(trefwoordenEn[v.nr] ?? [])] : v.trefwoorden);
     const score = (v) => woorden(v).reduce((s, w) => s + (t.includes(w) ? (w.length > 4 ? 2 : 1) : 0), 0);
     const gekozen = conflictVoorbeelden.map((v) => ({ v, s: score(v) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).slice(0, max).map((x) => x.v);
     if (!gekozen.some((v) => v.nr === 1))
@@ -118,7 +118,7 @@ export function kiesVoorbeelden(tekst, max = 3) {
     return gekozen.slice(0, max + 1);
 }
 /** Voorbeelden als tekst voor de instructies van Co. Namen in de voorbeelden zijn voorbeeldnamen. */
-export function voorbeeldenTekst(tekst, max = 3) {
-    return "VOORBEELDEN (voorbeeldnamen; neem de aanpak over, niet de feiten)\n" + kiesVoorbeelden(tekst, max)
+export function voorbeeldenTekst(tekst, max = 3, isEn = false) {
+    return "VOORBEELDEN (voorbeeldnamen; neem de aanpak over, niet de feiten)\n" + kiesVoorbeelden(tekst, max, isEn)
         .map((v) => `- ${v.titel}\n  Ouder: "${v.ouder}"\n  Niet: "${v.niet}"\n  Wel: "${v.wel}"\n  Concept: "${v.bericht}"`).join("\n");
 }

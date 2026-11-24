@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { overlappendeAfspraken, controleerAfspraak } from "./slimme-hulp";
 import { afsprakenState, zetAfspraken, trekAfspraakIn, voerUit } from "./afspraken-store";
-import { nieuwBudget, trekBudgetIn, reageer } from "./budget-store";
-import { vakantieLijst, stelVerdelingVoor, trekVakantieIn, accepteerVakantie } from "./vakantie-store";
+import { kostenGezin } from "./kosten-testhulp";
+import { vakantieLijst, stelVerdelingVoor, trekVakantieIn, accepteerVakantie, zetVakantiesVoorTest } from "./vakantie-store";
 import { alleRegels } from "./audit-store";
 import { dienVoorstelIn, trekIn, accepteer } from "./zorg-store";
 import { afspraakReactie, vakantieReactie } from "./samen-regelen";
@@ -56,20 +56,18 @@ test("goedkeuring van een alternatief bevestigt uitsluitend de alternatieve teks
     expect(na.voorstel).toBeUndefined();
 });
 test("ingetrokken budget kan niet alsnog akkoord krijgen", () => {
-    nieuwBudget({ wat: "Intrektest", kind: "Emma", max: 60, pctSanne: 50 });
-    const id = alleRegels().filter((e) => e.soort === "kosten" && e.actie === "CREATED").at(-1)?.itemId;
-    if (!id)
-        throw new Error("Budget ontbreekt");
-    expect(trekBudgetIn(id, "Joris")).toBe(false);
-    expect(trekBudgetIn(id)).toBe(true);
-    const aantal = alleRegels().length;
-    reageer(id, "Joris", "akkoord");
-    expect(alleRegels().length).toBe(aantal);
-    expect(trekBudgetIn(id)).toBe(false);
+    const g = kostenGezin();
+    const id = g.kosten("A", "create-budget", { budget: { title: "Intrektest", amount: 60, my_pct: 50 } }).budget.id;
+    expect(g.kosten("B", "withdraw-budget", { budget_id: id }).fout).toBe("FORBIDDEN");
+    expect(g.kosten("A", "withdraw-budget", { budget_id: id }).budget.status).toBe("ingetrokken");
+    const stappen = g.kosten("A", "overview").budgets[0].steps.length;
+    expect(g.kosten("B", "respond-budget", { budget_id: id, response: "akkoord" }).fout).toBe("FORBIDDEN");
+    expect(g.kosten("A", "overview").budgets[0].steps.length).toBe(stappen);
+    expect(g.kosten("A", "withdraw-budget", { budget_id: id }).fout).toBe("FORBIDDEN");
 });
 test("vakantievoorstel blijft na intrekken bewaard en kan niet geaccepteerd worden", () => {
+    zetVakantiesVoorTest([{ id: "v4", naam: "Zomer", periode: "", vanDatum: "2026-07-18", totDatum: "2026-08-02", ouder: "Nog open", status: "open" }], true);
     stelVerdelingVoor("v4", "Sanne");
-    expect(trekVakantieIn("v4", "Joris")).toBe(false);
     expect(trekVakantieIn("v4")).toBe(true);
     expect(accepteerVakantie("v4")).toBe(false);
     const v = vakantieLijst().find((x) => x.id === "v4");
@@ -79,7 +77,7 @@ test("vakantievoorstel blijft na intrekken bewaard en kan niet geaccepteerd word
     expect(vakantieReactie(v)).toBe("Afgerond");
 });
 test("ingetrokken zorgvoorstel kan niet goedgekeurd worden", () => {
-    const id = dienVoorstelIn({ soort: "eenmalig", kinderen: ["emma"], dagen: [16], tekst: "Ruil", datumLabel: "16 maart", naarOuder: "sanne" });
+    const id = dienVoorstelIn({ soort: "eenmalig", kinderen: ["emma"], datums: ["2025-03-16"], tekst: "Ruil", datumLabel: "16 maart", naarOuder: "sanne" });
     expect(trekIn(id)).toBe(true);
-    expect(accepteer(id, "Joris")).toBe(false);
+    expect(accepteer(id)).toBe(false);
 });

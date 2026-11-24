@@ -1,418 +1,177 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-// Phase 1: session required (see _shared/phase2-guard.ts)
-import { phase2Guard } from "../_shared/phase2-guard.ts";
+// manage-handover — "Mee met de wissel" packing list, fixed items per child, handover notes. Session required.
+// A handover is identified by its date (moment_id = YYYY-MM-DD), derived in the app from the care schedule.
+// Both parents of a shared child see and edit the list; the receiving parent confirms what arrived and items
+// that did not arrive move to the next handover. Lists are deleted one month after the handover.
+import { db } from "../_shared/db.ts";
+import { check, err, ok, serveActions } from "../_shared/respond.ts";
+import { requireUser } from "../_shared/session.ts";
+import { requireUuid } from "../_shared/util.ts";
+import { audit, canSee, childIdsFromBody, familyScope, reqDateStr, Scope, str, toAbs, toRel } from "../_shared/agenda-family.ts";
+import { CHECKLIST_RETENTION_DAYS, PACKING_OPTIONS } from "../_shared/agenda-packing-options.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-session-token",
+type Row = Record<string, any>;
+const ITEM_COLS = "id, user_id, moment_id, item_name, child_ids, source, source_ref, is_packed, packed_by, packed_at, received, removed, deleted_at, created_at";
+const SOURCES = ["vast", "afspraak", "verzoek", "toegevoegd", "niet_meegekomen"];
+const DAYS = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag", "elke"];
+
+const expiry = (moment: string) => {
+  const d = new Date(`${moment}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + CHECKLIST_RETENTION_DAYS);
+  return d.toISOString();
 };
+const own = (r: Row) => ({ created_by: r.user_id, child_ids: r.child_ids?.length ? r.child_ids : r.child_id ? [r.child_id] : [] });
 
-const isUUID = (str: any) =>
-  typeof str === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-
-    const body = await req.json();
-    const __denied = await phase2Guard(req, body);
-    if (__denied) return __denied;
-    const { action } = body;
-
-    // Helper: find co-parent id if connected
-    const getConnectedParentIds = async (userId: string) => {
-      const ids = [userId];
-      if (!isUUID(userId)) return ids;
-
-      try {
-        const { data: conns } = await adminClient
-          .from("parent_connections")
-          .select("parent_1_id, parent_2_id")
-          .or(`parent_1_id.eq.${userId},parent_2_id.eq.${userId}`)
-          .in("status", ["active", "connected"]);
-
-        if (conns) {
-          conns.forEach((c: any) => {
-            if (c.parent_1_id && !ids.includes(c.parent_1_id)) ids.push(c.parent_1_id);
-            if (c.parent_2_id && !ids.includes(c.parent_2_id)) ids.push(c.parent_2_id);
-          });
-        }
-
-        const { data: acceptedInvs } = await adminClient
-          .from("invitations")
-          .select("from_parent_id, to_parent_id")
-          .or(`from_parent_id.eq.${userId},to_parent_id.eq.${userId}`)
-          .eq("status", "accepted");
-
-        if (acceptedInvs) {
-          acceptedInvs.forEach((inv: any) => {
-            if (inv.from_parent_id && !ids.includes(inv.from_parent_id)) ids.push(inv.from_parent_id);
-            if (inv.to_parent_id && !ids.includes(inv.to_parent_id)) ids.push(inv.to_parent_id);
-          });
-        }
-      } catch (err) {
-        console.warn("Error finding connected parents:", err);
-      }
-      return ids;
-    };
-
-    // 1. GET ALL HANDOVER DATA (Items, Routines, Logs)
-    if (action === "get_handover_data") {
-      const user_id = body.user_id;
-      const moment_id = body.moment_id || "w1";
-
-      if (!user_id || !isUUID(user_id)) {
-        return new Response(JSON.stringify({ success: true, items: [], routines: [], logs: [] }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const parentIds = await getConnectedParentIds(user_id);
-
-      // Get user's linked children to strictly isolate records per child
-      const { data: userChildLinks } = await adminClient
-        .from("child_parents")
-        .select("child_id")
-        .eq("parent_id", user_id);
-
-      const linkedChildIds: string[] = (userChildLinks || [])
-        .map((l: any) => l.child_id)
-        .filter(isUUID);
-
-      const { data: createdKids } = await adminClient
-        .from("children")
-        .select("id")
-        .eq("created_by", user_id);
-
-      (createdKids || []).forEach((k: any) => {
-        if (k.id && !linkedChildIds.includes(k.id)) linkedChildIds.push(k.id);
-      });
-
-      const linkedChildSet = new Set(linkedChildIds);
-
-      // Check if user's handover data has already been initialized
-      const { data: profile } = await adminClient
-        .from("profiles")
-        .select("handover_initialized")
-        .eq("id", user_id)
-        .maybeSingle();
-
-      const isInitialized = profile?.handover_initialized === true;
-      if (!isInitialized) {
-        await adminClient
-          .from("profiles")
-          .update({ handover_initialized: true })
-          .eq("id", user_id);
-      }
-
-      // Fetch checklist items
-      let { data: items } = await adminClient
-        .from("handover_checklist_items")
-        .select("*")
-        .in("user_id", parentIds)
-        .order("created_at", { ascending: true });
-
-      // Enforce child segregation: item must belong to linked children or be created by user
-      if (items) {
-        items = items.filter((i: any) => {
-          if (i.user_id === user_id) return true;
-          if (i.child_id) return linkedChildSet.has(i.child_id);
-          return true;
-        });
-      }
-
-      // Fetch fixed routines
-      let { data: routines } = await adminClient
-        .from("fixed_routines")
-        .select("*")
-        .in("user_id", parentIds)
-        .order("created_at", { ascending: true });
-
-      // Enforce child segregation: routine must belong to linked children or be created by user
-      if (routines) {
-        routines = routines.filter((r: any) => {
-          if (r.user_id === user_id) return true;
-          if (r.child_id) return linkedChildSet.has(r.child_id);
-          return true;
-        });
-      }
-
-      // Fetch handover logs
-      const { data: rawLogs } = await adminClient
-        .from("handover_logs")
-        .select("*, children(id, name, avatar_url)")
-        .in("user_id", parentIds)
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      // Enforce strict child segregation: only include logs for this user's linked children
-      let logs = rawLogs || [];
-      if (logs) {
-        logs = logs.filter((l: any) => {
-          if (l.child_id) return linkedChildSet.has(l.child_id);
-          return l.user_id === user_id;
-        });
-      }
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          items: items || [],
-          routines: routines || [],
-          logs: logs || [],
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // 2. ADD CHECKLIST ITEM
-    if (action === "add_item") {
-      const { user_id, item_name, moment_id = "w1", child_id, category = "custom", item_type = "mee", location = null } = body;
-      if (!user_id || !item_name) {
-        return new Response(JSON.stringify({ success: false, error: "user_id and item_name are required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const insertData: any = {
-        user_id,
-        item_name: item_name.trim(),
-        moment_id,
-        is_packed: false,
-        category,
-        item_type,
-        location,
-      };
-      if (isUUID(child_id)) insertData.child_id = child_id;
-
-      const { data, error } = await adminClient
-        .from("handover_checklist_items")
-        .insert([insertData])
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, item: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 2b. UPDATE CHECKLIST ITEM
-    if (action === "update_item") {
-      const { id, item_name, child_id, item_type, location, is_packed } = body;
-      if (!id) {
-        return new Response(JSON.stringify({ success: false, error: "id is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const updatePayload: any = { updated_at: new Date().toISOString() };
-      if (item_name !== undefined) updatePayload.item_name = item_name.trim();
-      if (child_id !== undefined) updatePayload.child_id = isUUID(child_id) ? child_id : null;
-      if (item_type !== undefined) updatePayload.item_type = item_type;
-      if (location !== undefined) updatePayload.location = location;
-      if (is_packed !== undefined) updatePayload.is_packed = Boolean(is_packed);
-
-      const { data, error } = await adminClient
-        .from("handover_checklist_items")
-        .update(updatePayload)
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, item: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 3. TOGGLE CHECKLIST ITEM
-    if (action === "toggle_item") {
-      const { id, is_packed } = body;
-      if (!id) {
-        return new Response(JSON.stringify({ success: false, error: "id is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { data, error } = await adminClient
-        .from("handover_checklist_items")
-        .update({ is_packed: Boolean(is_packed), updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, item: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 4. DELETE CHECKLIST ITEM
-    if (action === "delete_item") {
-      const { id } = body;
-      if (!id) {
-        return new Response(JSON.stringify({ success: false, error: "id is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // HARD DELETE FROM TABLE
-      const { error } = await adminClient.from("handover_checklist_items").delete().eq("id", id);
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 5. SAVE HANDOVER LOG
-    if (action === "save_log") {
-      const {
-        user_id,
-        child_id,
-        datum,
-        richting_key = "handover.directionToOther",
-        mood,
-        sleep,
-        transition,
-        topics = [],
-        note,
-        positive_note,
-      } = body;
-
-      if (!user_id) {
-        return new Response(JSON.stringify({ success: false, error: "user_id is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const insertPayload: any = {
-        user_id,
-        datum: datum || new Date().toLocaleDateString("nl-NL", { day: "numeric", month: "short" }),
-        richting_key,
-        mood: mood || null,
-        sleep: sleep || null,
-        transition: transition || null,
-        topics: Array.isArray(topics) ? topics : [],
-        note: note || null,
-        positive_note: positive_note || null,
-      };
-      if (isUUID(child_id)) insertPayload.child_id = child_id;
-
-      const { data, error } = await adminClient
-        .from("handover_logs")
-        .insert([insertPayload])
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      // Create notification for other connected parent
-      try {
-        const parentIds = await getConnectedParentIds(user_id);
-        const otherParentId = parentIds.find((pid) => pid !== user_id);
-        if (otherParentId) {
-          await adminClient.from("notifications").insert([
-            {
-              user_id: otherParentId,
-              actor_id: user_id,
-              type: "handover",
-              title: "Nieuwe overdracht ingevuld",
-              message: "De andere ouder heeft overdrachtsinformatie klaargezet voor het wisselmoment.",
-              link: "/overdracht",
-              metadata: {
-                titleKey: "notifications.newHandoverTitle",
-                messageKey: "notifications.newHandoverDesc",
-                log_id: data.id,
-                child_id,
-              },
-            },
-          ]);
-        }
-      } catch (notifErr) {
-        console.warn("Could not dispatch handover notification:", notifErr);
-      }
-
-      return new Response(JSON.stringify({ success: true, log: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 6. ADD FIXED ROUTINE
-    if (action === "add_routine") {
-      const { user_id, child_id, day_of_week, item_name, reason } = body;
-      if (!user_id || !day_of_week || !item_name) {
-        return new Response(JSON.stringify({ success: false, error: "user_id, day_of_week, and item_name are required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const insertPayload: any = {
-        user_id,
-        day_of_week: day_of_week.toLowerCase(),
-        item_name: item_name.trim(),
-        reason: reason || null,
-      };
-      if (isUUID(child_id)) insertPayload.child_id = child_id;
-
-      const { data, error } = await adminClient
-        .from("fixed_routines")
-        .insert([insertPayload])
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, routine: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 7. DELETE FIXED ROUTINE
-    if (action === "delete_routine") {
-      const { id } = body;
-      if (!id) {
-        return new Response(JSON.stringify({ success: false, error: "id is required." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // HARD DELETE FROM TABLE
-      const { error } = await adminClient.from("fixed_routines").delete().eq("id", id);
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ success: false, error: `Unknown action: ${action}` }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ success: false, error: err.message || "Internal server error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+function itemOut(r: Row, me: string) {
+  return {
+    id: r.id, moment_id: r.moment_id, naam: r.item_name, kind_ids: r.child_ids ?? [], bron: r.source, bron_ref: r.source_ref ?? null,
+    door: r.user_id === me ? "ik" : "ander", ingepakt: !!r.is_packed, ingepakt_door: r.packed_by ? (r.packed_by === me ? "ik" : "ander") : null,
+    ingepakt_op: r.packed_at ?? null, ontvangen: r.received ?? null, verwijderd: !!r.removed,
+  };
+}
+const routineOut = (r: Row, me: string) => ({ id: r.id, kind: r.child_id, dag: r.day_of_week, item: r.item_name, reden: r.reason ?? "", door: r.user_id === me ? "ik" : "ander" });
+const logOut = (r: Row, me: string) => ({
+  id: r.id, moment_id: r.moment_id ?? r.datum, van: r.user_id === me ? "ik" : "ander", aan: toRel(r.to_parent, me), kind_ids: r.child_ids ?? [],
+  inhoud: r.content ?? null, datum: r.datum, gedeeld_op: r.updated_at ?? r.created_at,
 });
+
+async function loadItem(s: Scope, id: string): Promise<Row> {
+  const r = check(await db().from("handover_checklist_items").select(ITEM_COLS + ", child_id").eq("id", id).maybeSingle(), "load item") as Row | null;
+  if (!r || !canSee(s, own(r))) throw err.notFound("Item not found");
+  return r;
+}
+
+function familyQuery(table: string, cols: string, s: Scope, childCol = "child_ids"): any {
+  const kids = [...s.kids];
+  let q = db().from(table).select(cols);
+  q = kids.length ? q.or(childCol === "child_ids" ? `user_id.eq.${s.me},child_ids.ov.{${kids.join(",")}}` : `user_id.eq.${s.me},child_id.in.(${kids.join(",")})`) : q.eq("user_id", s.me);
+  return q;
+}
+
+Deno.serve(serveActions("manage-handover", {
+  async list(req) {
+    const me = await requireUser(req);
+    const s = await familyScope(me.id);
+    const now = new Date().toISOString();
+    const [items, routines, logs] = await Promise.all([
+      familyQuery("handover_checklist_items", ITEM_COLS + ", child_id", s).or(`deleted_at.is.null,deleted_at.gt.${now}`).order("created_at", { ascending: true }),
+      familyQuery("fixed_routines", "id, user_id, child_id, day_of_week, item_name, reason, created_at", s, "child_id").order("created_at", { ascending: true }),
+      familyQuery("handover_logs", "id, user_id, child_id, child_ids, moment_id, datum, content, to_parent, created_at, updated_at", s).order("updated_at", { ascending: false }).limit(60),
+    ]);
+    const it = ((check(items, "items") ?? []) as Row[]).filter((r) => canSee(s, own(r)));
+    const ro = ((check(routines, "routines") ?? []) as Row[]).filter((r) => canSee(s, { created_by: r.user_id, child_ids: r.child_id ? [r.child_id] : [] }));
+    const lo = ((check(logs, "logs") ?? []) as Row[]).filter((r) => canSee(s, own(r)));
+    const getypt = [...new Set(it.filter((r) => r.source === "toegevoegd" || r.source === "verzoek").map((r) => String(r.item_name)))].filter((n) => !PACKING_OPTIONS.includes(n));
+    return ok({
+      items: it.filter((r) => !r.removed).map((r) => itemOut(r, me.id)), routines: ro.map((r) => routineOut(r, me.id)), logs: lo.map((r) => logOut(r, me.id)),
+      options: [...PACKING_OPTIONS, ...getypt.slice(0, 50)],
+    });
+  },
+
+  /** Add one or more items to the list of a handover (from the option list or typed). */
+  async "add-items"(req, body) {
+    const me = await requireUser(req);
+    const s = await familyScope(me.id);
+    const moment = reqDateStr(body.moment_id, "moment_id");
+    const childIds = childIdsFromBody(s, body.kind_ids, { required: true });
+    const source = SOURCES.includes(body.bron) ? body.bron : "toegevoegd";
+    if (!Array.isArray(body.namen) || !body.namen.length || body.namen.length > 20) throw err.validation("namen must be a list");
+    const rows = body.namen.map((n: unknown) => ({
+      user_id: me.id, child_id: childIds[0], child_ids: childIds, moment_id: moment, item_name: str(n, "naam", 100, true), source,
+      source_ref: str(body.bron_ref, "bron_ref", 200), deleted_at: expiry(moment),
+    }));
+    const saved = (check(await db().from("handover_checklist_items").insert(rows).select(ITEM_COLS), "insert items") ?? []) as Row[];
+    await audit(me.id, "spullen", moment, "CREATED", { item_naam: rows.map((r: Row) => r.item_name).join(", "), kinderen: childIds, meta: { type: "Spul", bron: source } });
+    return ok({ items: saved.map((r) => itemOut(r, me.id)) });
+  },
+
+  async "set-packed"(req, body) {
+    const me = await requireUser(req);
+    const s = await familyScope(me.id);
+    const r = await loadItem(s, requireUuid(body.id, "id"));
+    const packed = body.packed === true;
+    const u = check(await db().from("handover_checklist_items").update({ is_packed: packed, packed_by: packed ? me.id : null, packed_at: packed ? new Date().toISOString() : null, updated_at: new Date().toISOString() }).eq("id", r.id).select(ITEM_COLS).single(), "pack") as Row;
+    return ok({ item: itemOut(u, me.id) });
+  },
+
+  /** Removes an item from this list (kept as removed until the list expires). */
+  async "remove-item"(req, body) {
+    const me = await requireUser(req);
+    const s = await familyScope(me.id);
+    const r = await loadItem(s, requireUuid(body.id, "id"));
+    check(await db().from("handover_checklist_items").update({ removed: true, updated_at: new Date().toISOString() }).eq("id", r.id), "remove item");
+    return ok({});
+  },
+
+  /**
+   * "Is alles meegekomen?": received per item. Items that did not arrive are put on the next handover's list
+   * (`next_moment_id`, computed in the app from the schedule) with source niet_meegekomen.
+   */
+  async "confirm-received"(req, body) {
+    const me = await requireUser(req);
+    const s = await familyScope(me.id);
+    const moment = reqDateStr(body.moment_id, "moment_id");
+    const next = body.next_moment_id ? reqDateStr(body.next_moment_id, "next_moment_id") : null;
+    const received = body.received && typeof body.received === "object" ? body.received as Row : {};
+    const missing: Row[] = [];
+    for (const [id, val] of Object.entries(received)) {
+      const r = await loadItem(s, requireUuid(id, "item id"));
+      if (r.moment_id !== moment) throw err.validation("item belongs to another handover");
+      check(await db().from("handover_checklist_items").update({ received: val === true, updated_at: new Date().toISOString() }).eq("id", r.id), "received");
+      if (val !== true) missing.push(r);
+    }
+    const carried = next && missing.length
+      ? ((check(await db().from("handover_checklist_items").insert(missing.map((r) => ({
+        user_id: me.id, child_id: r.child_ids?.[0] ?? r.child_id, child_ids: r.child_ids, moment_id: next, item_name: r.item_name,
+        source: "niet_meegekomen", source_ref: moment, deleted_at: expiry(next),
+      }))).select(ITEM_COLS), "carry over") ?? []) as Row[])
+      : [];
+    await audit(me.id, "spullen", moment, "UPDATED", { item_naam: "Mee met de wissel", kinderen: [...new Set(missing.flatMap((r) => r.child_ids ?? []))], wijziging: { veld: "ontvangen", oud: "", nieuw: missing.length ? `${missing.length} niet meegekomen` : "alles ontvangen" } });
+    return ok({ carried: carried.map((r) => itemOut(r, me.id)) });
+  },
+
+  /** Fixed items per child ("Vaste spullen"): both parents can change them. */
+  async "add-routine"(req, body) {
+    const me = await requireUser(req);
+    const s = await familyScope(me.id);
+    const [kind] = childIdsFromBody(s, [body.kind], { required: true });
+    const dag = DAYS.includes(body.dag) ? body.dag : "elke";
+    const r = check(await db().from("fixed_routines").insert({ user_id: me.id, child_id: kind, day_of_week: dag, item_name: str(body.item, "item", 100, true), reason: str(body.reden, "reden", 300) }).select("*").single(), "add routine") as Row;
+    await audit(me.id, "spullen", r.id, "CREATED", { item_naam: r.item_name, kinderen: [kind], meta: { type: "Vast", dag } });
+    return ok({ routine: routineOut(r, me.id) });
+  },
+
+  async "remove-routine"(req, body) {
+    const me = await requireUser(req);
+    const s = await familyScope(me.id);
+    const r = check(await db().from("fixed_routines").select("*").eq("id", requireUuid(body.id, "id")).maybeSingle(), "load routine") as Row | null;
+    if (!r || !canSee(s, { created_by: r.user_id, child_ids: r.child_id ? [r.child_id] : [] })) throw err.notFound("Routine not found");
+    check(await db().from("fixed_routines").delete().eq("id", r.id), "delete routine");
+    await audit(me.id, "spullen", r.id, "DELETED", { item_naam: r.item_name, kinderen: r.child_id ? [r.child_id] : [], meta: { type: "Vast" } });
+    return ok({});
+  },
+
+  /** Handover note for the other parent (one per author per handover; sharing again replaces it). */
+  async "share-log"(req, body) {
+    const me = await requireUser(req);
+    const s = await familyScope(me.id);
+    const moment = reqDateStr(body.moment_id, "moment_id");
+    const childIds = childIdsFromBody(s, body.kind_ids, { required: true });
+    const content = body.inhoud;
+    if (!content || typeof content !== "object" || JSON.stringify(content).length > 20000) throw err.validation("inhoud is invalid");
+    const existing = check(await db().from("handover_logs").select("id").eq("user_id", me.id).eq("moment_id", moment).maybeSingle(), "find log") as Row | null;
+    const row = { user_id: me.id, child_id: childIds[0], child_ids: childIds, moment_id: moment, datum: moment, content, to_parent: toAbs("ander", me.id), richting_key: "handover.directionToOther", updated_at: new Date().toISOString() };
+    const r = existing
+      ? check(await db().from("handover_logs").update(row).eq("id", existing.id).select("*").single(), "update log") as Row
+      : check(await db().from("handover_logs").insert(row).select("*").single(), "insert log") as Row;
+    await audit(me.id, "overdracht", r.id, existing ? "UPDATED" : "CREATED", { item_naam: "Overdracht", kinderen: childIds, meta: { datum: moment } });
+    return ok({ log: logOut(r, me.id) });
+  },
+
+  /** The author takes a shared note back to edit it again. */
+  async "unshare-log"(req, body) {
+    const me = await requireUser(req);
+    const moment = reqDateStr(body.moment_id, "moment_id");
+    check(await db().from("handover_logs").delete().eq("user_id", me.id).eq("moment_id", moment), "unshare log");
+    return ok({});
+  },
+}));

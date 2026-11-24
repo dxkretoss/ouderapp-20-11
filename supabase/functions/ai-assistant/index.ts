@@ -1,70 +1,46 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import OpenAI from 'https://esm.sh/openai@4'
-// Phase 1: session required (see _shared/phase2-guard.ts)
-import { phase2Guard } from "../_shared/phase2-guard.ts";
+// ai-assistant — the search & arrange assistant in every page header + speech to text (server-side since Phase 2).
+// actions:
+//   ask        { vraag (1..1000), context (<= 12000, only data the parent can see in the app) } -> { result }
+//              result = { antwoord, actie (intent id), samenvatting[], opties[], kind (child id | ""), titel, datum, tijd, rol, herhaling }
+//   transcribe { audio: base64 (<= 10 MB), type: mime }  -> { tekst }
+// The assistant only picks an intent and prefills fields; the parent opens the existing flow and confirms.
+import {
+  base64Bytes,
+  chatJson,
+  childrenForAi,
+  requireAiUser,
+  str,
+  transcribe,
+} from "../_shared/ai-openai.ts";
+import { assistentSchema, assistentSysteem, assistentTaalRegel } from "../_shared/ai-tools-prompts.js";
+import { ok, serveActions } from "../_shared/respond.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-session-token',
-};
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  const __denied = await phase2Guard(req);
-  if (__denied) return __denied;
-  try {
-    const authHeader = req.headers.get('Authorization') || '';
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    let user = null;
-    try {
-      const { data } = await supabase.auth.getUser();
-      user = data?.user;
-    } catch {
-      // Ignored for custom auth clients
-    }
-    if (!user && !authHeader) return new Response('Unauthorized', { status: 401, headers: corsHeaders });
-
-    const { query } = await req.json();
-    const apiKey = Deno.env.get('OPENAI_API_KEY');
-
-    if (!apiKey) {
-      return new Response(JSON.stringify({
-        antwoord: "Ik kan je helpen met afspraken, kosten of de zorgregeling. Wat wil je regelen?",
-        actie: "geen",
-        opties: ["Afspraak toevoegen", "Kosten verrekenen", "Wisselmoment bekijken"]
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const openai = new OpenAI({ apiKey });
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'Je bent de slimme assistent in Ouderschap & Co. Classificeer de intentie van de ouder in een van de categorieën: afspraak_toevoegen, wissel_ruil, kosten, taak_toevoegen, document_zoeken, geen. Geef antwoord in JSON formaat met { antwoord, actie, opties }.'
-        },
-        { role: 'user', content: query }
-      ],
-      response_format: { type: "json_object" }
+Deno.serve(serveActions("ai-assistant", {
+  async ask(req, body, { isEn }) {
+    const user = await requireAiUser(req, "assistant");
+    const vraag = str(body.vraag, "vraag", 1000, { min: 1 });
+    const context = str(body.context, "context", 12000, { optional: true });
+    const kids = await childrenForAi(user.id);
+    const vandaag = new Date().toISOString().slice(0, 10);
+    const system = `${assistentSysteem(user.name || "", kids)}${assistentTaalRegel(isEn)}\n\nVandaag: ${vandaag}.\n\nCONTEXT (alleen gegevens waar deze ouder toegang toe heeft):\n${context || "(geen)"}`;
+    const result = await chatJson<Record<string, any>>({
+      name: "assistent",
+      schema: assistentSchema(kids.map((k) => k.id)),
+      temperature: 0.2,
+      maxTokens: 600,
+      messages: [{ role: "system", content: system }, { role: "user", content: vraag }],
     });
+    return ok({ result });
+  },
 
-    return new Response(response.choices[0].message.content, {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-});
+  async transcribe(req, body, { isEn }) {
+    await requireAiUser(req, "transcribe");
+    const audio = str(body.audio, "audio", 14_000_000, { min: 1 });
+    const type = str(body.type, "type", 100, { optional: true }) || "audio/webm";
+    const bytes = base64Bytes(audio, MAX_AUDIO_BYTES);
+    const tekst = await transcribe(bytes, type, isEn ? "en" : "nl");
+    return ok({ tekst });
+  },
+}));

@@ -8,14 +8,13 @@ import { RustigTip, useKeuzeTeksten } from "@/components/RustigTip";
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { useVakanties, vakantieLijst, stelVerdelingVoor, accepteerVakantie, trekVakantieIn, wijsVakantieAf } from "@/lib/vakantie-store";
+import { useVakanties, vakantieLijst, vakantiesGeladen, stelVerdelingVoor, accepteerVakantie, trekVakantieIn, wijsVakantieAf, vraagMeerTijdVakantie } from "@/lib/vakantie-store";
 import { Chevron } from "@/components/Tekens";
 export const Route = createFileRoute("/vakantie/$id")({
+    // De lijst komt van de server; bij een directe link is die er misschien nog niet — de pagina wacht daar zelf op.
     loader: ({ params }) => {
         const v = vakantieLijst().find((x) => x.id === params.id);
-        if (!v)
-            throw notFound();
-        return { naam: v.naam, periode: v.periode };
+        return v ? { naam: v.naam, periode: v.periode } : null;
     },
     head: ({ loaderData }) => ({
         meta: [
@@ -43,7 +42,7 @@ function VakantiePagina() {
     const [wijzig, setWijzig] = useState(false);
     useBevestigPopup(melding);
     if (!v)
-        return null;
+        return vakantiesGeladen() ? <NietGevonden /> : <AppShell><p className="mt-6 text-sm text-ink-soft">{t("common.laden")}</p></AppShell>;
     const status = v.status === "ingetrokken" ? t("routes.vakantieId.status.ingetrokken") : v.status === "afgesproken" ? t("routes.vakantieId.status.afgesproken") : v.status === "voorstel" ? (v.van === "Sanne" ? t("routes.vakantieId.status.verstuurd") : t("routes.vakantieId.status.vanAnder")) : t("routes.vakantieId.nietGeregeld");
     return (<AppShell>
       <PageHeader titel={v.naam} subtitel={v.periode} terug="/planning"/>
@@ -58,11 +57,13 @@ function VakantiePagina() {
             </div>)}
           {melding ? <p role="status" className="mt-2 text-sm font-semibold text-brand">{melding}</p> : null}
           {v.status === "voorstel" && v.van && v.van !== "Sanne" && (<div className="mt-3 grid gap-2 text-xs font-semibold">
-              <button onClick={() => { if (accepteerVakantie(v.id, "Sanne"))
+              <button onClick={() => { if (accepteerVakantie(v.id))
             setMelding(t("routes.vakantieId.melding.akkoord")); }} className="min-h-11 rounded-md bg-brand text-primary-foreground">{t("common.akkoord")}</button>
               <button onClick={() => setWijzig(true)} className="min-h-11 rounded-md border border-border">{t("common.anderVoorstel")}</button>
               <button onClick={() => { if (wijsVakantieAf(v.id))
             setMelding(t("routes.vakantieId.melding.nietAkkoord")); }} className="min-h-11 rounded-md border border-border text-ink-soft">{t("common.nietAkkoord")}</button>
+              {!v.meerTijd ? <button onClick={() => { if (vraagMeerTijdVakantie(v.id))
+            setMelding(t("routes.vakantieId.melding.meerTijd")); }} className="min-h-11 rounded-md border border-border text-ink-soft">{t("common.meerTijdNodig")}</button> : <p className="text-xs font-normal text-ink-soft">{t("routes.vakantieId.meerTijdGevraagd")}</p>}
             </div>)}
           {v.status !== "afgesproken" ? <div className="mt-2"><RustigTip moment="vakantie"/></div> : null}
           {v.status === "voorstel" && v.van === "Sanne" && (<div className="mt-3 flex gap-2 text-xs">

@@ -9,7 +9,6 @@ import { BewerkPotlood } from "@/components/ui-kit";
 import { useBevestigPopup } from "@/lib/feedback";
 import { Assistent } from "@/components/Assistent";
 import { GeschiedenisKnop } from "@/components/Geschiedenis";
-import { leg, leg as legAudit, legVerschillen as legVerschillenAudit } from "@/lib/audit-store";
 import { createFileRoute, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,7 +19,10 @@ import { AppShell, Card } from "@/components/AppShell";
 import { ContextToevoegen } from "@/components/ContextToevoegen";
 import { HulpKnop } from "@/components/HulpVragen";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { afspraken, categorieMeta, gesprekken, kleurVanKind } from "@/lib/demo-data";
+import { categorieMeta } from "@/lib/demo-data";
+/** Het voorbeeldgezin bestaat niet meer: geen vaste voorbeeldafspraken; kleur komt uit het kindprofiel. */
+const afspraken = [];
+const kleurVanKind = () => "#8A7E72";
 import { kindNamen, useZorg, zorgDag } from "@/lib/zorg-store";
 import { useTaken, voegTaakToe } from "@/lib/taken-store";
 import { nieuwBudget } from "@/lib/budget-store";
@@ -40,6 +42,8 @@ import { VoorstelIntrekken } from "@/components/VoorstelIntrekken";
 import { AanwezigheidBlok, AanwezigheidFormulier } from "@/components/AanwezigheidAfstemmen";
 import { leesChatAfspraken } from "@/lib/chat-afspraken";
 import { aanwezigVoor, startAfstemming, statusRegel, useAanwezigheid } from "@/lib/aanwezigheid-store";
+import { kindIdsVan, maakAfspraak, reageerOpAfspraakVoorstel, trekAfspraakVoorstelIn, useAgenda, verwijderAfspraak, wijzigAfspraak } from "@/lib/agenda-store";
+import { useGezin } from "@/lib/gezin";
 export const Route = createFileRoute("/agenda")({
     validateSearch: z.object({ onderdeel: z.enum(["kalender", "vakanties"]).optional(), zorgActie: z.enum(["wijziging", "regeling"]).optional(), zorgVoorstel: z.string().optional(), vakantieNieuw: z.enum(["vakantie", "bijzonder"]).optional(), nieuw: z.boolean().optional(), voorstel: z.boolean().optional(), persoonlijk: z.boolean().optional(), vanuitBericht: z.boolean().optional(), locatie: z.string().optional(), omschrijving: z.string().optional(), categorie: z.string().optional(), titel: z.string().optional(), datum: z.string().optional(), tijd: z.string().optional(), herhaling: z.enum(["wekelijks", "tweewekelijks", "maandelijks"]).optional(), kind: z.string().optional(), dag: z.string().optional(), importBedrag: z.number().positive().max(100000).optional(), importTaak: z.string().max(300).optional(), importMee: z.string().max(300).optional(), afspraak: z.string().optional() }),
     head: () => ({
@@ -101,8 +105,7 @@ function AgendaPagina() {
     const [controle, setControle] = useState(null);
     const vkSlim = useVoorkeuren();
     const [detail, setDetail] = useState(null);
-    const [voorstellen, setWachtend] = useState([]);
-    const wachtend = voorstellen.filter((w) => !w.status);
+    const [demoVoorstellen, setWachtend] = useState([]);
     const [voorstelNieuw, setVoorstelNieuw] = useState(false);
     const [verborgen, setVerborgen] = useState([]);
     const [modus, setModus] = useState("aanpassen");
@@ -149,15 +152,25 @@ function AgendaPagina() {
     // Eigen gezin: geen voorbeelddata; wel de eigen regeling als dagkleuring.
     const startSt = useStart();
     const eigen = startSt.eigen;
+    const agendaSt = useAgenda();
+    const gezin = useGezin();
+    /** Is er een gekoppelde andere ouder? De server beslist per afspraak; dit is alleen voor de tekst vooraf. */
+    const verbonden = agendaSt.geladen ? agendaSt.verbonden : gezin.gekoppeld;
     VANDAAG = eigen ? iso(new Date()) : DEMO_VANDAAG;
     // Eigen gezin: afspraken en kinderen uit de eigen gezinsgegevens; voorbeeldgezin blijft apart.
-    const extra = eigen ? startSt.agenda : demoExtra;
-    const setExtra = (f) => (eigen ? start.zetAgenda((l) => f(l)) : setDemoExtra(f));
-    const kindKeuzes = eigen ? [...startSt.kinderen.map((k) => k.naam), ...(startSt.kinderen.length > 1 ? ["Alle kinderen"] : [])] : ["Emma", "Noah", "Allebei"];
+    const extra = eigen ? agendaSt.events : demoExtra;
+    const setExtra = (f) => (eigen ? undefined : setDemoExtra(f));
+    // Voorstellen van het eigen gezin komen van de server (één bron); dezelfde vorm als voorheen in deze pagina.
+    const voorstellen = eigen ? agendaSt.voorstellen.map((p) => {
+        const bestaand = p.eventId ? extra.find((e) => e.id === p.eventId) : undefined;
+        const a = bestaand ?? { id: p.eventId ?? p.id, ...(p.velden ?? {}), gedeeld: true };
+        return { id: p.id, mine: p.mine, vk: { a, datum: p.datum ?? a.datum }, soort: p.soort, bereik: p.bereik, velden: p.velden ?? undefined, status: p.status, meerTijd: p.meerTijd };
+    }) : demoVoorstellen;
+    const wachtend = voorstellen.filter((w) => !w.status);
+    const kindKeuzes = [...startSt.kinderen.map((k) => k.naam), ...(startSt.kinderen.length > 1 ? ["Alle kinderen"] : [])];
     /** Zelfde kindkeuze, maar dan in de vorm die het hulpverzoek gebruikt. */
-    const hulpKind = () => (kind === "Alle kinderen" ? "alle" : kind === "Allebei" ? "beide" : startSt.kinderen.find((k) => k.naam === kind)?.id ?? (kind === "Noah" ? "noah" : "emma"));
-    const standaardKind = eigen ? (startSt.kinderen[0]?.naam ?? "") : "Emma";
-    const alleNamen = eigen ? startSt.kinderen.map((k) => k.naam) : ["Emma", "Noah"];
+    const hulpKind = () => (kind === "Alle kinderen" ? "alle" : kind === "Allebei" ? "beide" : startSt.kinderen.find((k) => k.naam === kind)?.id ?? "alle");
+    const standaardKind = startSt.kinderen[0]?.naam ?? "";
     const eigenRegeling = startSt.regeling && startSt.regeling !== "later" && geldigeRegeling(startSt.regeling) ? startSt.regeling : null;
     const [filter, setFilter] = useState("alles");
     const heeftPrive = extra.some((a) => a.gedeeld === false);
@@ -190,7 +203,7 @@ function AgendaPagina() {
         ...vk(d, d).map((v) => ({ titel: v.a.titel, kleur: kleurNaam(v.a.kind), prive: v.a.gedeeld === false })),
     ];
     const vk = (van, tot) => extra.filter((a) => (kindFilter === "alle" || a.gedeeld === false || a.kind === geselecteerdeNaam || /allebei|alle kinderen|&/i.test(a.kind)) && !verborgen.includes(a.id) && (filter === "alles" || (filter === "prive") === (a.gedeeld === false))).flatMap((a) => voorkomens(a, van, tot).map((d) => ({ a, datum: d }))).sort((x, y) => (x.datum + x.a.tijd).localeCompare(y.datum + y.a.tijd));
-    const wachtOp = (id) => wachtend.some((w) => w.vk.a.id === id);
+    const wachtOp = (id) => wachtend.find((w) => w.vk.a.id === id);
     const openNieuw = (vooraf = weekDag ?? VANDAAG) => {
         setVoorstelNieuw(false);
         setBewerk(null);
@@ -215,7 +228,7 @@ function AgendaPagina() {
     // Vooraf ingevuld vanuit de assistent: alleen invullen, de ouder slaat zelf op.
     const zoek = Route.useSearch();
     const zorgVan = (d) => agendaZorgOp(zorg, vakanties, startSt, d, kindFilter);
-    const profielen = eigen ? startSt.kinderen : [{ id: "emma", naam: "Emma" }, { id: "noah", naam: "Noah" }];
+    const profielen = startSt.kinderen;
     useEffect(() => { if (zoek.kind && profielen.some((k) => k.id === zoek.kind))
         setKindFilter(zoek.kind); }, [zoek.kind]);
     const geselecteerdeNaam = profielen.find((k) => k.id === kindFilter)?.naam;
@@ -244,7 +257,7 @@ function AgendaPagina() {
         if (zoek.tijd)
             setTijd(zoek.tijd);
         if (zoek.kind)
-            setKind(zoek.kind === "emma" ? "Emma" : zoek.kind === "noah" ? "Noah" : kindKeuzes.includes(zoek.kind) ? zoek.kind : standaardKind);
+            setKind(startSt.kinderen.find((k) => k.id === zoek.kind)?.naam ?? (kindKeuzes.includes(zoek.kind) ? zoek.kind : standaardKind));
         if (zoek.categorie && zoek.categorie in categorieMeta)
             setCategorie(zoek.categorie);
         if (zoek.herhaling)
@@ -271,7 +284,7 @@ function AgendaPagina() {
     useEffect(() => {
         if (doelEigen)
             setDetail({ a: doelEigen, datum: zoek.dag ?? doelEigen.datum });
-    }, [zoek.afspraak, zoek.dag]);
+    }, [zoek.afspraak, zoek.dag, doelEigen?.id]);
     const [doelOpen, setDoelOpen] = useState(false);
     useEffect(() => { setDoelOpen(!!zoek.afspraak); }, [zoek.afspraak]);
     const openBewerk = (v, m = "aanpassen") => {
@@ -302,26 +315,16 @@ function AgendaPagina() {
     };
     const isReeks = (a) => !!a.herhaling && a.herhaling.freq !== "geen";
     /** Direct wijzigen: persoonlijke afspraak, of eigen gezin waarin nog geen andere ouder meedoet (geen voorstel aan niemand). */
-    const direct = (a) => a.gedeeld === false || (eigen && !startSt.uitgenodigd);
+    const direct = (a) => a.gedeeld === false || (eigen && !verbonden);
     const wordtVoorstel = bewerk ? !direct(bewerk.a) : voorstelNieuw && gedeeld;
     const toon = (v) => !bewerk || (modus === "verplaatsen" && v === "datum") || (modus === "herhaling" && v === "herhaling");
     const verwijder = (v, b) => {
         const { a, datum: d } = v;
-        const leg = (...args) => { if (a.gedeeld !== false)
-            legAudit(...args); };
-        if (!isReeks(a) || b === "reeks" || (b === "toekomst" && d === a.datum)) {
-            leg("afspraak", a.id, a.titel, "verwijderd");
-            setExtra((l) => l.filter((x) => x.id !== a.id));
-            if (!eigen && afspraken.some((x) => x.id === a.id))
-                setVerborgen((l) => [...l, a.id]);
-        }
-        else if (b === "alleen") {
-            leg("afspraak", a.id, `${a.titel} (${kort(d)})`, "verwijderd");
-            setExtra((l) => l.map((x) => (x.id === a.id ? { ...x, overslaan: [...(x.overslaan ?? []), d] } : x)));
-        }
-        else {
-            leg("afspraak", a.id, `${a.titel} vanaf ${kort(d)}`, "verwijderd");
-            setExtra((l) => l.map((x) => (x.id === a.id ? { ...x, herhaling: { ...x.herhaling, freq: x.herhaling?.freq ?? "geen", interval: x.herhaling?.interval ?? 1, eenheid: x.herhaling?.eenheid ?? "weken", eind: plusDagen(d, -1) } } : x)));
+        // Eigen gezin: de server beslist (direct bij privé of zonder gekoppelde ouder, anders een voorstel) en legt de historie vast.
+        if (eigen) {
+            verwijderAfspraak(a.id, b, d);
+            setVerwijderVk(null);
+            return;
         }
         setVerwijderVk(null);
     };
@@ -329,31 +332,21 @@ function AgendaPagina() {
     /** Voert een definitieve wijziging uit (direct bij persoonlijk, of na akkoord bij gedeeld). */
     const pasToe = (bv, velden, b) => {
         const oud = bv.a;
-        const nieuwId = `nieuw-${Date.now()}`;
-        const legVerschillen = (...args) => { if (velden.gedeeld !== false)
-            legVerschillenAudit(...args); };
-        if (!isReeks(oud) || b === "reeks" || (b === "toekomst" && bv.datum === oud.datum)) {
-            const nieuw = { ...oud, ...velden, datum: isReeks(oud) && b !== "toekomst" ? oud.datum : velden.datum };
-            if (oud.gedeeld === false && velden.gedeeld !== false)
-                leg("afspraak", oud.id, nieuw.titel, "toegevoegd", undefined, "Sanne", { kinderen: /allebei|alle kinderen|&/i.test(nieuw.kind) ? alleNamen : [nieuw.kind] });
-            else
-                legVerschillen("afspraak", oud.id, nieuw.titel, oud, nieuw, labels);
-            setExtra((l) => l.some((x) => x.id === oud.id) ? l.map((x) => (x.id === oud.id ? nieuw : x)) : [...l, nieuw]);
-        }
-        else if (b === "alleen") {
-            setExtra((l) => [...l.map((x) => (x.id === oud.id ? { ...x, overslaan: [...(x.overslaan ?? []), bv.datum] } : x)), { id: nieuwId, ...velden, herhaling: undefined }]);
-            legVerschillen("afspraak", oud.id, velden.titel, { ...oud, datum: bv.datum }, { ...oud, ...velden }, labels);
-        }
-        else {
-            setExtra((l) => [...l.map((x) => (x.id === oud.id ? { ...x, herhaling: { ...x.herhaling, freq: x.herhaling?.freq ?? "geen", interval: x.herhaling?.interval ?? 1, eenheid: x.herhaling?.eenheid ?? "weken", eind: plusDagen(bv.datum, -1) } } : x)), { id: nieuwId, ...velden }]);
-            legVerschillen("afspraak", oud.id, velden.titel, { ...oud, datum: bv.datum }, { ...oud, ...velden }, labels);
+        if (eigen) {
+            wijzigAfspraak(oud.id, velden, b, bv.datum);
+            return;
         }
     };
     const accepteer = (w) => {
         if (!wachtend.includes(w))
             return;
+        if (eigen) {
+            if (!w.mine)
+                reageerOpAfspraakVoorstel(w.id, "akkoord");
+            setMelding(t("routes.agenda.melding.akkoordGegeven"));
+            return;
+        }
         setWachtend((l) => l.map((x) => x === w ? { ...x, status: "geaccepteerd" } : x));
-        leg("afspraak", w.vk.a.id, w.vk.a.titel, "ACCEPTED");
         const velden = w.velden;
         if (w.soort === "nieuw" && velden)
             setExtra((l) => [...l, { id: w.vk.a.id, ...velden }]);
@@ -363,7 +356,7 @@ function AgendaPagina() {
             pasToe(w.vk, w.velden, w.bereik);
         setMelding(t("routes.agenda.melding.akkoord"));
     };
-    const opslaan = (tochToevoegen = false, vastId) => {
+    const opslaan = (tochToevoegen = false, vastId, naOpslaan) => {
         if (!titel.trim() || !datum || (gedeeld && !kind.trim()))
             return;
         if (!tochToevoegen && !gedeeld) {
@@ -385,11 +378,13 @@ function AgendaPagina() {
         }
         setControle(null);
         const velden = { titel: titel.trim(), datum, tijd, eindtijd: eindtijd || undefined, categorie, kind, herhaling: herhaling.freq === "geen" ? undefined : herhaling, locatie: locatie.trim() || undefined, toelichting: toelichting.trim() || undefined, herinnering, gedeeld };
-        if (bewerk) {
+        if (bewerk && eigen) {
+            wijzigAfspraak(bewerk.a.id, velden, isReeks(bewerk.a) ? bereik : "reeks", bewerk.datum);
+            setMelding(wordtVoorstel ? t("routes.agenda.melding.wijzigingVoorgesteld") : gedeeld && bewerk.a.gedeeld === false ? t("routes.agenda.melding.nuGedeeld") : t("routes.agenda.melding.aangepast"));
+        }
+        else if (bewerk) {
             if (wordtVoorstel) {
                 setWachtend((l) => [...l.filter((x) => x.vk.a.id !== bewerk.a.id), { vk: bewerk, soort: "wijzig", bereik: isReeks(bewerk.a) ? bereik : "reeks", velden }]);
-                if (gedeeld)
-                    leg("afspraak", bewerk.a.id, titel.trim(), "CREATED", undefined, "Sanne", { meta: { status: t("routes.agenda.audit.wachtOpAnder"), voorstel: t("routes.agenda.audit.wijziging"), datum, tijd } });
                 setMelding(t("routes.agenda.melding.wijzigingVoorgesteld"));
             }
             else {
@@ -399,10 +394,36 @@ function AgendaPagina() {
         }
         else {
             const id = vastId ?? `nieuw-${Date.now()}`;
-            const meta = categorieMeta[categorie];
+            if (eigen) {
+                // Eigen gezin: de server maakt de afspraak (of het voorstel); vervolgstappen krijgen het echte id.
+                const keuze = aanwezigKeuze, wieGaat = aanwezigWieGaat, contactWie = aanwezigContactWie, imp = importExtra;
+                const taakKind = kindIdsVan(kind)[0] ?? "beide";
+                maakAfspraak(velden, { voorstel: wordtVoorstel }).then((r) => {
+                    const echtId = r?.event?.id;
+                    if (!echtId)
+                        return;
+                    if (gedeeld && keuze)
+                        startAfstemming(echtId, keuze, "sanne", { ...(wieGaat ? { wieGaat } : {}), ...(contactWie ? { contactWie } : {}), kind: taakKind, afspraakTitel: velden.titel });
+                    naOpslaan?.(echtId);
+                    if (imp) {
+                        for (const tekst of new Set([imp.taak.trim(), imp.mee.trim()].filter(Boolean)))
+                            voegTaakToe({ tekst, kind: taakKind, wie: "", herhaling: "eenmalig", deadline: velden.datum });
+                        const bedrag = Number(imp.bedrag.replace(",", "."));
+                        if (bedrag > 0)
+                            nieuwBudget({ wat: velden.titel, kindIds: kindIdsVan(kind), max: bedrag, pctIk: 50, toelichting: t("routes.agenda.budgetToelichting", { datum: lang(velden.datum) }) });
+                    }
+                });
+                setAanwezigKeuze(null);
+                setAanwezigWieGaat(null);
+                setAanwezigContactWie(null);
+                setImportExtra(null);
+                setMelding(wordtVoorstel ? t("routes.agenda.melding.voorgesteldEigen") : !gedeeld ? t("routes.agenda.melding.toegevoegdPrive") : verbonden ? t("routes.agenda.melding.toegevoegdGedeeld") : t("routes.agenda.melding.toegevoegd"));
+                setBewerk(null);
+                setNieuwOpen(false);
+                return;
+            }
             if (wordtVoorstel) {
                 setWachtend((l) => [...l, { vk: { a: { id, ...velden }, datum }, soort: "nieuw", bereik: "reeks", velden }]);
-                leg("afspraak", id, velden.titel, "CREATED", undefined, "Sanne", { kinderen: [kind], meta: { status: t("routes.agenda.audit.wachtOpAnder"), voorstel: t("routes.agenda.audit.nieuweAfspraak"), datum, tijd } });
                 setMelding(t("routes.agenda.melding.voorgesteld"));
                 setNieuwOpen(false);
                 setBewerk(null);
@@ -417,21 +438,16 @@ function AgendaPagina() {
             setAanwezigKeuze(null);
             setAanwezigWieGaat(null);
             setAanwezigContactWie(null);
-            // Privé: niets in de gedeelde geschiedenis, export of meldingen.
-            if (gedeeld)
-                leg("afspraak", id, velden.titel, "toegevoegd", undefined, "Sanne", { kinderen: /allebei|alle kinderen|&/i.test(kind) ? alleNamen : [kind] });
             if (importExtra) {
-                const taakKind = /allebei|&/i.test(kind) ? "beide" : kind === "Noah" ? "noah" : "emma";
+                const taakKind = kindIdsVan(kind)[0] ?? "beide";
                 for (const tekst of new Set([importExtra.taak.trim(), importExtra.mee.trim()].filter(Boolean))) {
                     voegTaakToe({ tekst, kind: taakKind, wie: "", herhaling: "eenmalig", deadline: datum });
                 }
                 const bedrag = Number(importExtra.bedrag.replace(",", "."));
                 if (bedrag > 0)
-                    nieuwBudget({ wat: titel.trim(), kind: /allebei|&/i.test(kind) ? "Emma & Noah" : kind, max: bedrag, pctSanne: 50, toelichting: t("routes.agenda.budgetToelichting", { datum: lang(datum) }) });
+                    nieuwBudget({ wat: titel.trim(), kindIds: kindIdsVan(kind), max: bedrag, pctIk: 50, toelichting: t("routes.agenda.budgetToelichting", { datum: lang(datum) }) });
                 setImportExtra(null);
             }
-            if (gedeeld)
-                gesprekken.unshift({ ...gesprekken[0], id: `afspraak-${id}`, onderwerp: velden.titel, icoon: meta?.icoon ?? "overig", laatste: t("routes.agenda.gesprek.laatste"), laatsteTijd: t("routes.agenda.gesprek.nu"), ongelezen: 0, berichten: [] });
             setMelding(eigen ? t("routes.agenda.melding.toegevoegdApparaat") : gedeeld ? t("routes.agenda.melding.toegevoegdVoorbeeld") : t("routes.agenda.melding.toegevoegdPrive"));
         }
         setBewerk(null);
@@ -457,7 +473,7 @@ function AgendaPagina() {
         ]}/>
         </div>
       </div>
-      {eigen ? <p className="mt-1 text-sm text-ink-soft">{t("routes.agenda.eigenAgenda")}</p> : null}
+      {eigen && !verbonden ? <p className="mt-1 text-sm text-ink-soft">{t("routes.agenda.eigenAgenda")}</p> : null}
 
       {melding ? <div className="mt-4 rounded-md border border-brand/20 bg-brand-soft p-3 text-sm text-brand">{melding}</div> : null}
       <div className="mt-3 flex gap-2" role="group" aria-label={t("routes.agenda.onderdeel.label")}><Button variant="ghost" aria-pressed={zoek.onderdeel !== "vakanties"} className={`min-h-9 rounded-full px-4 text-sm font-extrabold ${zoek.onderdeel !== "vakanties" ? "bg-[#DCE3D3] text-[#3F5747]" : "text-ink-soft"}`} onClick={() => router.navigate({ to: "/agenda", search: {} })}>{t("routes.agenda.titel")}</Button><Button variant="ghost" aria-pressed={zoek.onderdeel === "vakanties"} className={`min-h-9 rounded-full px-4 text-sm font-extrabold ${zoek.onderdeel === "vakanties" ? "bg-[#DCE3D3] text-[#3F5747]" : "text-ink-soft"}`} onClick={() => router.navigate({ to: "/agenda", search: { onderdeel: "vakanties" } })}>{t("routes.agenda.onderdeel.vakanties")}</Button></div>
@@ -502,7 +518,7 @@ function AgendaPagina() {
             <div className="mt-1 grid grid-cols-7 gap-1">
               {weekDagen.map((d) => <DagCel key={d} d={d} groot items={celItems(d)} kleurVan={kleurNaam} wisselNaar={wisselRichting(d)} gegevens={zorgVan(d)} zorg={zorg} regio={regio} heeftIets={demoVoor(d).length + vk(d, d).length > 0} onKies={setWeekDag} geselecteerd={d === weekDag} eigenPlek={eigenPlekVan(d)} eigenWissel={eigenWisselVan(d)}/>)}
             </div>
-            <ZorgLegenda kinderen={eigen ? startSt.kinderen.map((k) => ({ naam: k.naam, kleur: k.kleur ?? "#8A7E72" })) : [{ naam: "Emma", kleur: kleurVanKind("Emma") }, { naam: "Noah", kleur: kleurVanKind("Noah") }]}/>
+            <ZorgLegenda kinderen={startSt.kinderen.map((k) => ({ naam: k.naam, kleur: k.kleur ?? "#8A7E72" }))}/>
             {weekOffset !== 0 ? <button onClick={() => { zetWeekOffset(0); setWeekDag(null); }} className="mt-2 px-2 text-xs font-bold text-brand">{t("routes.agenda.week.terug")}</button> : null}
           </section>
           {!weekDag ? <p className="mt-3 flex items-center gap-2.5 px-1 text-[15px] text-ink-soft"><span className="grid size-8 place-items-center rounded-full bg-white/80"><AppIcon functie="agenda" maat="sm" vorm="kaal"/></span>{t("routes.agenda.week.tik")}</p> : null}
@@ -543,7 +559,7 @@ function AgendaPagina() {
               {Array.from({ length: leeg }).map((_, i) => <span key={`l${i}`}/>)}
               {maandDagen.map((d) => <DagCel key={d} d={d} gegevens={zorgVan(d)} zorg={zorg} regio={regio} heeftIets={demoVoor(d).length + vk(d, d).length > 0} onKies={setGekozenDag} eigenPlek={eigenPlekVan(d)} eigenWissel={eigenWisselVan(d)} items={celItems(d)} kleurVan={kleurNaam} wisselNaar={wisselRichting(d)}/>)}
             </div>
-            <ZorgLegenda kinderen={eigen ? startSt.kinderen.map((k) => ({ naam: k.naam, kleur: k.kleur ?? "#8A7E72" })) : [{ naam: "Emma", kleur: kleurVanKind("Emma") }, { naam: "Noah", kleur: kleurVanKind("Noah") }]}/>
+            <ZorgLegenda kinderen={startSt.kinderen.map((k) => ({ naam: k.naam, kleur: k.kleur ?? "#8A7E72" }))}/>
           </section>
           {vakInMaand.map((v) => (<div key={v.naam + v.van} className="mt-3 flex items-center justify-between gap-3 border-b border-border px-1 pb-3">
               <div>
@@ -563,10 +579,10 @@ function AgendaPagina() {
       <Link to="/tijdlijn" className="mt-6 flex items-center justify-center gap-1.5 text-xs font-extrabold text-ink-soft"><AppIcon functie="geschiedenis" maat="sm" vorm="kaal"/>{t("routes.agenda.eerdereWijzigingen")}</Link>
 
       </>}
-      {(voorstellenOpen || zoek.zorgActie || zoek.zorgVoorstel) && !eigen ? <Sheet open={voorstellenOpen || !!zoek.zorgActie || !!zoek.zorgVoorstel} onOpenChange={(o) => { if (!o) {
+      {(voorstellenOpen || zoek.zorgActie || zoek.zorgVoorstel) ? <Sheet open={voorstellenOpen || !!zoek.zorgActie || !!zoek.zorgVoorstel} onOpenChange={(o) => { if (!o) {
         setVoorstellenOpen(false);
         sluitZorg();
-    } }}><SheetContent side="bottom" className="left-1/2 max-h-[90vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8"><SheetHeader className="pr-8 text-left"><SheetTitle>{t("routes.agenda.voorstellen.titel")}</SheetTitle><SheetDescription>{t("routes.agenda.voorstellen.beschrijving")}</SheetDescription></SheetHeader><ZorgAfstemmen kind={kindFilter === "alle" ? "alle" : kindFilter === "noah" ? "noah" : "emma"} startActie={zoek.zorgActie} doel={zoek.zorgVoorstel} sluit={sluitZorg}/>{activiteiten.voorstellen.filter((v) => v.bron !== "zorg" && v.bron !== "budget" && v.bron !== "kost").map((v) => <Button asChild variant="ghost" key={v.sleutel} className="h-auto min-h-11 w-full justify-start whitespace-normal"><a href={v.naar}>{v.titel} · {v.aanJou ? t("routes.agenda.voorstellen.jouwReactie") : t("routes.agenda.bekijkVoorstel")}</a></Button>)}{voorstellen.map((w) => <div key={w.vk.a.id} className="flex items-center gap-2 border-b border-border py-2"><Button variant="ghost" className="h-auto min-h-11 flex-1 justify-start whitespace-normal text-left" onClick={() => { setVoorstellenOpen(false); setDetail(w.vk); }}><span>{w.vk.a.titel}<span className="block text-xs text-ink-soft">{w.status === "ingetrokken" ? t("routes.agenda.status.ingetrokken") : w.status === "geaccepteerd" ? t("routes.agenda.status.afgesproken") : t("routes.agenda.status.wachtOpAnder")}</span></span></Button><GeschiedenisKnop soort="afspraak" itemId={w.vk.a.id} naam={w.vk.a.titel}/></div>)}<Button asChild variant="link" className="min-h-11 px-0"><Link to="/activiteiten" search={{ onderdeel: "regelen" }}>{t("routes.agenda.voorstellen.overzicht")}</Link></Button></SheetContent></Sheet> : zoek.zorgActie && eigen ? <p className="mt-3 text-sm text-ink-soft">{t("routes.agenda.voorstellen.eigen")}</p> : null}
+    } }}><SheetContent side="bottom" className="left-1/2 max-h-[90vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8"><SheetHeader className="pr-8 text-left"><SheetTitle>{t("routes.agenda.voorstellen.titel")}</SheetTitle><SheetDescription>{t("routes.agenda.voorstellen.beschrijving")}</SheetDescription></SheetHeader><ZorgAfstemmen kind={kindFilter} startActie={zoek.zorgActie} doel={zoek.zorgVoorstel} datum={zoek.dag} sluit={sluitZorg}/>{activiteiten.voorstellen.filter((v) => v.bron !== "zorg" && v.bron !== "budget" && v.bron !== "kost" && v.bron !== "agenda").map((v) => <Button asChild variant="ghost" key={v.sleutel} className="h-auto min-h-11 w-full justify-start whitespace-normal"><a href={v.naar}>{v.titel} · {v.aanJou ? t("routes.agenda.voorstellen.jouwReactie") : t("routes.agenda.bekijkVoorstel")}</a></Button>)}{voorstellen.map((w) => <div key={w.id ?? w.vk.a.id} className="flex items-center gap-2 border-b border-border py-2"><Button variant="ghost" className="h-auto min-h-11 flex-1 justify-start whitespace-normal text-left" onClick={() => { setVoorstellenOpen(false); setDetail(w.vk); }}><span>{w.vk.a.titel}<span className="block text-xs text-ink-soft">{w.status === "ingetrokken" ? t("routes.agenda.status.ingetrokken") : w.status === "geaccepteerd" ? t("routes.agenda.status.afgesproken") : w.status === "afgewezen" ? t("common.nietAkkoord") : w.status === "alternatief" ? t("common.anderVoorstel") : w.mine === false ? t("routes.agenda.voorstellen.jouwReactie") : t("routes.agenda.status.wachtOpAnder")}</span></span></Button><GeschiedenisKnop soort="afspraak" itemId={w.vk.a.id} naam={w.vk.a.titel}/></div>)}<Button asChild variant="link" className="min-h-11 px-0"><Link to="/activiteiten" search={{ onderdeel: "regelen" }}>{t("routes.agenda.voorstellen.overzicht")}</Link></Button></SheetContent></Sheet> : null}
       <DagSheet gegevens={gekozenDag ? zorgVan(gekozenDag) : zorgVan(VANDAAG)} dag={gekozenDag} onSluit={() => setGekozenDag(null)} zorg={zorg} regio={regio} eigen={eigen} eigenKinderen={eigen && eigenRegeling && gekozenDag ? startSt.kinderen.map((k) => ({ naam: k.naam, plek: plekOp(eigenRegeling, dt(gekozenDag)) })) : undefined} eigenWissel={gekozenDag ? eigenWisselVan(gekozenDag) : undefined} extra={gekozenDag ? vk(gekozenDag, gekozenDag) : []} taken={gekozenDag && !eigen ? taken.filter((t) => t.deadline === gekozenDag && !t.klaar) : []} onToevoegen={() => openNieuw(gekozenDag ?? "")} onOpen={(v) => { setGekozenDag(null); setDetail(v); }} onOpenVast={(id) => { setGekozenDag(null); if (zoek.afspraak === id)
         setDoelOpen(true);
     else
@@ -576,18 +592,23 @@ function AgendaPagina() {
         return; setDetail(null); if (m === "verwijderen")
         setVerwijderVk(d);
     else
-        openBewerk(d, m); }} onIntrekken={() => { const w = wachtend.find((x) => x.vk.a.id === detail?.a.id); if (w) {
+        openBewerk(d, m); }} onIntrekken={() => { const w = wachtend.find((x) => x.vk.a.id === detail?.a.id); if (w && eigen) {
+        trekAfspraakVoorstelIn(w.id);
+        setMelding(t("routes.agenda.melding.ingetrokken"));
+    }
+    else if (w) {
         setWachtend((l) => l.map((x) => x === w ? { ...x, status: "ingetrokken" } : x));
-        leg("afspraak", w.vk.a.id, w.vk.a.titel, "CANCELLED", { veld: "status", oud: t("routes.agenda.audit.wachtOpAnder"), nieuw: t("routes.agenda.status.ingetrokken") });
         setMelding(t("routes.agenda.melding.ingetrokken"));
     } setDetail(null); }} onAkkoord={() => { const w = wachtend.find((x) => x.vk.a.id === detail?.a.id); if (w)
-        accepteer(w); setDetail(null); }}/>
+        accepteer(w); setDetail(null); }} onReageer={(antwoord) => { const w = wachtend.find((x) => x.vk.a.id === detail?.a.id); const d = detail; setDetail(null); if (!w || !d)
+        return; reageerOpAfspraakVoorstel(w.id, antwoord); setMelding(antwoord === "akkoord" ? t("routes.agenda.melding.akkoordGegeven") : antwoord === "niet-akkoord" ? t("routes.agenda.melding.nietAkkoordGegeven") : antwoord === "meer-tijd" ? t("routes.agenda.melding.meerTijdGevraagd") : t("routes.agenda.melding.anderVoorstelMaken")); if (antwoord === "ander-voorstel" && w.soort !== "verwijder" && d.a.id === w.vk.a.id && w.velden && w.soort === "wijzig")
+        openBewerk({ a: { ...d.a, ...w.velden, id: d.a.id }, datum: d.datum }); }}/>
 
       {/* Doorklik vanuit Home: precies deze afspraak openen, los van de gekozen weergave. */}
       {zoek.afspraak ? (doelAfspraak ? (doelAfspraak.categorie === "wissel"
             ? <WisselmomentSheet open={doelOpen} onSluit={() => setDoelOpen(false)} a={doelAfspraak}/>
             : <VasteAfspraakSheet open={doelOpen} onSluit={() => setDoelOpen(false)} a={doelAfspraak} onActie={(actie) => actieVast(doelAfspraak, actie)}/>)
-            : doelOpen && !doelEigen ? <div role="alert" className="fixed inset-x-4 bottom-24 z-50 mx-auto max-w-md rounded-md border border-border bg-card p-4 text-sm"><p className="font-semibold">{t("routes.agenda.bestaatNiet.titel")}</p><p className="mt-1 text-ink-soft">{t("routes.agenda.bestaatNiet.tekst")}</p><button onClick={() => setDoelOpen(false)} className="mt-2 font-semibold text-brand">{t("common.sluiten")}</button></div> : null) : null}
+            : doelOpen && !doelEigen && (!eigen || agendaSt.geladen) ? <div role="alert" className="fixed inset-x-4 bottom-24 z-50 mx-auto max-w-md rounded-md border border-border bg-card p-4 text-sm"><p className="font-semibold">{t("routes.agenda.bestaatNiet.titel")}</p><p className="mt-1 text-ink-soft">{t("routes.agenda.bestaatNiet.tekst")}</p><button onClick={() => setDoelOpen(false)} className="mt-2 font-semibold text-brand">{t("common.sluiten")}</button></div> : null) : null}
       <Sheet open={!!verwijderVk} onOpenChange={(o) => !o && setVerwijderVk(null)}>
         <SheetContent side="bottom" className="left-1/2 w-full max-w-md -translate-x-1/2 rounded-t-2xl bg-background px-5 pb-8">
           <SheetHeader className="text-left">
@@ -698,7 +719,7 @@ function AgendaPagina() {
                     </fieldset>) : null}
                 </>) : null}
               {voorstelNieuw ? <p className="text-xs text-ink-soft">{t("routes.agenda.form.vanuitBericht")}</p> : null}
-              <p className="text-xs text-ink-soft">{wordtVoorstel ? t("routes.agenda.form.uitleg.voorstel") : eigen ? t("routes.agenda.form.uitleg.eigen") : !bewerk && gedeeld ? t("routes.agenda.form.uitleg.voorbeeld") : t("routes.agenda.form.uitleg.prive")}</p>
+              <p className="text-xs text-ink-soft">{wordtVoorstel ? t("routes.agenda.form.uitleg.voorstel") : !gedeeld ? t("routes.agenda.form.uitleg.prive") : verbonden ? t("routes.agenda.form.uitleg.gedeeld") : t("routes.agenda.form.uitleg.eigen")}</p>
             </div>
             {priveBotsing ? (<div role="status" className="mt-4 rounded-md border border-border bg-muted p-3 text-sm">
                 <p className="font-semibold">{t("routes.agenda.priveOverlap.titel")}</p>
@@ -715,7 +736,7 @@ function AgendaPagina() {
                         const b = priveBotsing[0];
                         if (!b)
                             return;
-                        startNuAfstemmen({ categorie: "halen", kindIds: /allebei|&|kinderen/i.test(b.kind) ? ["emma", "noah"] : [b.kind.toLowerCase()], titel: t("routes.agenda.afstem.titel", { titel: b.titel, datum: kort(datum) }), toelichting: afstemTekst.trim(), reactieGewenst: "zsm" });
+                        startNuAfstemmen({ categorie: "halen", kindIds: kindIdsVan(b.kind), titel: t("routes.agenda.afstem.titel", { titel: b.titel, datum: kort(datum) }), toelichting: afstemTekst.trim(), reactieGewenst: "zsm" });
                         opslaan(true);
                         setMelding(t("routes.agenda.melding.priveVraag"));
                     }} className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-primary-foreground">{t("common.versturen")}</button>
@@ -731,13 +752,14 @@ function AgendaPagina() {
                         const nieuwId = `nieuw-${Date.now()}`;
                         const verzoek = startNuAfstemmen({
                             categorie: "planning",
-                            kindIds: /allebei|&/i.test(kind) ? ["emma", "noah"] : [kind.toLowerCase()],
+                            kindIds: kindIdsVan(kind),
                             titel: t("routes.agenda.afstem.titel", { titel: titel.trim(), datum: kort(datum) }),
                             toelichting: `${controle.map((c) => c.tekst).join(" ")} ${tijd ? t("routes.agenda.afstem.komtUitTijd", { titel: titel.trim(), tijd: uur(tijd) }) : t("routes.agenda.afstem.komtUit", { titel: titel.trim() })}`,
                             reactieGewenst: "zsm",
                         });
-                        koppelAfstem(bewerk ? bewerk.a.id : nieuwId, verzoek);
-                        opslaan(true, bewerk ? undefined : nieuwId);
+                        if (bewerk || !eigen)
+                            koppelAfstem(bewerk ? bewerk.a.id : nieuwId, verzoek);
+                        opslaan(true, bewerk ? undefined : nieuwId, (id) => koppelAfstem(id, verzoek));
                         setMelding(t("routes.agenda.melding.wordtAfgestemd"));
                     }} className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-primary-foreground">{t("routes.agenda.controle.vragen")}</button>) : null}
                   <Button variant="outline" size="sm" onClick={() => opslaan(true)}>{t("routes.agenda.controle.tochOpslaan")}</Button>
@@ -753,8 +775,9 @@ function AgendaPagina() {
                 {controle.some((c) => c.soort === "verblijf" || c.soort === "wissel") ? (<div className="mt-3 border-t border-border pt-2">
                     <p className="text-xs font-semibold">{t("routes.agenda.controle.wieBrengt", { wie: /allebei|&/i.test(kind) ? t("routes.agenda.controle.deKinderen") : kindWeergave(kind) })}</p>
                     <div className="mt-1.5 flex flex-wrap gap-2">
-                      <button onClick={() => { const nieuwId = `nieuw-${Date.now()}`; opslaan(true, bewerk ? undefined : nieuwId); ikGa(bewerk ? bewerk.a.id : nieuwId, titel.trim()); }} className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-primary-foreground">{t("routes.agenda.controle.ik")}</button>
-                      <button onClick={() => { startNuAfstemmen({ categorie: "halen", kindIds: /allebei|&/i.test(kind) ? ["emma", "noah"] : [kind.toLowerCase()], titel: t("routes.agenda.afstem.titel", { titel: titel.trim(), datum: kort(datum) }), toelichting: t("routes.agenda.afstem.wieBrengt", { titel: titel.trim(), datum: kort(datum) }), reactieGewenst: "zsm" }); setMelding(t("routes.agenda.melding.vraagGestuurd")); opslaan(true); }} className="rounded-full border border-border px-3 py-1 text-xs font-semibold">{t("routes.agenda.controle.anderVragen")}</button>
+                      <button onClick={() => { const nieuwId = `nieuw-${Date.now()}`; const t2 = titel.trim(); opslaan(true, bewerk ? undefined : nieuwId, (id) => ikGa(id, t2)); if (bewerk || !eigen)
+                    ikGa(bewerk ? bewerk.a.id : nieuwId, t2); }} className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-primary-foreground">{t("routes.agenda.controle.ik")}</button>
+                      <button onClick={() => { startNuAfstemmen({ categorie: "halen", kindIds: kindIdsVan(kind), titel: t("routes.agenda.afstem.titel", { titel: titel.trim(), datum: kort(datum) }), toelichting: t("routes.agenda.afstem.wieBrengt", { titel: titel.trim(), datum: kort(datum) }), reactieGewenst: "zsm" }); setMelding(t("routes.agenda.melding.vraagGestuurd")); opslaan(true); }} className="rounded-full border border-border px-3 py-1 text-xs font-semibold">{t("routes.agenda.controle.anderVragen")}</button>
                     </div>
                   </div>) : null}
               </div>) : null}
@@ -769,7 +792,7 @@ function AgendaPagina() {
               <HulpKnop voorstel={{ kind: hulpKind(), ...(titel ? { wat: titel } : {}), ...(datum ? { datum } : {}), ...(tijd ? { tijd } : {}) }}/>
             </div> : null}
             <div className="sticky bottom-0 -mx-1 bg-background px-1 pb-1 pt-3">
-            {!(bewerk && modus === "aanpassen") ? <Button onClick={() => opslaan()} disabled={!titel.trim() || !datum || (gedeeld && !kind.trim()) || (voorstelNieuw && eigen) || (importExtra?.bedrag ? !(Number(importExtra.bedrag.replace(",", ".")) > 0) : false)} className="min-h-11 w-full bg-brand text-primary-foreground shadow-none">
+            {!(bewerk && modus === "aanpassen") ? <Button onClick={() => opslaan()} disabled={!titel.trim() || !datum || (gedeeld && !kind.trim()) || (importExtra?.bedrag ? !(Number(importExtra.bedrag.replace(",", ".")) > 0) : false)} className="min-h-11 w-full bg-brand text-primary-foreground shadow-none">
               {importExtra && !bewerk ? t("routes.agenda.form.knop.selectie") : wordtVoorstel ? (bewerk ? t("routes.agenda.wijzigingVoorstellen") : t("routes.agenda.form.knop.voorstellen")) : !bewerk ? t("routes.agenda.form.knop.opslaan") : t("routes.agenda.form.knop.wijzigingOpslaan")}
             </Button> : null}
             </div>
@@ -849,13 +872,13 @@ function DagSheet({ gegevens, dag, onSluit, zorg, regio, extra, taken, onToevoeg
     const { t } = useTranslation();
     const d = dag ?? VANDAAG;
     const kinderen = eigen
-        ? (eigenKinderen ?? []).map((k) => ({ k: k.naam, v: { ouder: k.plek === "ik" ? "sanne" : "joris", uitzondering: undefined } }))
+        ? gegevens.kinderen.map((k) => ({ k: k.naam, v: { ouder: k.ouder, uitzondering: k.uitzondering } }))
         : ["emma", "noah"].map((k) => ({ k, v: verblijf(zorg, k, d) })).filter((x) => x.v);
     const demo = eigen ? [] : demoOp(d).filter((a) => !extra.some((v) => v.a.id === a.id));
     const school = demo.filter((a) => a.categorie === "school" || a.categorie === "sport");
     const overig = demo.filter((a) => a.categorie !== "school" && a.categorie !== "sport" && a.categorie !== "wissel");
     const wisselDemo = demo.filter((a) => a.categorie === "wissel");
-    const wissel = eigenWissel ?? (!eigen && isWissel(zorg, d));
+    const wissel = eigen ? gegevens.wissels.length > 0 : eigenWissel ?? isWissel(zorg, d);
     const vak = vakantieOp(regio, d);
     const { bijzonderTonen } = useVoorkeuren();
     const bd = bijzonderTonen ? bijzondereDagOp(d) : undefined;
@@ -902,21 +925,20 @@ function ExtraAfspraakRij({ v, onOpen, wacht, onAkkoord }) {
               {a.herhaling && a.herhaling.freq !== "geen" ? ` · ${freqLabel[a.herhaling.freq].toLowerCase()}` : ""}
               {a.gedeeld === false ? <span className="ml-1.5 rounded-full border border-border px-1.5 py-px text-[11px] font-semibold">{t("routes.agenda.prive")}</span> : null}
             </p>
-            {wacht ? <p className="text-[11px] font-semibold text-ink-soft">{t("routes.agenda.reactieOpen")}</p> : null}
+            {wacht ? <p className="text-[11px] font-semibold text-ink-soft">{wacht.mine === false ? t("routes.agenda.voorstellen.jouwReactie") : t("routes.agenda.reactieOpen")}</p> : null}
             {aanRegel ? <p className="text-[11px] text-ink-soft">{aanRegel}</p> : null}
           </div>
         </button>
         <GeschiedenisKnop soort="afspraak" itemId={a.id} naam={a.titel}/>
       </div>
       {wacht && onAkkoord ? (<div className="mt-2 flex gap-2 pl-14 text-xs font-semibold">
-          {import.meta.env.DEV ? <button onClick={onAkkoord} className="min-h-[36px] rounded-full bg-brand-soft px-3.5 text-brand">{t("routes.agenda.demoAkkoord")}</button> : null}
           <button onClick={() => onOpen(v)} className="min-h-[36px] rounded-full border border-border px-3.5 text-ink-soft">{t("routes.agenda.bekijkVoorstel")}</button>
         </div>) : null}
     </div>);
 }
 const freqTekst = (h) => (h && h.freq !== "geen" ? freqLabel[h.freq] : i18n.t("routes.agenda.nietHerhalend"));
 /** Detailweergave van een afspraak met een rustige ••• knop: alleen opties die bij deze afspraak passen. */
-function AfspraakDetail({ v, direct, wacht, ingetrokken, onSluit, onActie, onIntrekken, onAkkoord }) {
+function AfspraakDetail({ v, direct, wacht, ingetrokken, onSluit, onActie, onIntrekken, onAkkoord, onReageer }) {
     const { t } = useTranslation();
     const [menu, setMenu] = useState(false);
     useEffect(() => setMenu(false), [v]);
@@ -966,12 +988,18 @@ function AfspraakDetail({ v, direct, wacht, ingetrokken, onSluit, onActie, onInt
           </div>) : null}
         {gedeeld && !wacht ? <p className="mt-3 text-[11px] text-ink-soft">{t("routes.agenda.detail.gedeeld")}</p> : null}
         {wacht ? (<div className="mt-4 rounded-md border border-border bg-card p-3 text-sm">
-            <p className="font-semibold">{wacht.soort === "nieuw" ? t("routes.agenda.detail.wacht.nieuw") : wacht.soort === "verwijder" ? t("routes.agenda.detail.wacht.verwijder") : t("routes.agenda.detail.wacht.wijzig")}</p>
+            <p className="font-semibold">{wacht.mine === false ? (wacht.soort === "nieuw" ? t("routes.agenda.detail.vanAnder.nieuw") : wacht.soort === "verwijder" ? t("routes.agenda.detail.vanAnder.verwijder") : t("routes.agenda.detail.vanAnder.wijzig")) : wacht.soort === "nieuw" ? t("routes.agenda.detail.wacht.nieuw") : wacht.soort === "verwijder" ? t("routes.agenda.detail.wacht.verwijder") : t("routes.agenda.detail.wacht.wijzig")}</p>
             {wacht.velden ? <p className="mt-1 text-xs text-ink-soft">{t("routes.agenda.detail.nieuw")} {lang(wacht.velden.datum)}{wacht.velden.tijd ? ` · ${uur(wacht.velden.tijd)}` : ""}{wacht.velden.titel !== a.titel ? ` · ${wacht.velden.titel}` : ""}</p> : null}
             <p className="mt-1 text-xs text-ink-soft">{t("routes.agenda.detail.reactieOpen")}</p>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold">
+            {wacht.meerTijd ? <p className="mt-1 text-xs text-ink-soft">{wacht.meerTijd.mine ? t("routes.agenda.detail.jijMeerTijd") : t("routes.agenda.detail.anderMeerTijd")}</p> : null}
+            {wacht.mine === false && onReageer ? (<div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+                <Button size="sm" onClick={() => onReageer("akkoord")}>{t("common.akkoord")}</Button>
+                <Button size="sm" variant="outline" onClick={() => onReageer("ander-voorstel")}>{t("common.anderVoorstel")}</Button>
+                <Button size="sm" variant="ghost" onClick={() => onReageer("niet-akkoord")}>{t("common.nietAkkoord")}</Button>
+                {!wacht.meerTijd ? <Button size="sm" variant="ghost" onClick={() => onReageer("meer-tijd")}>{t("common.meerTijdNodig")}</Button> : null}
+              </div>) : (<div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold">
               <VoorstelIntrekken onBevestig={onIntrekken}/>
-            </div>
+            </div>)}
           </div>) : null}
       </SheetContent>
     </Sheet>);

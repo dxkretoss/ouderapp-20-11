@@ -3,7 +3,9 @@ import { Trans, useTranslation } from "react-i18next";
 import { tLijst } from "@/i18n";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, Moon, NotebookPen, Plus, Star, CircleHelp, CalendarClock } from "lucide-react";
-import { afspraken, kinderen, kleurVanKind } from "@/lib/demo-data";
+import { startState, useStart, leeftijdTekst } from "@/lib/start-store";
+import { useAgenda } from "@/lib/agenda-store";
+import { iso, plusDagen, voorkomens, dt } from "@/lib/agenda-datum";
 import { bewaarConcept, deelOverdracht, legeInhoud, useOverdracht, wijzigOverdracht } from "@/lib/overdracht-store";
 import { markeerOverdrachtIngevuld } from "@/lib/wissel-store";
 import { MetVinkje } from "@/components/Tekens";
@@ -14,9 +16,9 @@ const SCHOOL = ["Huiswerk", "Toets", "Briefje", "Gym"];
 /** De keuzes blijven Nederlandse ids (opgeslagen en vergeleken); alleen het label wordt vertaald. */
 const KEUZE = { "Alles goed": "allesGoed", "Medicijn": "medicijn", "Ziek geweest": "ziekGeweest", "Arts of tandarts": "arts", "Goed geslapen": "goedGeslapen", "Onrustig": "onrustig", "Weinig gegeten": "weinigGegeten", "Huiswerk": "huiswerk", "Toets": "toets", "Briefje": "briefje", "Gym": "gym" };
 const keuzeLabel = (t, v) => (KEUZE[v] ? t(`components.OverdrachtFormulier.keuze.${KEUZE[v]}`) : v);
-const kortDag = (dag) => { if (dag < 10) return ""; const d = tLijst("common.dagenKort")[(dag - 10) % 7] ?? ""; return d.charAt(0).toUpperCase() + d.slice(1); };
+const kortDag = (datum) => { const d = tLijst("common.dagenKort")[(dt(datum).getDay() + 6) % 7] ?? ""; return d.charAt(0).toUpperCase() + d.slice(1); };
 const SCHERP = /\b(altijd|nooit|jij moet|jouw schuld|weer eens|zoals gewoonlijk|always|never|you must|your fault|yet again|as usual)\b/i;
-const naamVan = (id) => kinderen.find((k) => k.id === id)?.naam ?? id;
+const naamVan = (id) => startState().kinderen.find((k) => k.id === id)?.naam ?? "";
 function Chip({ aan, onClick, children }) {
     return <button type="button" onClick={onClick} aria-pressed={aan} className={`h-9 rounded-full px-3.5 text-sm font-extrabold ${aan ? "bg-brand text-primary-foreground" : "border border-white/90 bg-white/75 text-ink"}`}>{children}</button>;
 }
@@ -34,6 +36,9 @@ const veld = "w-full rounded-[14px] border border-[#E6DED2] bg-white px-3 py-2 t
 export function OverdrachtFormulier({ momentId, aan, wanneer, viaSchool = false }) {
     const { t } = useTranslation();
     const st = useOverdracht();
+    const start = useStart();
+    const agenda = useAgenda();
+    const kinderen = start.kinderen.map((k) => ({ ...k, kleur: k.kleur ?? "#8A7E72", leeftijd: leeftijdTekst(k.geboortedatum) ?? "" }));
     const gedeeld = st.gedeeld.find((o) => o.momentId === momentId);
     const [inhoud, setInhoudState] = useState(() => st.concept[momentId] ?? legeInhoud());
     const [open, setOpen] = useState({ gezondheid: true, slaap: true, school: true, komend: true, gevoel: true });
@@ -44,7 +49,10 @@ export function OverdrachtFormulier({ momentId, aan, wanneer, viaSchool = false 
         zetInhoud({ ...inhoud, [veldnaam]: l.includes(w) ? l.filter((x) => x !== w) : [...l, w] });
     };
     const kids = inhoud.voor === "samen" ? kinderen : kinderen.filter((k) => k.id === inhoud.voor);
-    const komend = afspraken.filter((a) => a.dag >= 14 && a.dag <= 17 && a.categorie !== "wissel").sort((a, b) => a.dag - b.dag || a.tijd.localeCompare(b.tijd)).slice(0, 4);
+    const vandaag = iso(new Date());
+    // Gedeelde afspraken van de komende dagen uit de agenda (privé-afspraken nooit).
+    const komend = agenda.events.filter((a) => a.gedeeld !== false).flatMap((a) => voorkomens(a, vandaag, plusDagen(vandaag, 4)).map((d) => ({ ...a, sleutel: a.id + d, op: d }))).sort((a, b) => (a.op + a.tijd).localeCompare(b.op + b.tijd)).slice(0, 4);
+    const kleurVan = (a) => kinderen.find((k) => a.kindIds?.[0] === k.id)?.kleur ?? "#8A7E72";
     const vrijeTekst = [inhoud.gezondheidNotitie, inhoud.schoolNotitie, inhoud.mooi, inhoud.vraag,].join(" ");
     const ietsIngevuld = vrijeTekst.trim().length > 0 || inhoud.gezondheid.length + inhoud.slaap.length + inhoud.school.length > 0;
     if (gedeeld) {
@@ -55,7 +63,7 @@ export function OverdrachtFormulier({ momentId, aan, wanneer, viaSchool = false 
           <button onClick={() => { wijzigOverdracht(momentId); setInhoudState(gedeeld.inhoud); }} className="mt-1 inline-flex min-h-10 items-center text-sm font-black text-brand">{t("components.OverdrachtFormulier.aanpassen")}</button>
         </div>
         <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.1em] text-ink-soft">{t("components.OverdrachtFormulier.zoZiet", { aan })}</p>
-        <OverdrachtWeergave inhoud={gedeeld.inhoud} van="Sanne"/>
+        <OverdrachtWeergave inhoud={gedeeld.inhoud} van={t("common.jij")}/>
       </div>);
     }
     return (<div className="mt-4">
@@ -97,7 +105,7 @@ export function OverdrachtFormulier({ momentId, aan, wanneer, viaSchool = false 
       </Blok>
 
       {komend.length ? (<Blok titel={t("components.OverdrachtFormulier.blok.komend")} icoon={<CalendarClock className="size-5"/>} tegel="#EFE1C9" kleur="#6E5014" open={!!open["komend"]} wissel={() => wissel("komend")} extra={<span className="rounded-lg bg-[#DCE6D2] px-2 py-0.5 text-[11px] font-black text-[#3F5747]">{t("components.OverdrachtFormulier.uitAgenda")}</span>}>
-          <ul>{komend.map((a) => <li key={a.id} className="flex items-center gap-2.5 border-b border-[#E9E1D5] py-2 text-[15px] last:border-0"><b className="w-[76px] shrink-0 whitespace-nowrap">{kortDag(a.dag)} {a.tijd.slice(0, 5)}</b><span className="size-2.5 shrink-0 rounded-full" style={{ background: kleurVanKind(a.kind.split(/ & /)[0] ?? a.kind) }}/><span className="truncate font-extrabold">{a.titel.split(" · ")[0]}</span></li>)}</ul>
+          <ul>{komend.map((a) => <li key={a.sleutel} className="flex items-center gap-2.5 border-b border-[#E9E1D5] py-2 text-[15px] last:border-0"><b className="w-[76px] shrink-0 whitespace-nowrap">{kortDag(a.op)} {(a.tijd ?? "").slice(0, 5)}</b><span className="size-2.5 shrink-0 rounded-full" style={{ background: kleurVan(a) }}/><span className="truncate font-extrabold">{a.titel}</span></li>)}</ul>
           <p className="mt-1 text-xs text-ink-soft">{t("components.OverdrachtFormulier.alInAgenda", { aan })}</p>
         </Blok>) : null}
 
@@ -130,7 +138,7 @@ export function OverdrachtFormulier({ momentId, aan, wanneer, viaSchool = false 
           <p className="text-[14.5px] leading-snug text-[#2F4A3A]">{SCHERP.test(vrijeTekst) ? <Trans i18nKey="components.OverdrachtFormulier.scherp" values={{ aan }} components={{ b: <b/> }}/> : <Trans i18nKey="components.OverdrachtFormulier.goedZo" components={{ b: <b/> }}/>}</p>
         </div>) : null}
 
-      <button disabled={!ietsIngevuld} onClick={() => { deelOverdracht(momentId, aan, inhoud); markeerOverdrachtIngevuld(); }} className="mt-4 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground disabled:opacity-45">{t("components.OverdrachtFormulier.delen", { aan })}</button>
+      <button disabled={!ietsIngevuld} onClick={() => { deelOverdracht(momentId, aan, inhoud, inhoud.voor === "samen" ? kinderen.map((k) => k.id) : [inhoud.voor]); markeerOverdrachtIngevuld(); }} className="mt-4 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground disabled:opacity-45">{t("components.OverdrachtFormulier.delen", { aan })}</button>
       <p className="mt-2 text-center text-xs text-ink-soft">{t("components.OverdrachtFormulier.spullenPaklijst", { aan })}</p>
     </div>);
 }

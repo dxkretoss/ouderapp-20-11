@@ -4,6 +4,7 @@ import { useServerFn } from "@/lib/server-fn";
 import { FileUp, Loader2, CircleHelp } from "lucide-react";
 import { herkenAfspraken } from "@/lib/ouderschapsplan.functions";
 import { voegGeimporteerdToe, zetTeControleren } from "@/lib/import-store";
+import { uploadDocument } from "@/lib/documenten-store";
 import { useTranslation } from "react-i18next";
 import { taalLocale } from "@/i18n";
 import { MetChevron, MetVinkje, Vinkje } from "@/components/Tekens";
@@ -35,7 +36,9 @@ export function OuderschapsplanImport({ onOpgeslagen }) {
         const grootte = f.size > 1024 * 1024 ? `${(f.size / 1024 / 1024).toLocaleString(taalLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB` : `${Math.ceil(f.size / 1024)} kB`;
         const b = { naam: f.name, type: f.type || "application/pdf", url: URL.createObjectURL(f), data: btoa(bin), grootte };
         setBestand(b);
-        onOpgeslagen({ naam: f.name, grootte, url: b.url }); // origineel ongewijzigd bewaard
+        // Origineel ongewijzigd bewaard in Documenten (privé-opslag van het gezin).
+        uploadDocument(f, { naam: f.name.replace(/\.[a-z0-9]+$/i, ""), categorie: "Officiële afspraken", bron: "ouderschapsplan" }).then((d) => { if (d)
+            onOpgeslagen?.({ naam: d.naam, grootte, id: d.id }); });
     };
     const start = async () => {
         if (!bestand)

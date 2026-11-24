@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { useActiviteiten } from "@/components/Activiteiten";
 import { isGelezen, markeerIds } from "@/lib/activiteiten";
 import { isOpen } from "@/lib/openstaande-voorstellen";
-import { zetVoorkeur } from "@/lib/voorkeuren-store";
+import { markeerGelezen } from "@/lib/meldingen-store";
 import { VoorstellenOverzicht } from "@/components/VoorstellenOverzicht";
 import { z } from "zod";
 export const Route = createFileRoute("/activiteiten")({
@@ -34,7 +34,7 @@ function ActiviteitenPagina() {
     const { lijst, gelezen, voorstellen } = useActiviteiten();
     const [open, setOpen] = useState(null);
     const [alles, setAlles] = useState(zoek.onderdeel === "regelen");
-    const lees = (a) => zetVoorkeur("activiteitGelezen", [...new Set([...gelezen, ...markeerIds(a)])]);
+    const lees = (a) => markeerGelezen(markeerIds(a));
     // Wacht op jou: herinneringen (overdracht, evaluatie) en voorstellen die op jouw reactie wachten.
     const wacht = [
         ...lijst.filter((a) => a.categorie === "regelen" && !a.id.startsWith("act-")).map((a) => ({ sleutel: a.id, titel: a.titel, omschrijving: a.uitleg, naar: a.naar, functie: a.icoon })),
@@ -47,7 +47,7 @@ function ActiviteitenPagina() {
       <div className="flex items-center gap-3">
         <BackButton terug="/"/>
         <h1 className="lora min-w-0 flex-1 text-[32px] leading-tight">{t("routes.activiteiten.titel")}</h1>
-        {nieuweFeed.length ? <button onClick={() => zetVoorkeur("activiteitGelezen", [...new Set([...gelezen, ...nieuweFeed.flatMap(markeerIds)])])} className="inline-flex min-h-10 items-center text-xs font-extrabold text-[#3F5747]">{t("routes.activiteiten.allesGelezen")}</button> : null}
+        {nieuweFeed.length ? <button onClick={() => markeerGelezen(nieuweFeed.flatMap(markeerIds))} className="inline-flex min-h-10 items-center text-xs font-extrabold text-[#3F5747]">{t("routes.activiteiten.allesGelezen")}</button> : null}
       </div>
 
       {wacht.length ? (<section className="mt-4 rounded-[20px] border-2 border-[#A9BCA8] p-3.5 [background:linear-gradient(135deg,rgba(220,230,210,.95),rgba(233,239,227,.9))]">

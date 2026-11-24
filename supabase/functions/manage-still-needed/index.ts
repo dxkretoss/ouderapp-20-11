@@ -1,315 +1,165 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-// Phase 1: session required (see _shared/phase2-guard.ts)
-import { phase2Guard } from "../_shared/phase2-guard.ts";
+// manage-still-needed — "Nog nodig" list of the signed-in parent's family (Phase 2, domain 3).
+// Visible: items I created, items addressed to me (other_parent_id), and legacy items of an active
+// co-parent for a child I can access. Never another family's items.
+// An item only links to a budget by id; it never creates an expense or a budget by itself.
+import { db } from "../_shared/db.ts";
+import { check, err, ok, serveActions } from "../_shared/respond.ts";
+import { requireUser } from "../_shared/session.ts";
+import { childIdsFor } from "../_shared/access.ts";
+import { optText, reqText, requireUuid } from "../_shared/util.ts";
+import { assertParticipant, audit, childIdsInput, familyOf } from "../_shared/costs-family.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-session-token",
-};
+type Row = Record<string, any>;
+const CATEGORIES = ["Nodig", "Boodschap"];
 
-const isUUID = (str: any) =>
-  typeof str === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+function itemOut(r: Row): Row {
+  return {
+    id: r.id,
+    user_id: r.user_id,
+    other_parent_id: r.other_parent_id ?? null,
+    title: r.title,
+    category: r.category ?? "Nodig",
+    child_ids: r.child_ids?.length ? r.child_ids : r.child_id ? [r.child_id] : [],
+    child_name: r.child_name ?? null,
+    is_purchased: !!r.is_purchased,
+    purchased_by: r.purchased_by ?? null,
+    purchased_at: r.purchased_at ?? null,
+    budget_id: r.budget_id ?? null,
+    buyer_id: r.buyer_id ?? null,
+    expense_id: r.expense_id ?? null,
+    deadline: r.deadline ?? null,
+    notes: r.notes ?? null,
+    created_at: r.created_at,
+  };
+}
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+async function visibleItems(me: string): Promise<Row[]> {
+  const fam = await familyOf(me);
+  const own = (check(
+    await db().from("still_needed_items").select("*").or(`user_id.eq.${me},other_parent_id.eq.${me}`).order("created_at", { ascending: false }).limit(500),
+    "list items",
+  ) ?? []) as Row[];
+  let legacy: Row[] = [];
+  if (fam.partners.length) {
+    const kids = await childIdsFor(me);
+    if (kids.length) {
+      legacy = (check(
+        await db().from("still_needed_items").select("*").in("user_id", fam.partners).is("other_parent_id", null).in("child_id", kids).order("created_at", { ascending: false }).limit(500),
+        "list legacy items",
+      ) ?? []) as Row[];
+    }
   }
+  const seen = new Set<string>();
+  return [...own, ...legacy].filter((r) => !seen.has(r.id) && !!seen.add(r.id));
+}
 
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+async function loadItem(me: string, id: unknown): Promise<Row> {
+  const itemId = requireUuid(id, "id");
+  const row = (await visibleItems(me)).find((r) => r.id === itemId);
+  if (!row) throw err.notFound("Item not found");
+  return row;
+}
 
-    const body = await req.json();
-    const __denied = await phase2Guard(req, body);
-    if (__denied) return __denied;
-    const { action } = body;
+/** A linked budget must be one of the caller's family budgets. */
+async function budgetIdInput(me: string, v: unknown): Promise<string | null> {
+  if (v === undefined || v === null || v === "") return null;
+  const id = requireUuid(v, "budget_id");
+  const b = check(await db().from("budget_proposals").select("id, created_by, other_parent_id").eq("id", id).maybeSingle(), "load budget") as Row | null;
+  if (!b) throw err.notFound("Budget not found");
+  assertParticipant(me, b.created_by, b.other_parent_id);
+  return id;
+}
 
-    // Helper: find connected co-parents so both parents see the shared list
-    const getConnectedParentIds = async (userId: string) => {
-      const ids = [userId];
-      if (!isUUID(userId)) return ids;
+async function update(me: string, item: Row, patch: Row, label = "UPDATED"): Promise<Row> {
+  const row = check(
+    await db().from("still_needed_items").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", item.id).select("*").single(),
+    "update item",
+  ) as Row;
+  await audit(me, "nog_nodig", item.id, label, [item.user_id, item.other_parent_id], { label: item.title });
+  return itemOut(row);
+}
 
-      try {
-        const { data: conns } = await adminClient
-          .from("parent_connections")
-          .select("parent_1_id, parent_2_id")
-          .or(`parent_1_id.eq.${userId},parent_2_id.eq.${userId}`)
-          .in("status", ["active", "connected"]);
+Deno.serve(serveActions("manage-still-needed", {
+  async list(req) {
+    const me = await requireUser(req);
+    return ok({ items: (await visibleItems(me.id)).map(itemOut) });
+  },
 
-        if (conns) {
-          conns.forEach((c: any) => {
-            if (c.parent_1_id && !ids.includes(c.parent_1_id)) ids.push(c.parent_1_id);
-            if (c.parent_2_id && !ids.includes(c.parent_2_id)) ids.push(c.parent_2_id);
-          });
-        }
+  async create(req, body) {
+    const me = await requireUser(req);
+    const fam = await familyOf(me.id);
+    const childIds = await childIdsInput(me.id, body.child_ids ?? (body.child_id ? [body.child_id] : []));
+    const purchased = !!body.is_purchased;
+    const row = check(
+      await db().from("still_needed_items").insert({
+        user_id: me.id,
+        other_parent_id: fam.partner,
+        title: reqText(body.title, "title", 200),
+        category: CATEGORIES.includes(body.category) ? body.category : "Nodig",
+        child_ids: childIds,
+        child_id: childIds[0] ?? null,
+        is_purchased: purchased,
+        purchased_by: purchased ? me.id : null,
+        purchased_at: purchased ? new Date().toISOString() : null,
+        budget_id: await budgetIdInput(me.id, body.budget_id),
+        buyer_id: body.buyer === "me" ? me.id : null,
+        deadline: optText(body.deadline, "deadline", 40) ?? null,
+        notes: optText(body.notes, "notes", 1000) ?? null,
+      }).select("*").single(),
+      "insert item",
+    ) as Row;
+    await audit(me.id, "nog_nodig", row.id, "CREATED", [me.id, fam.partner], { label: row.title });
+    return ok({ item: itemOut(row) });
+  },
 
-        const { data: acceptedInvs } = await adminClient
-          .from("invitations")
-          .select("from_parent_id, to_parent_id")
-          .or(`from_parent_id.eq.${userId},to_parent_id.eq.${userId}`)
-          .eq("status", "accepted");
-
-        if (acceptedInvs) {
-          acceptedInvs.forEach((inv: any) => {
-            if (inv.from_parent_id && !ids.includes(inv.from_parent_id)) ids.push(inv.from_parent_id);
-            if (inv.to_parent_id && !ids.includes(inv.to_parent_id)) ids.push(inv.to_parent_id);
-          });
-        }
-      } catch (err) {
-        console.warn("Error finding connected parents:", err);
-      }
-      return ids;
-    };
-
-    // 1. LIST STILL NEEDED ITEMS
-    if (action === "list") {
-      const { user_id } = body;
-      if (!user_id || !isUUID(user_id)) {
-        return new Response(JSON.stringify({ success: true, items: [] }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const parentIds = await getConnectedParentIds(user_id);
-
-      // Find children linked to this user
-      const { data: parentLinks } = await adminClient
-        .from("child_parents")
-        .select("child_id")
-        .eq("parent_id", user_id);
-      const { data: createdKids } = await adminClient
-        .from("children")
-        .select("id, name")
-        .eq("created_by", user_id);
-
-      const myChildIds: string[] = [];
-      const myChildNames: string[] = [];
-      (parentLinks || []).forEach((l: any) => {
-        if (l.child_id && !myChildIds.includes(l.child_id)) myChildIds.push(l.child_id);
-      });
-      (createdKids || []).forEach((k: any) => {
-        if (k.id && !myChildIds.includes(k.id)) myChildIds.push(k.id);
-        if (k.name && !myChildNames.includes(k.name.trim().toLowerCase())) myChildNames.push(k.name.trim().toLowerCase());
-      });
-
-      if (myChildIds.length > 0) {
-        const { data: moreKids } = await adminClient
-          .from("children")
-          .select("id, name")
-          .in("id", myChildIds);
-        (moreKids || []).forEach((k: any) => {
-          if (k.name && !myChildNames.includes(k.name.trim().toLowerCase())) myChildNames.push(k.name.trim().toLowerCase());
-        });
-      }
-
-      const { data: items, error } = await adminClient
-        .from("still_needed_items")
-        .select("*")
-        .in("user_id", parentIds)
-        .order("created_at", { ascending: false });
-
-      if (error) throw new Error(error.message);
-
-      // Filter items so co-parent only sees items for their shared children (or created by themselves)
-      const filteredItems = (items || []).filter((item: any) => {
-        if (item.user_id === user_id) return true;
-        if (myChildIds.length > 0) {
-          if (item.child_id && !myChildIds.includes(item.child_id)) return false;
-          const cName = (item.child_name || item.kind || "").trim().toLowerCase();
-          if (cName && cName !== "alle" && cName !== "all" && !myChildNames.includes(cName)) return false;
-        }
-        return true;
-      });
-
-      return new Response(JSON.stringify({ success: true, items: filteredItems }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 2. CREATE ITEM
-    if (action === "create") {
-      const {
-        user_id,
-        child_id,
-        child_name,
-        title,
-        category = "Nodig",
-        is_purchased = false,
-        budget_id,
-        deadline,
-        notes,
-      } = body;
-
-      if (!user_id || !title?.trim()) {
-        return new Response(
-          JSON.stringify({ success: false, error: "user_id and title are required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const insertData: any = {
-        user_id,
-        title: title.trim(),
-        category: category || "Nodig",
-        is_purchased: Boolean(is_purchased),
-        child_name: child_name || null,
-        deadline: deadline || null,
-        notes: notes || null,
-      };
-
-      if (isUUID(child_id)) insertData.child_id = child_id;
-      if (isUUID(budget_id)) insertData.budget_id = budget_id;
-
-      if (is_purchased) {
-        insertData.purchased_by = user_id;
-        insertData.purchased_at = new Date().toISOString();
-      }
-
-      const { data, error } = await adminClient
-        .from("still_needed_items")
-        .insert([insertData])
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, item: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 3. TOGGLE PURCHASED STATUS
-    if (action === "toggle") {
-      const { id, user_id, is_purchased } = body;
-      if (!id || !isUUID(id)) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Valid item id is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const updateData: any = {
-        is_purchased: Boolean(is_purchased),
-        updated_at: new Date().toISOString(),
-      };
-
-      if (is_purchased) {
-        updateData.purchased_by = isUUID(user_id) ? user_id : null;
-        updateData.purchased_at = new Date().toISOString();
-      } else {
-        updateData.purchased_by = null;
-        updateData.purchased_at = null;
-      }
-
-      const { data, error } = await adminClient
-        .from("still_needed_items")
-        .update(updateData)
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, item: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 4. LINK BUDGET
-    if (action === "link_budget") {
-      const { id, budget_id } = body;
-      if (!id || !isUUID(id)) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Valid item id is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const { data, error } = await adminClient
-        .from("still_needed_items")
-        .update({
-          budget_id: isUUID(budget_id) ? budget_id : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, item: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 5. UPDATE ITEM
-    if (action === "update") {
-      const { id, title, category, child_name, child_id, deadline, notes } = body;
-      if (!id || !isUUID(id)) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Valid item id is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const updateData: any = {
-        updated_at: new Date().toISOString(),
-      };
-      if (title !== undefined) updateData.title = String(title).trim();
-      if (category !== undefined) updateData.category = category;
-      if (child_name !== undefined) updateData.child_name = child_name;
-      if (deadline !== undefined) updateData.deadline = deadline;
-      if (notes !== undefined) updateData.notes = notes;
-      if (isUUID(child_id)) updateData.child_id = child_id;
-
-      const { data, error } = await adminClient
-        .from("still_needed_items")
-        .update(updateData)
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, item: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 6. DELETE ITEM
-    if (action === "delete") {
-      const { id } = body;
-      if (!id || !isUUID(id)) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Valid item id is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const { error } = await adminClient
-        .from("still_needed_items")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ success: false, error: "Invalid action" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+  async toggle(req, body) {
+    const me = await requireUser(req);
+    const item = await loadItem(me.id, body.id);
+    const purchased = !!body.is_purchased;
+    return ok({
+      item: await update(me.id, item, {
+        is_purchased: purchased,
+        purchased_by: purchased ? me.id : null,
+        purchased_at: purchased ? new Date().toISOString() : null,
+      }),
     });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
+  },
 
+  async link_budget(req, body) {
+    const me = await requireUser(req);
+    const item = await loadItem(me.id, body.id);
+    return ok({ item: await update(me.id, item, { budget_id: await budgetIdInput(me.id, body.budget_id) }) });
+  },
+
+  /** "Ik koop het" (buyer = me) or undo; a parent can never assign the other parent as buyer. */
+  async set_buyer(req, body) {
+    const me = await requireUser(req);
+    const item = await loadItem(me.id, body.id);
+    if (item.buyer_id && item.buyer_id !== me.id) throw err.forbidden("The other parent already buys this");
+    return ok({ item: await update(me.id, item, { buyer_id: body.buyer === "me" ? me.id : null }) });
+  },
+
+  async update(req, body) {
+    const me = await requireUser(req);
+    const item = await loadItem(me.id, body.id);
+    const patch: Row = {};
+    if (body.title !== undefined) patch.title = reqText(body.title, "title", 200);
+    if (body.category !== undefined) patch.category = CATEGORIES.includes(body.category) ? body.category : "Nodig";
+    if (body.deadline !== undefined) patch.deadline = optText(body.deadline, "deadline", 40) ?? null;
+    if (body.notes !== undefined) patch.notes = optText(body.notes, "notes", 1000) ?? null;
+    if (body.child_ids !== undefined) {
+      const ids = await childIdsInput(me.id, body.child_ids);
+      Object.assign(patch, { child_ids: ids, child_id: ids[0] ?? null });
+    }
+    return ok({ item: await update(me.id, item, patch) });
+  },
+
+  async delete(req, body) {
+    const me = await requireUser(req);
+    const item = await loadItem(me.id, body.id);
+    if (item.user_id !== me.id && item.other_parent_id !== me.id) throw err.forbidden();
+    check(await db().from("still_needed_items").delete().eq("id", item.id), "delete item");
+    await audit(me.id, "nog_nodig", item.id, "DELETED", [item.user_id, item.other_parent_id], { label: item.title });
+    return ok({});
+  },
+}));

@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { AppIcon } from "@/components/AppIcon";
 import { MetChevron } from "@/components/Tekens";
 import { useStart, start } from "@/lib/start-store";
-import { kinderen as demoKinderen } from "@/lib/demo-data";
+import { useGezin } from "@/lib/gezin";
 import { useVakanties, voegVakantieVoorstelToe, wijzigVakantieVoorstel } from "@/lib/vakantie-store";
 import { dagenVoorJaar } from "@/lib/bijzondere-dagen";
 import { useRegio, zetRegio, vakantiesVoor, regioLabel } from "@/lib/schoolvakanties";
@@ -33,7 +33,7 @@ export function AgendaVakanties({ toevoegen, onVerwerkt }) {
         setFormulier({ soort: toevoegen });
         onVerwerkt?.();
     } }, [toevoegen]);
-    const profielen = st.eigen ? st.kinderen : demoKinderen;
+    const profielen = st.kinderen;
     const [kind, setKind] = useState("alle");
     const geselecteerd = profielen.filter((k) => kind === "alle" || kind === k.id);
     const schooljaar = `${jaar}-${jaar + 1}`;
@@ -44,7 +44,7 @@ export function AgendaVakanties({ toevoegen, onVerwerkt }) {
         return undefined; if (/^\d{4}-\d{2}-\d{2}$/.test(datum))
         return `${jaar}${datum.slice(4)}`; const [d, m] = datum.split(" "); return d && m && maanden[m] ? `${jaar}-${maanden[m]}-${d.padStart(2, "0")}` : undefined; };
     const dagen = [...dagenVoorJaar(jaar), ...geselecteerd.flatMap((k) => { const datum = verjaardag(k.geboortedatum); return datum ? [{ datum, naam: t("components.AgendaVakanties.verjaardag", { naam: k.naam }), soort: "bijzonder" }] : []; })].sort((a, b) => a.datum.localeCompare(b.datum));
-    const lijst = st.eigen ? [] : vak.filter((v) => (v.soort ?? (/pasen|kerst$/i.test(v.naam) ? "bijzonder" : "vakantie")) === tab && (kind === "alle" || !v.kinderen || v.kinderen.includes(kind)));
+    const lijst = vak.filter((v) => (v.soort ?? (/pasen|kerst$/i.test(v.naam) ? "bijzonder" : "vakantie")) === tab && (kind === "alle" || !v.kinderen || v.kinderen.includes(kind)));
     return <div className="mt-4">
     <div className="flex border-b border-border" role="tablist" aria-label={t("components.AgendaVakanties.tabs.label")}>{[['vakantie', t("components.AgendaVakanties.tabs.vakantie")], ['bijzonder', t("components.AgendaVakanties.tabs.bijzonder")]].map(([id, tekst]) => <Button key={id} role="tab" aria-selected={tab === id} variant="ghost" className={`min-h-11 flex-1 rounded-none ${tab === id ? "border-b-2 border-brand text-brand" : "text-ink-soft"}`} onClick={() => setTab(id)}>{tekst}</Button>)}</div>
     <div className="my-3 flex flex-wrap items-center justify-between gap-2"><h2 className="font-display text-lg">{tab === "vakantie" ? t("components.AgendaVakanties.titel.vakanties") : t("components.AgendaVakanties.titel.bijzonder")}</h2><Button variant="outline" className="h-auto min-h-11 whitespace-normal" onClick={() => setFormulier({ soort: tab })}><AppIcon functie="toevoegen" vorm="kaal"/>{tab === "vakantie" ? t("components.AgendaVakanties.actie.vakantieVoorstellen") : t("components.AgendaVakanties.actie.bijzonderVerdelen")}</Button></div>
@@ -53,14 +53,14 @@ export function AgendaVakanties({ toevoegen, onVerwerkt }) {
     {!st.eigen && tab === "vakantie" ? <details className="group my-3"><summary className="flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden min-h-11 cursor-pointer py-2 text-sm font-semibold text-brand"><Chevron className="size-4 shrink-0 group-open:rotate-90"/>{t("components.AgendaVakanties.verdelingBekijken")}</summary><VerdeelHulp /></details> : null}
     <div className="mt-5 flex items-center justify-between gap-2"><h3 className="font-display">{tab === "vakantie" ? t("components.AgendaVakanties.schoolvakanties") : t("components.AgendaVakanties.opDeKalender")}</h3><select aria-label={tab === "vakantie" ? t("components.AgendaVakanties.schooljaar") : t("components.AgendaVakanties.jaar")} value={jaar} onChange={(e) => setJaar(Number(e.target.value))} className="min-h-11 rounded-md border border-border bg-card px-2 text-sm">{[2025, 2026, 2027, 2028].map((j) => <option key={j} value={j}>{tab === "vakantie" ? `${j}–${j + 1}` : j}</option>)}</select></div>
     {tab === "vakantie" ? <><div className="my-3 space-y-2">{geselecteerd.map((k) => <label key={k.id} className="flex items-center justify-between gap-3 text-sm"><span>{t("components.AgendaVakanties.schoolregioVan", { naam: k.naam })}</span><select aria-label={t("components.AgendaVakanties.schoolregioLabel", { naam: k.naam })} value={"schoolRegio" in k && k.schoolRegio ? k.schoolRegio : regio} className="min-h-11 rounded-md border border-border bg-card px-2" onChange={(e) => st.eigen ? start.zetKindRegio(k.id, e.target.value) : zetRegio(e.target.value)}>{Object.entries(regioLabel).map(([r, l]) => <option key={r} value={r}>{l}</option>)}</select></label>)}</div><p className="text-xs text-ink-soft">{t("components.AgendaVakanties.kalenderdata")}</p>{!schoolGroepen.length ? <p className="mt-3 text-sm text-ink-soft"><Trans i18nKey="components.AgendaVakanties.geenData" components={{ link: <a className="text-brand underline" href="https://www.rijksoverheid.nl/onderwerpen/schoolvakanties" target="_blank" rel="noreferrer"/> }}/></p> : null}<div className="mt-2 divide-y divide-border">{schoolGroepen.map((v) => <div key={v.naam + v.van} className="py-3"><p className="text-sm font-semibold">{v.naam} · {v.namen}</p><p className="text-xs text-ink-soft">{t("components.AgendaVakanties.periode", { van: v.van, tot: v.tot })} · {v.advies ? t("components.AgendaVakanties.adviesdata") : t("components.AgendaVakanties.vastgesteld")}</p><div className="flex flex-wrap gap-3"><Button variant="link" className="min-h-11 px-0 text-xs" onClick={() => setFormulier({ soort: "vakantie", naam: v.naam, van: v.van, tot: v.tot })}>{t("components.AgendaVakanties.verdelingVoorstellen")}</Button><a className="inline-flex min-h-11 items-center text-xs text-brand underline" href={v.bron} target="_blank" rel="noreferrer">{t("components.AgendaVakanties.rijksoverheid")}</a></div></div>)}</div><Button asChild variant="ghost" className="mt-2 h-auto min-h-11 whitespace-normal"><Link to="/agenda" search={{ nieuw: true, categorie: "school", titel: t("components.AgendaVakanties.afwijkendeSchooldag") }}>{t("components.AgendaVakanties.studiedagToevoegen")}</Link></Button></> : <><p className="mt-2 text-xs text-ink-soft">{t("components.AgendaVakanties.geenAparteAfspraak")}</p><div className="mt-2 divide-y divide-border">{dagen.map((d) => <div key={d.datum + d.naam} className="flex items-center justify-between gap-2 py-2"><span className="min-w-0 text-sm">{d.naam}<span className="block text-xs text-ink-soft">{d.datum}</span></span><Button variant="link" className="h-auto min-h-11 max-w-32 whitespace-normal text-xs" onClick={() => setFormulier({ soort: "bijzonder", naam: d.naam, van: d.datum, tot: d.datum })}>{t("components.AgendaVakanties.verdelingVoorstellen")}</Button></div>)}</div></>}
-    <Button asChild variant="link" className="mt-4 min-h-11 px-0 text-xs"><Link to="/planning" search={{ eerder: true }}>{t("components.AgendaVakanties.eerder")}</Link></Button>
     {formulier ? <VakantieFormulier init={formulier} onSluit={() => setFormulier(null)}/> : null}
   </div>;
 }
 export function VakantieFormulier({ init, bestaand, onSluit }) {
     const { t } = useTranslation();
     const st = useStart();
-    const profielen = st.eigen ? st.kinderen : demoKinderen;
+    const { gekoppeld } = useGezin();
+    const profielen = st.kinderen;
     const [naam, setNaam] = useState(bestaand?.naam ?? init?.naam ?? "");
     const [van, setVan] = useState(bestaand?.vanDatum ?? init?.van ?? "");
     const [tot, setTot] = useState(bestaand?.totDatum ?? init?.tot ?? "");
@@ -109,7 +109,7 @@ export function VakantieFormulier({ init, bestaand, onSluit }) {
             setFout(t("components.AgendaVakanties.form.fout.verwerkt"));
             return;
         }
-        bevestig(t("components.AgendaVakanties.form.verstuurd"));
+        bevestig(gekoppeld ? t("components.AgendaVakanties.form.verstuurd") : t("components.AgendaVakanties.form.vastgelegd"));
         onSluit();
     };
     return <Sheet open onOpenChange={(o) => !o && onSluit()}><SheetContent side="bottom" className="left-1/2 max-h-[90vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8"><SheetHeader><SheetTitle>{bestaand ? t("components.AgendaVakanties.form.titelWijzigen") : soort === "vakantie" ? t("components.AgendaVakanties.actie.vakantieVoorstellen") : t("components.AgendaVakanties.actie.bijzonderVerdelen")}</SheetTitle><SheetDescription>{t("components.AgendaVakanties.form.beschrijving")}</SheetDescription></SheetHeader><div className="mt-4 space-y-3">
@@ -128,7 +128,7 @@ export function VakantieFormulier({ init, bestaand, onSluit }) {
     <label className="block text-sm">{t("components.AgendaVakanties.form.toelichting")}<textarea value={details} onChange={(e) => setDetails(e.target.value)} rows={2} className={invoer}/></label>
     <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={buitenland} onChange={(e) => setBuitenland(e.target.checked)}/>{t("components.AgendaVakanties.form.buitenland")}</label>{buitenland ? <><label className="block text-sm">{t("components.AgendaVakanties.form.bestemming")}<input value={bestemming} onChange={(e) => setBestemming(e.target.value)} className={invoer}/></label><p className="text-xs text-ink-soft">{t("components.AgendaVakanties.form.geenReistoestemming")}</p></> : null}
     {bestaand ? <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={annuleren} onChange={(e) => setAnnuleren(e.target.checked)}/>{t("components.AgendaVakanties.form.annulering")}</label> : null}
-    {st.eigen ? <p className="text-sm text-ink-soft">{t("components.AgendaVakanties.form.eigenGezin")}</p> : null}{fout ? <p role="alert" className="text-sm text-destructive">{fout}</p> : null}
-    <Button onClick={opslaan} className="min-h-11 w-full" disabled={st.eigen || !naam.trim() || !van || !tot || tot < van || !voor.length}>{t("components.AgendaVakanties.form.versturen")}</Button>
+    {st.eigen && !gekoppeld ? <p className="text-sm text-ink-soft">{t("components.AgendaVakanties.form.eigenGezin")}</p> : null}{fout ? <p role="alert" className="text-sm text-destructive">{fout}</p> : null}
+    <Button onClick={opslaan} className="min-h-11 w-full" disabled={!naam.trim() || !van || !tot || tot < van || !voor.length}>{t("components.AgendaVakanties.form.versturen")}</Button>
   </div></SheetContent></Sheet>;
 }

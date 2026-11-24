@@ -7,6 +7,13 @@ const MAANDEN = ["januari", "februari", "maart", "april", "mei", "juni", "juli",
 const MAAND_PATROON = /\b(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\b/gi;
 /** Alleen weergave: Nederlandse maandnamen in een opgeslagen datumtekst ("10 maart") in de UI-taal tonen. Nederlands blijft ongewijzigd. */
 export function toonDatumTekst(s) {
+    // Opgeslagen datum (JJJJ-MM-DD) of maand (JJJJ-MM): in de UI-taal tonen, jaar alleen als het niet dit jaar is.
+    if (s && /^\d{4}-\d{2}(-\d{2})?$/.test(s)) {
+        const dag = s.length === 10;
+        const d = new Date(`${dag ? s : `${s}-15`}T12:00:00`);
+        const ditJaar = d.getFullYear() === new Date().getFullYear();
+        return d.toLocaleDateString(taalLocale(), dag ? { day: "numeric", month: "long", ...(ditJaar ? {} : { year: "numeric" }) } : { month: "long", year: "numeric" });
+    }
     if (!s || taalLocale() === "nl-NL")
         return s;
     const namen = tLijst("common.maanden");
@@ -39,7 +46,11 @@ function past(b, k) {
         return false;
     if (k.budgetId && k.budgetId !== b.id)
         return false;
-    if (b.kind && b.kind !== "Beide" && b.kind !== k.kind)
+    if (Array.isArray(b.kindIds) && Array.isArray(k.kindIds)) {
+        if (b.kindIds.length && !k.kindIds.every((id) => b.kindIds.includes(id)))
+            return false;
+    }
+    else if (b.kind && b.kind !== "Beide" && b.kind !== "Alle kinderen" && b.kind !== k.kind)
         return false;
     // Categorie moet kloppen; bij een eenmalig budget moet ook het onderwerp herkenbaar zijn.
     if (b.categorie ? b.categorie !== k.categorie : !k.budgetId && !lijkt(b.wat, k.omschrijving))
@@ -52,7 +63,7 @@ function past(b, k) {
  * Beoordeel alle uitgaven tegelijk, oudste eerst, zodat elke uitgave maar één keer budgetruimte gebruikt.
  * Alleen uitgaven met status "wacht" krijgen een beoordeling.
  */
-export function beoordeelKosten(alle, budgetten, vandaag = "2025-03-12") {
+export function beoordeelKosten(alle, budgetten, vandaag = new Date().toISOString().slice(0, 10)) {
     const jaar = Number(vandaag.slice(0, 4));
     const uit = new Map();
     const gebruikt = new Map(); // budgetId|periode → bedrag
@@ -102,7 +113,7 @@ export function beoordeelKosten(alle, budgetten, vandaag = "2025-03-12") {
             uit.set(sleutel(k, i), { soort: "onzeker", budget: b });
             continue;
         }
-        if (k.aandeelSanne !== undefined && Math.abs(k.aandeelSanne - Math.round(k.bedrag * b.pctSanne) / 100) > 0.01) {
+        if (k.aandeelIk !== undefined && b.pctIk !== undefined && Math.abs(k.aandeelIk - Math.round(k.bedrag * b.pctIk) / 100) > 0.01) {
             uit.set(sleutel(k, i), { soort: "onzeker", budget: b });
             continue;
         }
@@ -115,11 +126,11 @@ export function beoordeelKosten(alle, budgetten, vandaag = "2025-03-12") {
     }
     return uit;
 }
-/** Wie is aan zet bij een uitgave met status "wacht": na een tegenvoorstel de ontvanger, anders wie niet betaalde. */
-export const aanZetBij = (k) => k.aanZet ?? (k.betaaldDoor === "sanne" ? "joris" : "sanne");
+/** Wie is aan zet bij een uitgave met status "wacht" ("ik"/"ander"): na een ander voorstel de ontvanger, anders wie niet betaalde. */
+export const aanZetBij = (k) => k.aanZet ?? (k.betaaldDoor === "ik" ? "ander" : "ik");
 /** Wacht deze uitgave echt op jouw akkoord? Status "wacht", jij aan zet, en niet volledig gedekt door een afspraak. */
-export const wachtOpJouwAkkoord = (k, b, ik = "sanne") => k.status === "wacht" && aanZetBij(k) === ik && b?.soort !== "gedekt";
-export const isGedekt = (k, b, ik = "sanne") => k.status === "wacht" && aanZetBij(k) === ik && b?.soort === "gedekt";
+export const wachtOpJouwAkkoord = (k, b, ik = "ik") => k.status === "wacht" && aanZetBij(k) === ik && b?.soort !== "gedekt";
+export const isGedekt = (k, b, ik = "ik") => k.status === "wacht" && aanZetBij(k) === ik && b?.soort === "gedekt";
 /** Neutrale uitleg bij een beoordeling, of null. */
 export function budgetMelding(b) {
     if (!b)

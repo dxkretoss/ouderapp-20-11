@@ -1,7 +1,10 @@
-import i18n from "@/i18n";
-import { nodig } from "./afspraken-store";
+import i18n, { taalLocale } from "@/i18n";
+import { nodig, wachtOpMij } from "./afspraken-store";
 import { aanZetBij } from "./kosten-akkoord";
 import { leesDatum } from "./kosten-akkoord";
+/** Groepswaarden uit kosten-store ("Gezin/algemeen", "Alle kinderen") vertaald tonen; namen blijven namen. */
+const KIND_GROEP = { "Gezin/algemeen": "gezinAlgemeen", "Alle kinderen": "alleKinderen" };
+const kindLabel = (k) => (KIND_GROEP[k] ? i18n.t(`components.KostenTabs.kind.${KIND_GROEP[k]}`) : k);
 export const statusTekst = {
     get "wacht-op-jouw-reactie"() { return i18n.t("lib.openstaandeVoorstellen.status.wachtOpJouwReactie"); },
     get "wacht-op-reactie"() { return i18n.t("lib.openstaandeVoorstellen.status.wachtOpReactie"); },
@@ -48,7 +51,8 @@ export function afspraakItem(a) {
     if (!a.voorstel)
         return null;
     const open = nodig(a.voorstel).length > 0;
-    const aanJou = open && nodig(a.voorstel).includes("Sanne");
+    // afspraken-store werkt met rollen (IK = de kijker); wachtOpMij kent ook de oude namen.
+    const aanJou = open && wachtOpMij(a);
     return {
         sleutel: `afspraak-${a.id}`, bron: "afspraak", bronId: a.id,
         titel: a.titel, omschrijving: a.voorstel.tekst ?? a.tekst,
@@ -59,7 +63,8 @@ export function afspraakItem(a) {
 }
 export function budgetItem(b, vandaag) {
     const open = b.status === "wacht" || b.status === "tegenvoorstel";
-    const aanJou = open && b.aanZet === "Sanne";
+    // "ik" = de kijker (kosten-store); "Sanne" blijft voor oudere demo-/testbronnen.
+    const aanJou = open && (b.aanZet === "ik" || b.aanZet === "Sanne");
     const laatsteWat = b.stappen.at(-1)?.wat;
     const meerTijd = open && (laatsteWat?.startsWith("Meer tijd gevraagd") || laatsteWat?.startsWith("More time requested")) === true;
     const status = b.status === "akkoord" ? "akkoord"
@@ -71,7 +76,7 @@ export function budgetItem(b, vandaag) {
     const laatste = [...b.stappen].reverse().find((s) => s.bedrag !== undefined)?.bedrag ?? b.max;
     return {
         sleutel: `budget-${b.id}`, bron: "budget", bronId: b.id,
-        titel: i18n.t("lib.openstaandeVoorstellen.titel.budget", { wat: b.wat }), omschrijving: i18n.t("lib.openstaandeVoorstellen.budgetOmschrijving", { bedrag: laatste, sanne: b.pctSanne, ander: 100 - b.pctSanne }),
+        titel: i18n.t("lib.openstaandeVoorstellen.titel.budget", { wat: b.wat }), kortTitel: b.wat, omschrijving: i18n.t("lib.openstaandeVoorstellen.budgetOmschrijving", { bedrag: laatste, sanne: b.pctIk ?? b.pctSanne, ander: 100 - (b.pctIk ?? b.pctSanne) }),
         kind: b.kind, verzonden: b.stappen[0]?.moment, reactieDatum: b.reactieDatum,
         status, aanJou, naar: `/kosten?budget=${b.id}`,
     };
@@ -82,7 +87,7 @@ export function vakantieItem(v) {
     const aanJou = v.status === "voorstel" && v.van === "Joris";
     return {
         sleutel: `vakantie-${v.id}`, bron: "vakantie", bronId: v.id,
-        titel: i18n.t("lib.openstaandeVoorstellen.titel.vakantie", { naam: v.naam }), omschrijving: `${v.periode}${v.details ? ` · ${v.details}` : ""}`,
+        titel: i18n.t("lib.openstaandeVoorstellen.titel.vakantie", { naam: v.naam }), kortTitel: v.naam, omschrijving: `${v.periode}${v.details ? ` · ${v.details}` : ""}`,
         status: v.status === "ingetrokken" ? "ingetrokken" : aanJou ? "wacht-op-jouw-reactie" : "wacht-op-reactie",
         aanJou, naar: `/vakantie/${v.id}`,
     };
@@ -90,13 +95,28 @@ export function vakantieItem(v) {
 export function kostItem(k) {
     if (k.status !== "wacht" && k.status !== "betwist")
         return null;
-    const aanJou = k.status === "wacht" && aanZetBij(k) === "sanne";
+    const aanJou = k.status === "wacht" && ["ik", "sanne"].includes(aanZetBij(k));
     return {
         sleutel: `kost-${k.id}`, bron: "kost", bronId: k.id,
-        titel: i18n.t("lib.openstaandeVoorstellen.titel.kost", { omschrijving: k.omschrijving }), omschrijving: `€ ${k.bedrag} · ${k.kind}`,
+        titel: i18n.t("lib.openstaandeVoorstellen.titel.kost", { omschrijving: k.omschrijving }), kortTitel: k.omschrijving, omschrijving: `${k.bedrag.toLocaleString(taalLocale(), { style: "currency", currency: "EUR" })} · ${kindLabel(k.kind)}`,
         kind: k.kind, verzonden: k.datum,
         status: k.status === "betwist" ? "niet-akkoord" : aanJou ? "wacht-op-jouw-reactie" : "wacht-op-reactie",
         aanJou, naar: "/kosten",
+    };
+}
+/** Voorstel voor een gedeelde agenda-afspraak (agenda-store; `mine` = de kijker deed het voorstel). */
+export function agendaVoorstelItem(p, events = []) {
+    const a = events.find((e) => e.id === p.eventId);
+    const open = !p.status;
+    const aanJou = open && !p.mine;
+    const titel = p.velden?.titel ?? a?.titel ?? "";
+    const status = p.status === "geaccepteerd" ? "akkoord" : p.status === "afgewezen" ? "niet-akkoord" : p.status === "ingetrokken" ? "ingetrokken"
+        : p.status === "alternatief" ? "tegenvoorstel-ontvangen" : p.status ? "afgerond" : openStatus(aanJou, p.reactieDatum, new Date().toISOString().slice(0, 10), !!p.meerTijd);
+    return {
+        sleutel: `agenda-${p.id}`, bron: "agenda", bronId: p.id,
+        titel: i18n.t("lib.openstaandeVoorstellen.titel.agenda", { titel }), kortTitel: titel, omschrijving: [p.velden?.datum ?? p.datum ?? a?.datum, p.velden?.kind ?? a?.kind].filter(Boolean).join(" · "),
+        kind: p.velden?.kind ?? a?.kind ?? "", verzonden: p.aangemaakt, reactieDatum: p.reactieDatum,
+        status, aanJou, naar: `/agenda?afspraak=${p.eventId ?? ""}`,
     };
 }
 export function aanwezigheidItem(a) {
@@ -119,6 +139,7 @@ export function verzamelVoorstellen(b, vandaag) {
         ...b.vakanties.map(vakantieItem),
         ...(b.kosten ?? []).map(kostItem),
         ...(b.aanwezigheid ?? []).map(aanwezigheidItem),
+        ...(b.agenda?.voorstellen ?? []).map((p) => agendaVoorstelItem(p, b.agenda.events)),
     ].filter((x) => x !== null);
 }
 const OPEN = ["wacht-op-jouw-reactie", "wacht-op-reactie", "meer-tijd-gevraagd", "tegenvoorstel-ontvangen", "reactiedatum-verstreken"];

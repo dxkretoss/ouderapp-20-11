@@ -6,8 +6,6 @@ import i18n, { taalLocale } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useStart } from "@/lib/start-store";
-import { useVakanties } from "@/lib/vakantie-store";
-import { useTaken } from "@/lib/taken-store";
 import { AppShell } from "@/components/AppShell";
 import { MeerSectie } from "@/components/MeerLijst";
 import { AppIcon } from "@/components/AppIcon";
@@ -44,6 +42,7 @@ const dagelijks = [
 ];
 const gezin = [
     item("/kinderen", "kinderen", "kinderen"),
+    item("/verbonden-personen", "link", "verbondenPersonen"),
     item("/documenten", "documenten", "documenten"),
 ];
 const voorJeKind = [
@@ -67,12 +66,13 @@ const snelStandaard = [
     item("/boodschappen", "boodschappen", "nogNodig", "nogNodigStandaard"),
     dagelijks[2], // Spullen
     dagelijks[3], // Momentjes
-    gezin[1], // Documenten
+    gezin[2], // Documenten
     item("/kind-tips", "kindtips", "kindTips", "kindTipsKort"),
 ].filter((v) => Boolean(v));
 /** Extra zoekwoorden per onderdeel, zodat synoniemen ook raken (Nederlands én Engels, zodat zoeken in beide talen werkt). */
 const zoekwoorden = {
     "/kinderen": "kind profiel school gezondheid noodkaart child children profile health emergency card",
+    "/verbonden-personen": "verbonden personen ouder koppelen ontkoppelen uitnodiging kring opa oma oppas verzorger connected people parent link disconnect invitation circle grandparent babysitter carer",
     "/taken": "taak regelen wie task tasks to-do who",
     "/boodschappen": "nodig lijstje kopen boodschap needed list buy shopping",
     "/spullen": "mee overdracht spul belongings things handover packing",
@@ -118,14 +118,12 @@ function Meer() {
     const [introBevestigen, setIntroBevestigen] = useState(false);
     useEffect(() => { if (zoekRoute.hulp)
         setHulpOpen(true); }, [zoekRoute.hulp]);
-    // Zelfde bronnen en statussen als Home ("Wacht op jou") en Samen regelen: geen eigen telling.
-    const vakantie = useVakanties().filter((v) => v.status === "voorstel" && v.van !== "Sanne").length;
     // Eigen gezin: voorbeeldvoorstellen tellen niet mee.
     const startState = useStart();
     const eigen = startState.eigen;
-    const taken = useTaken().taken.filter((t) => !t.klaar && (t.overdragenAan === "sanne" || (t.wie === "sanne" && !t.overdragenAan))).length;
-    const aantallen = eigen ? {} : { "/agenda": vakantie, "/taken": taken };
-    const profielen = eigen ? startState.kinderen : [{ id: "emma", naam: "Emma" }, { id: "noah", naam: "Noah" }];
+    // Geen voorbeeldtellingen: een aangemeld account is altijd het eigen gezin.
+    const aantallen = {};
+    const profielen = startState.kinderen;
     const gezinItems = gezin.map((i) => i.to === "/kinderen" && profielen.length === 1 ? { ...i, titel: t("routes.meer.kind") } : i);
     const alle = [...dagelijks, ...gezinItems, ...ondersteuning, ...account];
     const [zoek, setZoek] = useState("");
@@ -174,7 +172,7 @@ function Meer() {
         { to: "/kind-tips", icoon: "kindtips", titel: t("routes.meer.items.kindTips.titel"), tekst: t("routes.meer.snel.kindTips") },
     ].map(metAantal);
     const overigeActies = acties.filter((i) => i.to !== "/agenda" && i.to !== "/kinderen" && !snel.some((x) => x.to === i.to));
-    const gebruikersnaam = eigen ? startState.naam.trim() || t("common.jij") : "Sanne";
+    const gebruikersnaam = startState.naam.trim() || t("common.jij");
     const initiaal = gebruikersnaam.charAt(0).toUpperCase();
     return (<AppShell>
       <div className="flex items-center gap-3">

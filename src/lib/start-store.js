@@ -61,11 +61,11 @@ export function standaardPct(a) {
  * Eigen gezin. Phase 1: naam/beeld/gebruik (profiel), kinderen, regeling, gezag, uitgenodigd en
  * de voorkeuren (voortgangVerborgen, afspraakToegevoegd) komen van de server (manage-profile,
  * manage-children, accept-invitation); deze store is daarvan de lokale spiegel (cache in
- * localStorage, per gebruiker). Agenda, onderwerpen en kosten blijven tot Phase 2 op dit apparaat.
+ * localStorage, per gebruiker). Kosten en de kostenafspraak staan op de server (kosten-store / manage-expenses).
  * Wijzigingen zijn optimistisch: meteen zichtbaar, bij een serverfout teruggedraaid met een melding.
  */
 const SLEUTEL = "onzeapp-eigen-start";
-const leeg = { gezag: null, eigen: false, naam: "", gebruik: "samen", kinderen: [], regeling: null, uitgenodigd: false, afspraakToegevoegd: false, voortgangVerborgen: false, agenda: [], onderwerpen: [], kosten: [], kostenAfspraak: { wijze: "alleen", pctIk: 50, moment: "maand" }, uitnodigingen: [], coOuders: [], gebruikerId: null, geladenVoor: null };
+const leeg = { gezag: null, eigen: false, naam: "", gebruik: "samen", kinderen: [], regeling: null, uitgenodigd: false, afspraakToegevoegd: false, voortgangVerborgen: false, onderwerpen: [], uitnodigingen: [], coOuders: [], gebruikerId: null, geladenVoor: null };
 let state = leeg;
 let geladen = false;
 const luisteraars = new Set();
@@ -270,10 +270,13 @@ export const start = {
         if (Object.keys(voorkeuren).length)
             return optimistisch(voorkeuren, () => auth.updateProfile({ preferences: voorkeuren }));
     },
-    zetAgenda: (f) => zet({ agenda: f(state.agenda) }),
-    onderwerpToevoegen: (naam) => { const id = `eigen-${Date.now()}`; zet({ onderwerpen: [{ id, naam: naam.trim() }, ...state.onderwerpen] }); return id; },
-    kostToevoegen: (k) => zet({ kosten: [k, ...state.kosten] }),
-    zetKostenAfspraak: (p) => zet({ kostenAfspraak: { ...state.kostenAfspraak, ...p } }),
+    /**
+     * Onderwerpen (Phase 2): voorbereide onderwerpen zijn server-gesprekken zonder andere ouder
+     * (berichten-store / manage-messages); `onderwerpen` hier bevat alleen nog oude apparaat-concepten
+     * die berichten-store één keer naar de server overzet. Geeft een Promise met het gesprek-id (of null).
+     */
+    onderwerpToevoegen: (naam) => import("@/lib/berichten-store").then((m) => m.maakGesprek({ titel: naam })),
+    wisOnderwerpen: (ids) => zet({ onderwerpen: (state.onderwerpen ?? []).filter((o) => !ids.includes(o.id)) }),
     /** Uitnodiging naar de andere ouder (e-mail + gekozen kinderen). Gooit ApiFout; de UI toont de code. */
     uitnodigen: async (email, kindIds) => {
         const r = await api("send-invitation", "send", { to_email: email.trim().toLowerCase(), child_ids: kindIds, redirect_origin: typeof window !== "undefined" ? window.location.origin : undefined });

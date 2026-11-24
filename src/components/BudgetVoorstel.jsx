@@ -7,7 +7,8 @@ import { geldigUitstelMoment, toonUitstelMoment, uitstelMoment } from "@/lib/bud
 import { bevestigdBudget } from "@/lib/budget-weergave";
 import { AppIcon } from "@/components/AppIcon";
 import { Chevron, MetChevron } from "@/components/Tekens";
-import { koppelLijstBudget } from "@/components/KleineLijst";
+import { koppelNogNodigBudget } from "@/lib/nog-nodig-store";
+import { useStart } from "@/lib/start-store";
 import { kindLabel } from "@/components/KostenTabs";
 import { bevestig } from "@/lib/feedback";
 import { Link } from "@tanstack/react-router";
@@ -29,7 +30,12 @@ const chip = (a) => `rounded-full border px-3 py-1.5 text-xs font-semibold ${a ?
 /** filter "actie": alleen voorstellen die op jou wachten (voor "Nog te regelen"); "rest": de overige, met kop. Zelfde brondata. */
 export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId, bronItem, onUitgave, filter = "alles", zonderKop = false, onKlaar }) {
     const { t } = useTranslation();
-    const opJou = (v) => v.aanZet === "Sanne" && (v.status === "wacht" || v.status === "tegenvoorstel");
+    const opJou = (v) => v.aanZet === "ik" && (v.status === "wacht" || v.status === "tegenvoorstel");
+    const st = useStart();
+    const kindKeuzes = [...st.kinderen.map((k) => ({ waarde: k.naam, ids: [k.id] })), ...(st.kinderen.length > 1 ? [{ waarde: "Alle kinderen", ids: st.kinderen.map((k) => k.id) }] : [])];
+    const wieNaam = (w) => (w === "ik" ? t("common.jij") : t("components.BudgetVoorstel.andereOuder"));
+    const [bezig, setBezig] = useState(false);
+    const doe = async (f, melding) => { setBezig(true); const ok = await f(); setBezig(false); if (ok) { bevestig(melding); onKlaar?.(); } return ok; };
     const ikOpen = opJou;
     const lijst = useBudgetten().filter((v) => doelId ? v.id === doelId : filter === "lopend" ? v.status === "wacht" || v.status === "tegenvoorstel" : filter === "eerder" ? v.status === "geweigerd" || v.status === "ingetrokken" : filter === "afgesproken" ? !!bevestigdBudget(v) : filter === "alles" || (filter === "actie") === opJou(v));
     const [open, setOpen] = useState(false);
@@ -48,9 +54,10 @@ export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId,
     const [uitstelFout, setUitstelFout] = useState("");
     const gekozenMoment = uitstelKeuze === "zelf" ? (uitstelDatum && uitstelTijd ? new Date(`${uitstelDatum}T${uitstelTijd}`) : undefined) : undefined;
     const uitstelTot = uitstelKeuze === "zelf" ? (gekozenMoment && Number.isFinite(gekozenMoment.getTime()) ? gekozenMoment.toISOString() : undefined) : uitstelKeuze ? uitstelMoment(uitstelKeuze) : undefined;
-    const leeg = { wat: "", kind: "Emma", max: "", aangepast: false, pct: 50, toelichting: "", reactieDatum: "" };
+    const eersteKind = kindKeuzes.find((k) => k.waarde === voorKind) ?? (voorKind === "Allebei" ? kindKeuzes.find((k) => k.waarde === "Alle kinderen") : null) ?? kindKeuzes[0];
+    const leeg = { wat: "", kind: eersteKind?.waarde ?? "", kindIds: eersteKind?.ids ?? [], max: "", aangepast: false, pct: 50, toelichting: "", reactieDatum: "" };
     const vk = useVoorkeuren();
-    const [form, setForm] = useState({ ...leeg, wat: voorinvul ?? "", kind: voorKind ?? "Emma" });
+    const [form, setForm] = useState({ ...leeg, wat: voorinvul ?? "" });
     const max = leesGeld(form.max) ?? 0;
     return (<section>
       {zonderKop || filter === "actie" || doelId ? null : <div className="flex items-start justify-between gap-3">
@@ -65,7 +72,7 @@ export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId,
             const laatste = [...v.stappen].reverse().find((s) => s.bedrag)?.bedrag ?? v.max;
             const bevestigd = bevestigdBudget(v);
             const uitgeklapt = (ikOpen(v) && !meerTijd(v)) || details.includes(v.id) || doelId === v.id;
-            const ikAanZet = v.aanZet === "Sanne" && (v.status === "wacht" || v.status === "tegenvoorstel");
+            const ikAanZet = v.aanZet === "ik" && (v.status === "wacht" || v.status === "tegenvoorstel");
             return (<div key={v.id} id={`budget-${v.id}`} className="py-3">
               <Button variant="ghost" aria-expanded={uitgeklapt} aria-label={t("components.BudgetVoorstel.detailsLabel", { wat: v.wat })} onClick={() => setDetails((l) => l.includes(v.id) ? l.filter((id) => id !== v.id) : [...l, v.id])} className="h-auto min-h-14 w-full justify-between gap-3 whitespace-normal px-0 text-left">
                 <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{v.wat}{v.bijlage ? <AppIcon functie="documenten" maat="sm" vorm="kaal"/> : null}</span><span className="block text-xs font-normal text-ink-soft">{bevestigd ? t("components.BudgetVoorstel.afgesprokenBedrag", { bedrag: euro(v.max) }) : t("components.BudgetVoorstel.voorstelBedrag", { bedrag: euro(laatste) })}</span></span>
@@ -73,33 +80,30 @@ export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId,
               </Button>
               {meerTijd(v) && ikAanZet ? <p className="mb-2 text-xs text-ink-soft">{t("components.BudgetVoorstel.stap.meerTijdGevraagd")}{v.stappen.at(-1)?.terugkijkMoment ? ` · ${t("components.BudgetVoorstel.uitstel.opnieuwBekijken", { moment: toonUitstelMoment(v.stappen.at(-1)?.terugkijkMoment ?? "") })}` : ""}</p> : null}
               {uitgeklapt ? <div>
-              <p className="text-xs text-ink-soft">{t("components.BudgetVoorstel.kindVerdeling", { kind: kindLabel(v.kind), sanne: v.pctSanne, ander: 100 - v.pctSanne })}{v.status === "tegenvoorstel" && bevestigd ? ` · ${t("components.BudgetVoorstel.wijzigingVoorgesteld", { bedrag: euro(laatste) })}` : ""}</p>
+              <p className="text-xs text-ink-soft">{t("components.BudgetVoorstel.kindVerdeling", { kind: kindLabel(v.kind), sanne: v.pctIk, ander: 100 - v.pctIk })}{v.status === "tegenvoorstel" && bevestigd ? ` · ${t("components.BudgetVoorstel.wijzigingVoorgesteld", { bedrag: euro(laatste) })}` : ""}</p>
               {v.voorwaarden ? <p className="mt-1 text-xs text-ink-soft">{t("components.BudgetVoorstel.voorwaarden", { voorwaarden: v.voorwaarden })}</p> : null}
               {v.geldigVan || v.geldigTot ? <p className="mt-1 text-xs text-ink-soft">{v.geldigVan && v.geldigTot ? t("components.BudgetVoorstel.geldig.vanTot", { van: v.geldigVan, tot: v.geldigTot }) : v.geldigVan ? t("components.BudgetVoorstel.geldig.van", { van: v.geldigVan }) : t("components.BudgetVoorstel.geldig.tot", { tot: v.geldigTot })}</p> : null}
               {v.periode ? <p className="mt-1 text-xs text-ink-soft">{v.periode === "maand" ? t("components.BudgetVoorstel.periode.maand") : v.periode === "jaar" ? t("components.BudgetVoorstel.periode.jaar") : t("components.BudgetVoorstel.periode.eenmalig")}</p> : null}
               {v.toelichting ? <p className="mt-1 text-xs text-ink-soft">“{v.toelichting}”</p> : null}
-              {v.stappen.length > 1 ? <p className="mt-1 text-[11px] text-ink-soft">{v.stappen.map((s) => `${s.wie}: ${stapLabel(s.wat)}${s.bedrag ? ` ${euro(s.bedrag)}` : ""}`).join(" → ")}</p> : null}
+              {v.stappen.length > 1 ? <p className="mt-1 text-[11px] text-ink-soft">{v.stappen.map((s) => `${wieNaam(s.wie)}: ${stapLabel(s.wat)}${s.bedrag ? ` ${euro(s.bedrag)}` : ""}`).join(" → ")}</p> : null}
               {v.reactieDatum && !bevestigd ? <p className="mt-1 text-xs text-ink-soft">{t("components.BudgetVoorstel.reactieVoor", { datum: v.reactieDatum })}</p> : null}
 
               {ikAanZet ? (tegenId === v.id ? (<div className="mt-2 flex gap-2">
                   <GeldInvoer value={tegen} onChange={setTegen} label={t("components.BudgetVoorstel.anderBedrag")}/>
-                  <Button disabled={!(leesGeld(tegen) ?? 0)} onClick={() => { const n = leesGeld(tegen) ?? 0; if (n > 0) {
-                        reageer(v.id, "Sanne", { tegen: n });
-                        bevestig(t("components.BudgetVoorstel.melding.voorstelVerstuurd"));
+                  <Button disabled={bezig || !(leesGeld(tegen) ?? 0)} onClick={async () => { const n = leesGeld(tegen) ?? 0; if (n > 0 && await doe(() => reageer(v.id, "ik", { tegen: n }), t("components.BudgetVoorstel.melding.voorstelVerstuurd"))) {
                         setTegenId(null);
                         setTegen("");
-                        onKlaar?.();
                     } }} className="min-h-11 px-4 text-sm font-semibold">{t("components.BudgetVoorstel.stuur")}</Button>
                 </div>) : (<div className="mt-2 flex flex-wrap gap-2">
-                  <Button onClick={() => { reageer(v.id, "Sanne", "akkoord"); bevestig(t("components.BudgetVoorstel.melding.akkoord")); onKlaar?.(); }} className="flex-1 min-h-11 px-2 py-2 text-xs font-semibold">{t("common.akkoord")}</Button>
+                  <Button disabled={bezig} onClick={() => doe(() => reageer(v.id, "ik", "akkoord"), t("components.BudgetVoorstel.melding.akkoord"))} className="flex-1 min-h-11 px-2 py-2 text-xs font-semibold">{t("common.akkoord")}</Button>
                   <Button variant="outline" onClick={() => { setTegenId(v.id); setTegen(String(laatste)); }} className="flex-1 min-h-11 px-2 py-2 text-xs font-semibold">{t("common.anderVoorstel")}</Button>
-                  <Button variant="outline" onClick={() => { reageer(v.id, "Sanne", "geweigerd"); bevestig(t("components.BudgetVoorstel.melding.afgewezen")); onKlaar?.(); }} className="flex-1 min-h-11 px-2 py-2 text-xs font-semibold text-ink-soft">{t("common.nietAkkoord")}</Button>
+                  <Button disabled={bezig} variant="outline" onClick={() => doe(() => reageer(v.id, "ik", "geweigerd"), t("components.BudgetVoorstel.melding.afgewezen"))} className="flex-1 min-h-11 px-2 py-2 text-xs font-semibold text-ink-soft">{t("common.nietAkkoord")}</Button>
                   <Button variant="ghost" onClick={() => { setUitstelId(v.id); setUitstelKeuze(null); setUitstelDatum(""); setUitstelTijd("20:00"); setUitstelFout(""); }} className="flex-1 min-h-11 px-2 py-2 text-xs font-semibold text-ink-soft">{t("common.meerTijdNodig")}</Button>
                 </div>)) : null}
-              {v.aanZet === "Joris" && (v.status === "wacht" || v.status === "tegenvoorstel") ? (<span className="mt-2 flex flex-wrap items-center gap-2">
-                  {magHerinnering({ verstuurd: v.stappen.filter((s) => s.wat === "Herinnering verstuurd").map((s) => s.moment), reactieDatum: v.reactieDatum, gepauzeerd: vk.herinneringenGepauzeerd }).mag ? (<Button variant="ghost" size="sm" className="text-xs" onClick={() => { if (stuurBudgetHerinnering(v.id, "Sanne"))
+              {v.aanZet === "ander" && (v.status === "wacht" || v.status === "tegenvoorstel") ? (<span className="mt-2 flex flex-wrap items-center gap-2">
+                  {magHerinnering({ verstuurd: v.stappen.filter((s) => s.wat === "Herinnering verstuurd").map((s) => s.moment), reactieDatum: v.reactieDatum, gepauzeerd: vk.herinneringenGepauzeerd }).mag ? (<Button variant="ghost" size="sm" className="text-xs" onClick={async () => { if (await stuurBudgetHerinnering(v.id))
                             bevestig(t("components.BudgetVoorstel.melding.herinnering")); }}>{t("components.BudgetVoorstel.herinneringSturen")}</Button>) : null}
-                  <VoorstelIntrekken onBevestig={() => trekBudgetIn(v.id)}/>
+                  <VoorstelIntrekken onBevestig={() => doe(() => trekBudgetIn(v.id), t("components.BudgetVoorstel.melding.ingetrokken"))}/>
                 </span>) : null}
               {v.status === "uitgegeven" && (v.stappen.at(-1)?.bedrag ?? 0) > v.max + 0.009 ? (<div className="mt-2 rounded-md border border-accent-warm/40 bg-muted p-2.5 text-xs">
                   <p className="font-semibold">{t("components.BudgetVoorstel.overschreden", { bedrag: euro((v.stappen.at(-1)?.bedrag ?? 0) - v.max) })}</p>
@@ -107,7 +111,7 @@ export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId,
                   <Link to="/gesprekken" className="mt-1.5 inline-flex min-h-10 items-center font-semibold text-brand"><MetChevron>{t("components.BudgetVoorstel.extraAfstemmen")}</MetChevron></Link>
                 </div>) : null}
               {v.status === "akkoord" ? (<Button variant="link" onClick={() => onUitgave(v)} className="mt-2 min-h-11 px-0 text-xs font-semibold"><MetChevron>{t("components.BudgetVoorstel.uitgaveVastleggen")}</MetChevron></Button>) : null}
-              {v.status === "akkoord" || v.status === "uitgegeven" ? <Button variant="link" className="min-h-11 px-0 text-xs" onClick={() => { setWijzigId(v.id); setForm({ ...leeg, wat: v.wat, kind: v.kind, max: String(v.max), pct: v.pctSanne, aangepast: v.pctSanne !== 50 }); setOpen(true); }}>{t("components.BudgetVoorstel.wijzigingVoorstellen")}</Button> : null}
+              {v.status === "akkoord" || v.status === "uitgegeven" ? <Button variant="link" className="min-h-11 px-0 text-xs" onClick={() => { setWijzigId(v.id); setForm({ ...leeg, wat: v.wat, kind: v.kind, kindIds: v.kindIds, max: String(v.max), pct: v.pctIk, aangepast: v.pctIk !== 50 }); setOpen(true); }}>{t("components.BudgetVoorstel.wijzigingVoorstellen")}</Button> : null}
               </div> : null}
             </div>);
         })}
@@ -129,10 +133,10 @@ export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId,
             <p className="text-xs text-ink-soft">{t("components.BudgetVoorstel.uitstel.geenDeadline")}</p>
             <p className="text-xs text-ink-soft">{t("components.BudgetVoorstel.uitstel.voorbeeld")}</p>
             {uitstelFout ? <p role="alert" className="text-sm text-accent-warm">{uitstelFout}</p> : null}
-            <Button className="min-h-11 w-full" disabled={!uitstelTot || !geldigUitstelMoment(uitstelTot)} onClick={() => {
+            <Button className="min-h-11 w-full" disabled={!uitstelTot || !geldigUitstelMoment(uitstelTot)} onClick={async () => {
             if (!uitstelId || !uitstelTot)
                 return;
-            if (!vraagMeerTijdBudget(uitstelId, "Sanne", uitstelTot)) {
+            if (!(await vraagMeerTijdBudget(uitstelId, "ik", uitstelTot))) {
                 setUitstelFout(t("components.BudgetVoorstel.uitstel.fout"));
                 return;
             }
@@ -159,14 +163,17 @@ export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId,
               {form.aangepast ? <label className="mt-2 flex items-center gap-3 text-xs">{t("components.BudgetVoorstel.form.jij", { pct: form.pct })}<input type="range" min={0} max={100} step={5} value={form.pct} onChange={(e) => setForm({ ...form, pct: Number(e.target.value) })} className="flex-1 accent-[var(--brand)]"/>{t("components.BudgetVoorstel.form.andereOuder", { pct: 100 - form.pct })}</label> : null}
             </div>
             <div><p className="text-xs font-semibold">{t("components.BudgetVoorstel.form.welkKind")}</p>
-              <div className="mt-1 flex gap-2">{["Emma", "Noah", "Emma & Noah"].map((k) => <button key={k} onClick={() => setForm({ ...form, kind: k })} className={chip(form.kind === k)}>{k}</button>)}</div>
+              <div className="mt-1 flex flex-wrap gap-2">{kindKeuzes.map((k) => <button key={k.waarde} onClick={() => setForm({ ...form, kind: k.waarde, kindIds: k.ids })} className={chip(form.kind === k.waarde)}>{kindLabel(k.waarde)}</button>)}</div>
             </div>
             <label className="block text-xs font-semibold">{t("components.BudgetVoorstel.form.toelichting")}<input value={form.toelichting} onChange={(e) => setForm({ ...form, toelichting: e.target.value })} className={`${veld} mt-1`}/></label>
             <label className="block text-xs font-semibold">{t("components.BudgetVoorstel.form.reactieDatum")}<input type="date" value={form.reactieDatum} onChange={(e) => setForm({ ...form, reactieDatum: e.target.value })} className={`${veld} mt-1`}/></label>
             <p className="-mt-2 text-xs text-ink-soft">{t("components.BudgetVoorstel.form.verzoek")}</p>
-            <Button disabled={!form.wat.trim() || !(max > 0)} onClick={() => {
+            <Button disabled={bezig || !form.wat.trim() || !(max > 0)} onClick={async () => {
             if (wijzigId) {
-                if (wijzigBudgetVoorstel(wijzigId, "Sanne", max, form.pct)) {
+                setBezig(true);
+                const gelukt = await wijzigBudgetVoorstel(wijzigId, "ik", max, form.pct);
+                setBezig(false);
+                if (gelukt) {
                     setWijzigId(null);
                     setForm(leeg);
                     setOpen(false);
@@ -174,9 +181,13 @@ export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId,
                 }
                 return;
             }
-            const id = nieuwBudget({ wat: form.wat.trim(), kind: form.kind, max, pctSanne: form.pct, toelichting: form.toelichting || undefined, ...(form.reactieDatum ? { reactieDatum: form.reactieDatum } : {}) });
+            setBezig(true);
+            const id = await nieuwBudget({ wat: form.wat.trim(), kindIds: form.kindIds, max, pctIk: form.pct, toelichting: form.toelichting || undefined, ...(form.reactieDatum ? { reactieDatum: form.reactieDatum } : {}) });
+            setBezig(false);
+            if (!id)
+                return;
             if (bronItem)
-                koppelLijstBudget("nog-nodig-demo", Number(bronItem), id);
+                koppelNogNodigBudget(bronItem, id);
             setForm(leeg);
             setOpen(false);
             bevestig(t("components.BudgetVoorstel.melding.toegevoegd"), { uitleg: form.wat.trim() });

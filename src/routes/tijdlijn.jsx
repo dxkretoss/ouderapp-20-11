@@ -24,9 +24,9 @@ export const Route = createFileRoute("/tijdlijn")({
 // [categorie-id, icoon]; labels via routes.tijdlijn.cat.<id>.
 const auditCat = {
     afspraak: ["agenda", "agenda"], schema: ["verdeling", "zorgregeling"], besluit: ["beslissing", "beslissing"],
-    kosten: ["kosten", "kosten"], taak: ["taak", "taken"], spul: ["spul", "doos"],
+    kosten: ["kosten", "kosten"], taak: ["taak", "taken"], spul: ["spul", "doos"], spullen: ["spul", "doos"], overdracht: ["agenda", "overdracht"], document: ["document", "documenten"],
 };
-const ouder = { type: "ouder", id: "sanne" };
+const ouder = { type: "ouder" };
 function vanAudit(g) {
     const c = g.soort === "dossier" ? (g.itemId.startsWith("gezondheid-") ? ["gezondheid", "medisch"] : undefined) : auditCat[g.soort];
     if (!c || !magAudit(ouder, g.soort))
@@ -41,11 +41,11 @@ function Tijdlijn() {
     const regels = [
         ...audit.map(vanAudit).filter((r) => !!r),
         ...afspraken.flatMap((a) => a.geschiedenis.map((g, n) => {
-            const d = nlDatum(g.datum);
-            return d ? { key: `${a.id}-${n}-${g.datum}`, wanneer: d, heeftTijd: false, cat: "afspraken", icoon: "afspraak", kop: g.tekst, titel: a.titel } : null;
+            const d = g.moment ? new Date(g.moment) : nlDatum(g.datum);
+            return d ? { key: `${a.id}-${n}-${g.moment ?? g.datum}`, wanneer: d, heeftTijd: !!g.moment, cat: "afspraken", icoon: "afspraak", kop: g.tekst, titel: a.titel } : null;
         }).filter((r) => !!r)),
     ].sort((a, b) => b.wanneer.getTime() - a.wanneer.getTime());
-    const cats = ["alles", ...["afspraken", "agenda", "verdeling", "beslissing", "kosten", "taak", "spul", "gezondheid"].filter((c) => regels.some((r) => r.cat === c))].map((id) => ({ id, label: t(`routes.tijdlijn.cat.${id}`) }));
+    const cats = ["alles", ...["afspraken", "agenda", "verdeling", "beslissing", "kosten", "taak", "spul", "document", "gezondheid"].filter((c) => regels.some((r) => r.cat === c))].map((id) => ({ id, label: t(`routes.tijdlijn.cat.${id}`) }));
     const [cat, setCat] = useState("alles");
     const zicht = regels.filter((r) => cat === "alles" || r.cat === cat);
     return (<AppShell>

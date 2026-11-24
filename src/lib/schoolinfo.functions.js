@@ -1,48 +1,18 @@
 import { createServerFn } from "@/lib/server-fn";
+import { aiAanroep } from "@/lib/ai-aanroep";
 import { z } from "zod";
-import i18n from "@/i18n";
-/** Systeemprompt blijft Nederlands; in het Engels schrijft de AI de teksten voor de gebruiker in het Engels. */
-const taalRegel = () => i18n.resolvedLanguage === "en" ? "\nSchrijf ALLE tekst voor de gebruiker (titel, taak, voorbereiding) in het Engels (British English). Laat de JSON-sleutels en de waarden van kind ongewijzigd." : "";
+/**
+ * Schoolbrief uitlezen (SchoolinfoUitlezen). Sinds Phase 2 server-side (edge function `ai-tools`, actie `school-letter`).
+ * `kind` is het server-id van een kind van deze ouder (of ""), `kindNaam` de naam voor weergave.
+ * Herkent alleen; verwerken gebeurt na controle in de bestaande agenda-flow.
+ */
+const NS = "lib.schoolinfoFunctions";
 const Input = z.object({ tekst: z.string().min(10).max(8000), vandaag: z.string().max(20) });
-const Item = z.object({ titel: z.string().max(160), datum: z.string(), tijd: z.string(), kind: z.enum(["emma", "noah", ""]), zeker: z.boolean(), bedrag: z.number().positive().max(100000).nullable().default(null), taak: z.string().max(300).default(""), voorbereiding: z.string().max(300).default("") });
-const systeem = `Je leest een Nederlandse schoolbrief of nieuwsbrief en haalt alleen concrete activiteiten met een datum eruit (studiedag, ouderavond, schoolreis, vrije dag, sportdag, inleveren van iets).
-Antwoord ALLEEN met JSON: {"items":[{"titel":"kort","datum":"YYYY-MM-DD","tijd":"HH:MM of leeg","kind":"emma, noah of leeg","zeker":true/false,"bedrag":null,"taak":"","voorbereiding":""}]}.
-Houd informatie over dezelfde activiteit bij elkaar. Neem een genoemd bedrag als getal over, een expliciete deadline of actie onder taak, en letterlijk genoemde meeneemspullen onder voorbereiding. Bijvoorbeeld schoolreis vrijdag 09:00, €17,50, lunch meenemen: één item met bedrag 17.5 en voorbereiding Lunch meenemen. Bedrag null en tekst leeg als de brief dit niet noemt. Verzin geen taken, bedragen, kinderen of spullen.
-Gebruik het opgegeven jaar als het jaar ontbreekt. Zet zeker op false als datum of tijd onduidelijk is. Maximaal 10 items.`;
-/** Herkent alleen; verwerken gebeurt na controle in de bestaande agenda-flow. */
+const Item = z.object({ titel: z.string().max(160), datum: z.string(), tijd: z.string(), kind: z.string(), kindNaam: z.string().default(""), zeker: z.boolean(), bedrag: z.number().positive().max(100000).nullable().default(null), taak: z.string().max(300).default(""), voorbereiding: z.string().max(300).default("") });
 export const leesSchoolinfo = createServerFn({ method: "POST" })
     .inputValidator((d) => Input.parse(d))
     .handler(async ({ data }) => {
-    const key = (typeof process !== "undefined" && process.env?.["LOVABLE_API_KEY"]) || (typeof import.meta !== "undefined" && import.meta.env?.VITE_LOVABLE_API_KEY) || "";
-    if (!key)
-        throw new Error(i18n.t("lib.schoolinfoFunctions.fout.nietIngesteld"));
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Lovable-API-Key": key, "X-Lovable-AIG-SDK": "fetch" },
-        body: JSON.stringify({
-            model: "openai/gpt-6-astra",
-            instructions: systeem + taalRegel(),
-            input: `Vandaag: ${data.vandaag}. Kinderen: Emma (emma), Noah (noah).\n\n${data.tekst}`,
-            store: false,
-            reasoning: { effort: "low" },
-        }),
-    });
-    if (!res.ok) {
-        if (res.status === 429)
-            throw new Error(i18n.t("lib.schoolinfoFunctions.fout.druk"));
-        if (res.status === 402)
-            throw new Error(i18n.t("lib.schoolinfoFunctions.fout.tegoeden"));
-        throw new Error(i18n.t("lib.schoolinfoFunctions.fout.mislukt"));
-    }
-    const j = await res.json();
-    const tekst = j.output_text ?? (j.output ?? []).flatMap((o) => o.content ?? []).map((c) => c.text ?? "").join("");
-    const m = tekst.match(/\{[\s\S]*\}/);
-    if (!m)
-        return [];
-    try {
-        return z.object({ items: z.array(Item).max(10) }).parse(JSON.parse(m[0])).items;
-    }
-    catch {
-        return [];
-    }
+    const r = await aiAanroep("ai-tools", "school-letter", data, NS, { druk: "druk", nietIngesteld: "nietIngesteld", anders: "mislukt" });
+    const p = z.array(Item).max(10).safeParse(r?.items ?? []);
+    return p.success ? p.data : [];
 });

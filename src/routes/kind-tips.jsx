@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Moon, Heart, CloudRain, CircleHelp, MessageCircle, Home, Users, Gift, HandHeart, Check, Quote, Search } from "lucide-react";
 import { AppShell, PageHeader, TerugKnop } from "@/components/AppShell";
-import { kinderen as demoKinderen } from "@/lib/demo-data";
 import { useStart } from "@/lib/start-store";
 import { leeftijdGroep } from "@/lib/lastige-momenten-kind";
 import { AppIcon } from "@/components/AppIcon";
@@ -24,9 +23,7 @@ function KindTipsPagina() {
     const st = useStart();
     const jarenUit = (geb) => { if (!geb || !/^\d{4}-\d{2}-\d{2}/.test(geb))
         return null; const g = new Date(geb), n = new Date(); return n.getFullYear() - g.getFullYear() - (n < new Date(n.getFullYear(), g.getMonth(), g.getDate()) ? 1 : 0); };
-    const kids = st.eigen
-        ? st.kinderen.map((k) => ({ naam: k.naam, kleur: k.kleur ?? "#8A7E72", jaren: jarenUit(k.geboortedatum) }))
-        : demoKinderen.map((k) => ({ naam: k.naam, kleur: k.kleur, jaren: k.leeftijd }));
+    const kids = st.kinderen.map((k) => ({ naam: k.naam, kleur: k.kleur ?? "#8A7E72", jaren: jarenUit(k.geboortedatum) }));
     const [thema, setThema] = useState(null);
     const [tipId, setTipId] = useState(null);
     const tip = kindTips.find((t) => t.id === tipId);

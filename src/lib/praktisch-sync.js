@@ -1,0 +1,96 @@
+import { toast } from "sonner";
+import { foutTekst } from "@/lib/api";
+import { authState, opAuth } from "@/lib/auth-store";
+/**
+ * Serverbronnen van het praktische domein (taken, spullen, momentjes, documenten, afspraken, geschiedenis,
+ * meldingen, evaluaties): laden na inloggen, verversen bij focus (geen realtime: RLS blokkeert dat),
+ * leegmaken bij afmelden of een ander account. Elke store meldt zich één keer aan met `serverBron`.
+ */
+const bronnen = new Set();
+let gestart = false;
+let voorId = null;
+const MIN_TUSSEN = 4000;
+function huidigAccount() {
+    const a = authState();
+    return (a.status === "aan" || a.status === "onboarding") && a.gebruiker ? a.gebruiker.id : null;
+}
+function controleer() {
+    const id = huidigAccount();
+    if (id === voorId)
+        return;
+    voorId = id;
+    bronnen.forEach((b) => { b.wis(); if (id)
+        b.ververs(true); });
+}
+function start() {
+    if (gestart || typeof window === "undefined")
+        return;
+    gestart = true;
+    opAuth(controleer);
+    queueMicrotask(controleer);
+    const opFocus = () => { if (voorId && document.visibilityState !== "hidden")
+        bronnen.forEach((b) => b.ververs(false)); };
+    window.addEventListener("focus", opFocus);
+    document.addEventListener("visibilitychange", opFocus);
+}
+/** Meldt een bron aan. `laad()` haalt alles op (async), `wis()` zet de store terug naar leeg. */
+export function serverBron({ laad, wis }) {
+    let laatst = 0;
+    let bezig = null;
+    const b = {
+        wis,
+        ververs(direct) {
+            if (bezig || (!direct && Date.now() - laatst < MIN_TUSSEN))
+                return bezig ?? Promise.resolve();
+            laatst = Date.now();
+            bezig = Promise.resolve().then(laad).catch((e) => meldFout(e)).finally(() => { bezig = null; });
+            return bezig;
+        },
+    };
+    bronnen.add(b);
+    return {
+        /** Zorgt dat het volgen loopt (aanroepen vanuit hooks/getters; doet niets op de server-side render of in tests). */
+        zorg: () => { start(); if (gestart && voorId === null)
+            controleer(); },
+        ververs: () => b.ververs(true),
+        isEigen: () => voorId !== null,
+    };
+}
+/** Rustige foutmelding (één toast tegelijk per bron), zoals start-store. */
+export function meldFout(e, id = "praktisch-fout") {
+    if (e?.code === "UNAUTHORIZED" || typeof window === "undefined")
+        return;
+    toast.error(foutTekst(e), { id });
+}
+/** Optimistisch bijwerken: `doe()` past de store direct aan en geeft een terugdraaifunctie; daarna de server. */
+export async function optimistisch(doe, aanroep, foutId) {
+    const terug = doe();
+    try {
+        return await aanroep();
+    }
+    catch (e) {
+        terug?.();
+        meldFout(e, foutId);
+        return undefined;
+    }
+}
+/** Bestand → data-URL (base64), voor uploads via een edge function. */
+export function leesAlsDataUrl(file) {
+    return new Promise((ok, fout) => {
+        const r = new FileReader();
+        r.onload = () => ok(String(r.result));
+        r.onerror = () => fout(r.error);
+        r.readAsDataURL(file);
+    });
+}
+/** Foto verkleinen (max 1600px) en opnieuw als JPEG opslaan: kleiner bestand en geen EXIF/locatie. */
+export async function verkleinFoto(file, max = 1600) {
+    const bmp = await createImageBitmap(file);
+    const schaal = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * schaal);
+    c.height = Math.round(bmp.height * schaal);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    bmp.close();
+    return c.toDataURL("image/jpeg", 0.82);
+}

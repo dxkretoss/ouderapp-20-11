@@ -16,13 +16,14 @@ export function MedischGezag({ kindId, naam, leeftijd }) {
       <div className="rounded-md bg-white/60 px-3 py-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">{t("components.MedischGezag.vastgelegd")}</p>
         <p className="text-sm">{gezagLabels[g]}</p>
-        <p className="mt-1 text-[11px] text-ink-soft">{bevestigd[kindId] ? t("components.MedischGezag.ingevuldBevestigd") : t("components.MedischGezag.ingevuldNietBevestigd")}</p>
+        {g !== "onbekend" ? <p className="mt-1 text-[11px] text-ink-soft">{bevestigd[kindId] ? t("components.MedischGezag.ingevuldBevestigd") : t("components.MedischGezag.ingevuldNietBevestigd")}</p> : null}
+        <Link to="/gezag" className="mt-1 inline-flex min-h-9 items-center text-[11px] font-semibold text-brand">{t("components.MedischGezag.naarGezag")}</Link>
       </div>
       <div>
         <p className="text-xs font-semibold">{t("components.MedischGezag.wieBeslist")}</p>
         <ul className="mt-1 space-y-1.5">
           {groepen.map((gr, i) => {
-            const huidig = leeftijd <= gr.max && (i === 0 || leeftijd > groepen[i - 1].max);
+            const huidig = typeof leeftijd === "number" && leeftijd <= gr.max && (i === 0 || leeftijd > groepen[i - 1].max);
             return <li key={gr.id} className={`rounded-md px-3 py-2 text-xs ${huidig ? "border border-brand/40 bg-card" : "text-ink-soft"}`}><span className="font-semibold">{t(`components.MedischGezag.groep.${gr.id}.titel`)}{huidig ? t("components.MedischGezag.geldtNu", { naam }) : ""}</span><span className="block">{t(`components.MedischGezag.groep.${gr.id}.uitleg`)}</span></li>;
         })}
         </ul>

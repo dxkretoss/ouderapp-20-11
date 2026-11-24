@@ -1,8 +1,4 @@
 import { useSyncExternalStore } from "react";
-import { zorgweek } from "@/lib/demo-data";
-/** Demo: "vandaag" is woensdag 12 maart. */
-export const VANDAAG = 12;
-export const isOverdrachtsdag = (datum = VANDAAG) => zorgweek.some((d) => d.datum === datum && d.wissel);
 let state = { aan: true, getoond: false, voorbeeld: false };
 const listeners = new Set();
 function zet(p) {

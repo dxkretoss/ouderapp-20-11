@@ -7,14 +7,14 @@ import { useServerFn } from "@/lib/server-fn";
 import { AppIcon } from "@/components/AppIcon";
 import { Banknote, FolderOpen } from "lucide-react";
 import { MetVinkje } from "@/components/Tekens";
-import { koppelUitgave, useBudgetten } from "@/lib/budget-store";
+import { useBudgetten } from "@/lib/budget-store";
+import { useStart } from "@/lib/start-store";
 import { leesBon } from "@/lib/bon.functions";
-const kinderOpties = ["Emma & Noah", "Emma", "Noah"];
+import { kindLabel } from "@/components/KostenTabs";
 const docCategorieen = ["Bonnen", "Schooldocumenten", "Medisch", "Verzekeringen", "Officiële afspraken", "Brieven", "Overig"];
 /** Documentcategorie en verdeling blijven als (Nederlandse) waarde bewaard; alleen de weergave wordt vertaald. */
 const DOC_SLEUTELS = { "Bonnen": "bonnen", "Schooldocumenten": "school", "Medisch": "medisch", "Verzekeringen": "verzekeringen", "Officiële afspraken": "officieel", "Brieven": "brieven", "Overig": "overig" };
 const docLabel = (c) => i18n.t(`components.BonScanner.docCategorie.${DOC_SLEUTELS[c]}`);
-const verdeelLabel = (v) => v === "Volledig Sanne" ? i18n.t("components.BonScanner.volledigSanne") : v === "Volledig Joris" ? i18n.t("components.BonScanner.volledigJoris") : v;
 /** Verklein de foto vóór het uitlezen, zodat het snel en zuinig blijft. */
 async function verklein(dataUrl) {
     const img = new Image();
@@ -32,15 +32,20 @@ export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, 
     const invoer = useRef(null);
     const lees = useServerFn(leesBon);
     const afspraak = `${standaardPct} / ${100 - standaardPct}`;
-    const verdeelOpties = [...new Set([afspraak, "50 / 50", "Volledig Sanne", "Volledig Joris"])];
+    // Verdeling als bronwaarde: "standaard" (jullie afspraak), "50" of "volledig" (helemaal voor mij); de betaler is altijd de ingelogde ouder.
+    const verdeelOpties = [["standaard", t("components.BonScanner.volgensAfspraak", { verdeling: afspraak })], ...(standaardPct === 50 ? [] : [["50", "50 / 50"]]), ["volledig", t("components.BonScanner.volledigSanne")]];
+    const st = useStart();
+    const kinderOpties = [...(st.kinderen.length > 1 ? [{ waarde: "Alle kinderen", ids: st.kinderen.map((k) => k.id) }] : []), ...st.kinderen.map((k) => ({ waarde: k.naam, ids: [k.id] })), { waarde: "Gezin/algemeen", ids: [] }];
     const [foto, setFoto] = useState(null);
     const [soort, setSoort] = useState(standaard);
     const [naam, setNaam] = useState("");
     const [winkel, setWinkel] = useState("");
     const [datum, setDatum] = useState("");
     const [bedrag, setBedrag] = useState("");
-    const [kind, setKind] = useState(kinderOpties[0]);
-    const [verdeling, setVerdeling] = useState(afspraak);
+    const [kind, setKind] = useState(kinderOpties[0]?.waarde ?? "Gezin/algemeen");
+    const kindIds = kinderOpties.find((k) => k.waarde === kind)?.ids ?? [];
+    const [verdeling, setVerdeling] = useState("standaard");
+    const [fotoKlein, setFotoKlein] = useState(null);
     const [categorie, setCategorie] = useState(docCategorieen[0]);
     const [ook, setOok] = useState(true);
     const [klaar, setKlaar] = useState(null);
@@ -49,6 +54,7 @@ export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, 
     const budgetten = useBudgetten();
     const [koppel, setKoppel] = useState(null);
     const uitlezen = async (f) => {
+        setFotoKlein(f);
         setLeest(true);
         setLeesMelding(null);
         try {
@@ -79,6 +85,7 @@ export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, 
         r.onload = async () => {
             const ruw = String(r.result);
             setFoto(ruw);
+            setFotoKlein(null);
             if (soort === "kosten") {
                 try {
                     await uitlezen(await verklein(ruw));
@@ -94,21 +101,20 @@ export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, 
     /** Zelfde kind, bedrag binnen 10% van een afgesproken budget dat nog niet is uitgegeven. */
     const vindBudget = () => {
         const bedragNummer = leesGeld(bedrag) ?? 0;
-        return budgetten.find((b) => b.status === "akkoord" && !b.kostId && Math.abs(b.max - bedragNummer) <= Math.max(2, b.max * 0.1) && (b.kind === kind || kind === "Emma & Noah"));
+        return budgetten.find((b) => b.status === "akkoord" && !b.kostId && Math.abs(b.max - bedragNummer) <= Math.max(2, b.max * 0.1) && (!b.kindIds?.length || kindIds.every((id) => b.kindIds.includes(id))));
     };
     const omschr = () => naam.trim() ? (winkel.trim() && !naam.includes(winkel.trim()) ? `${naam.trim()} (${winkel.trim()})` : naam.trim()) : winkel.trim() || t("components.BonScanner.gescandeBon");
-    const finaliseer = (b) => {
+    const finaliseer = async (b) => {
         if (!foto)
             return;
         if (soort === "kosten") {
-            const id = `bon-${Date.now()}`;
             const bedragNummer = leesGeld(bedrag) ?? 0;
             if (bedragNummer <= 0)
                 return;
-            const d = datum ? new Date(datum) : null;
-            onKosten({ id, omschrijving: omschr(), bedrag: bedragNummer, kind, verdeling, foto, ...(d && !isNaN(+d) ? { datum: d.toLocaleDateString("nl-NL", { day: "numeric", month: "long" }) /* bronwaarde: leesDatum leest Nederlandse maandnamen; weergave via toonDatumTekst */ } : {}) });
-            if (b)
-                koppelUitgave(b.id, id, bedragNummer);
+            // De (verkleinde) foto gaat als bon mee; opslaan en koppelen aan het budget doet de server in één keer.
+            const gelukt = await onKosten({ omschrijving: omschr(), bedrag: bedragNummer, kind, kindIds, verdeling, foto: fotoKlein ?? foto, budgetId: b?.id, ...(/^\d{4}-\d{2}-\d{2}$/.test(datum) ? { datum } : {}) });
+            if (gelukt === false)
+                return;
             if (ook)
                 onDocument({ naam: t("components.BonScanner.bonNaam", { naam: omschr() }), categorie: "Bonnen", kind, foto });
             setKlaar(b ? t("components.BonScanner.klaar.gekoppeld", { wat: b.wat }) : ook ? t("components.BonScanner.klaar.kostenEnDocumenten") : t("components.BonScanner.klaar.kosten"));
@@ -165,19 +171,19 @@ export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, 
               </div>
               <GeldInvoer label={t("components.BonScanner.bedrag")} value={bedrag} onChange={setBedrag}/>
               <select className={veld} aria-label={t("components.BonScanner.verdeling")} value={verdeling} onChange={(e) => setVerdeling(e.target.value)}>
-                {verdeelOpties.map((v) => <option key={v} value={v}>{v === afspraak ? t("components.BonScanner.volgensAfspraak", { verdeling: v }) : verdeelLabel(v)}</option>)}
+                {verdeelOpties.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
               </select>
             </>) : (<select className={veld} value={categorie} onChange={(e) => setCategorie(e.target.value)}>
               {docCategorieen.map((c) => <option key={c} value={c}>{docLabel(c)}</option>)}
             </select>)}
           <select className={veld} value={kind} onChange={(e) => setKind(e.target.value)}>
-            {kinderOpties.map((k) => <option key={k}>{k}</option>)}
+            {kinderOpties.map((k) => <option key={k.waarde} value={k.waarde}>{kindLabel(k.waarde)}</option>)}
           </select>
           {soort === "kosten" ? (<label className="flex items-center gap-2 text-xs text-ink-soft">
               <input type="checkbox" checked={ook} onChange={(e) => setOok(e.target.checked)}/> {t("components.BonScanner.ookDocumenten")}
             </label>) : null}
           {koppel ? (<div role="status" className="rounded-md border border-border bg-muted p-3">
-              <p className="text-xs text-ink-soft"><Trans i18nKey="components.BonScanner.hoortBij" values={{ bedrag, wat: koppel.wat, kind: koppel.kind }} components={{ b: <span className="font-semibold"/> }}/></p>
+              <p className="text-xs text-ink-soft"><Trans i18nKey="components.BonScanner.hoortBij" values={{ bedrag, wat: koppel.wat, kind: kindLabel(koppel.kind) }} components={{ b: <span className="font-semibold"/> }}/></p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button onClick={() => finaliseer(koppel)} className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-primary-foreground">{t("components.BonScanner.jaKoppelen")}</button>
                 <button onClick={() => { setKoppel(null); finaliseer(); }} className="rounded-full border border-border px-3 py-1 text-xs font-semibold">{t("components.BonScanner.andereKostenpost")}</button>

@@ -29,6 +29,7 @@ import { Route as JuridischeHulpRouteImport } from './routes/juridische-hulp';
 import { Route as KindTipsRouteImport } from './routes/kind-tips';
 import { Route as KinderenRouteImport } from './routes/kinderen';
 import { Route as KostenRouteImport } from './routes/kosten';
+import { Route as VerbondenPersonenRouteImport } from './routes/verbonden-personen';
 import { Route as LastigeMomentenRouteImport } from './routes/lastige-momenten';
 import { Route as MeerRouteImport } from './routes/meer';
 import { Route as MomentjesRouteImport } from './routes/momentjes';
@@ -171,6 +172,11 @@ const KindTipsRoute = KindTipsRouteImport.update({
 const KinderenRoute = KinderenRouteImport.update({
     id: '/kinderen',
     path: '/kinderen',
+    getParentRoute: () => rootRouteImport,
+});
+const VerbondenPersonenRoute = VerbondenPersonenRouteImport.update({
+    id: '/verbonden-personen',
+    path: '/verbonden-personen',
     getParentRoute: () => rootRouteImport,
 });
 const KostenRoute = KostenRouteImport.update({
@@ -353,6 +359,7 @@ const rootRouteChildren = {
     KindTipsRoute: KindTipsRoute,
     KinderenRoute: KinderenRouteWithChildren,
     KostenRoute: KostenRoute,
+    VerbondenPersonenRoute: VerbondenPersonenRoute,
     LastigeMomentenRoute: LastigeMomentenRoute,
     MeerRoute: MeerRoute,
     MomentjesRoute: MomentjesRoute,

@@ -1,17 +1,10 @@
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import i18n from "@/i18n";
 import { AppIcon } from "@/components/AppIcon";
-const voorbeeld = (id, kind, jaar) => ({ id, kind, jaar, get tekst() { return i18n.t(`components.Mijlpalen.voorbeeld.${id}`); } });
-let lijst = [
-    voorbeeld("m1", "emma", 2025),
-    voorbeeld("m2", "emma", 2026),
-    voorbeeld("m3", "noah", 2025),
-    voorbeeld("m4", "noah", 2026),
-];
-const ls = new Set();
-export const voegMijlpaal = (m) => { lijst = [...lijst, { ...m, id: `m${Date.now()}` }]; ls.forEach((l) => l()); };
-export const useMijlpalenLijst = () => useSyncExternalStore((l) => { ls.add(l); return () => ls.delete(l); }, () => lijst, () => lijst);
+import { useMomentjes, voegMijlpaalToe } from "@/lib/momentjes-store";
+/** Mijlpalen staan in de ene momentjesbron (manage-moments, soort "mijlpaal"): { id, kind, jaar, tekst }. */
+export const voegMijlpaal = (m) => voegMijlpaalToe(m);
+export const useMijlpalenLijst = () => useMomentjes().mijlpalen;
 export function Mijlpalen({ kindId, naam, momentjesPerJaar }) {
     const { t } = useTranslation();
     const alle = useMijlpalenLijst().filter((m) => m.kind === kindId);

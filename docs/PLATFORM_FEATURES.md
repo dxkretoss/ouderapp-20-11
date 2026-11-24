@@ -22,6 +22,7 @@
   - [0.12 Languages (Dutch / English)](#012-languages-dutch--english)
   - [0.13 Start screen, sign-in and sign-out](#013-start-screen-sign-in-and-sign-out)
   - [0.14 Icons and mobile layout](#014-icons-and-mobile-layout)
+  - [0.15 Backend (Supabase) — Phase 1–2](#015-backend-supabase--phase-12)
 - [1. Home, onboarding, account & global UI](#1-home-onboarding-account--global-ui)
 - [2. Agenda, care schedule & handovers](#2-agenda-care-schedule--handovers)
 - [3. Communication, AI coach "Co" and child-centric guidance](#3-communication-ai-coach-co-and-child-centric-guidance)
@@ -54,13 +55,13 @@ The core philosophy: **nothing shared changes without the other parent agreeing*
 
 | Role | How it appears in code | Main entry |
 |---|---|---|
-| **Parent (logged-in viewer)** | Always "Sanne" (`id: "sanne"`) in the demo family | `/` (Home) |
-| **Other parent** | "Joris" (`id: "joris"`), shown as "de andere ouder" | Simulated (seed data, dev-only "demo: akkoord" buttons) |
+| **Parent (logged-in viewer)** | The signed-in account (`auth-store`, profile uuid; `useGezin().ik`) | `/` (Home) |
+| **Other parent** | The connected co-parent (`useGezin().ander`), shown as "de andere ouder" | Their own account; answers proposals from their own device |
 | **Solo parent** | Own family, other parent not invited (`start-store.uitgenodigd = false`), optionally with e-mail linking | `/solo` |
-| **Kring / caregiver** | Grandparents, babysitter, step-parent with per-person permissions | `/verzorger`, `/kring/$kindId` |
+| **Kring / caregiver** | Grandparents, babysitter, step-parent with per-person permissions (`manage-caregivers`); a caregiver-only account lands on `/verzorger` | `/verzorger`, `/kring/$kindId` |
 | **Professional** | Mediator / social worker / counsellor with a dossier per family | `/professionals` (cockpit), `/ondersteuning`, `/begeleider-gesprek` |
 
-There is **no real authentication or backend**: all identities are simulated on the device.
+Identities are real accounts (custom session auth, see §0.15). The demo family (Sanne/Joris/Emma/Noah) is no longer reachable for signed-in users; `demo-data.js` only remains for the out-of-scope professionals portal and calls screens.
 
 ## 0.3 Tech stack
 
@@ -121,7 +122,9 @@ src/
 
 ## 0.6 Demo family vs own family
 
-The app runs in one of two modes, decided by `start-store.eigen`:
+> **Since Phase 1–2 a signed-in account is always the own family** (`start-store.eigen === true`; `naarVoorbeeld` is a no-op) and every module reads its data from the server (§0.15). The table below describes the historical demo mode and is kept for reference only.
+
+Historically the app ran in one of two modes, decided by `start-store.eigen`:
 
 | | **Demo family** (default) | **Own family** (`eigen = true`) |
 |---|---|---|
@@ -136,7 +139,7 @@ A first visit always shows the demo family. The user switches to an own family v
 
 ## 0.7 State, persistence & storage keys
 
-All stores follow the same pattern: a module-level `state`, a `Set` of listeners, a `zet()`/setter that replaces state immutably and notifies, and a `useX()` hook using `useSyncExternalStore`. There is **no server persistence**; many stores are memory-only and reset on a full page reload.
+All stores follow the same pattern: a module-level `state`, a `Set` of listeners, a `zet()`/setter that replaces state immutably and notifies, and a `useX()` hook using `useSyncExternalStore`. **Since Phase 1–2 all family data is loaded from the edge functions** (§0.15) after login and kept in memory; the localStorage keys below are device preferences, the session token and a few legacy keys (sign-out wipes every `onzeapp-*` family cache). The "memory-only" list at the end of this section describes the pre-backend demo situation.
 
 **localStorage keys in use**
 
@@ -167,7 +170,7 @@ All stores follow the same pattern: a module-level `state`, a `Set` of listeners
 
 ## 0.8 AI features ("Co")
 
-"Co" is the app's calm AI assistant persona. All AI calls go to the Lovable AI gateway with model `openai/gpt-6-astra` and structured JSON output. The API key is read from `process.env.LOVABLE_API_KEY` or `import.meta.env.VITE_LOVABLE_API_KEY` — **in this SPA build it is read in the browser**, so a `VITE_` key would be exposed to users.
+"Co" is the app's calm AI assistant persona. **Since Phase 2 all AI runs server-side**: the `*.functions.js` files keep their exports but call edge functions through `api()` (`src/lib/ai-aanroep.js` maps errors to the existing messages). Prompts, JSON schemas, the intent register and the `nieuweDetails` check live in `supabase/functions/_shared/ai-*.js`; the functions call the OpenAI API (`gpt-4o-mini` by default, `OPENAI_MODEL` / `OPENAI_TRANSCRIBE_MODEL` override, structured `json_schema` output, `store: false`) with the secret `OPENAI_API_KEY`. Every AI call requires a session and passes a per-user rate limit (`ai_requests`, default 20/min and 300/day → `RATE_LIMITED`). The GEZIN line for Co is built by the server from the session. Function/action per feature: assistant `ai-assistant/ask`, speech `ai-assistant/transcribe`, writing help `ai-coach/coach`, communication meter `ai-coach/tone`, Sparren met Co + Co sheet `co-assistant/chat`, summary `ai-tools/summarize` (by `conversation_id`), receipt `ai-tools/receipt`, school letter `ai-tools/school-letter`, school message `ai-tools/school-message`, parenting plan `ai-tools/parenting-plan`. The dev mock (`src/lib/mock/messages.js`) returns fixed answers.
 
 | Function file | Feature | Screen |
 |---|---|---|
@@ -330,6 +333,43 @@ The whole app is available in **Dutch (default)** and **English**, using i18next
 - AppShell respects the phone safe areas (top padding, bottom navigation).
 
 ---
+
+## 0.15 Backend (Supabase) — Phase 1–2
+
+**Data flow.** Screen → store (`src/lib/*-store.js`, `useSyncExternalStore`) → `api(fn, action, body)` (`src/lib/api.js`) → `supabase.functions.invoke(fn)` with the header `x-session-token` → edge function (`supabase/functions/<fn>/index.ts`; `serveActions` dispatches on `body.action`) → Postgres / private storage with the service role. The browser never touches tables, RPCs or storage directly: Phase 1 removed every anon/authenticated grant and policy, and every Phase 2 table has RLS on with no policies. Responses are `{ success: true, ... }`; errors are `{ success: false, code, message }` and the UI translates `code` via `foutTekst` (`lib.api.fout.*`). There is no realtime: stores load after login, refresh on window focus and after their own actions; messages poll every 25 s while `/berichten` is open. Updates are optimistic with rollback + toast (`meldFout`).
+
+**Session model.** Custom auth in `custom-auth` (e-mail + bcrypt password in `profiles`, 6-digit e-mail codes stored hashed, `user_sessions` with a hashed 30-day token). `auth-store.js` keeps the token in `localStorage["onzeapp-sessie-token"]` with status `laden | uit | onboarding | aan`; `__root.jsx` sends every non-public route to `/welkom` without a session. `requireUser(req)` (`_shared/session.ts`) derives the user from the token only — user ids in a request body are never trusted. `UNAUTHORIZED` clears the session and returns to `/welkom`. Sign-out revokes the server session and wipes the family caches.
+
+**Access rules.** Family scope comes from `_shared/access.ts` (`childIdsFor`, `assertChildAccess`, `coParentIdsFor`): a record is visible when it belongs to a child the caller is linked to, or the caller created it, or an ACTIVE co-parent created it for a shared child (costs: the parent pair `created_by` + `other_parent_id`). Private records (private agenda items, "Alleen voor mij" moments, solo log) are returned only to their owner. Proposals (agenda, care schedule, holidays, budgets, expenses, cost agreement, agreements, task requests) can only be answered by the OTHER parent (Akkoord / Ander voorstel / Niet akkoord / Meer tijd nodig); the proposer may withdraw; final statuses are immutable (also guarded by SQL triggers for agenda/care proposals; cost, budget and settlement steps and messages are append-only). History is `audit_events` — append-only (trigger), written by the functions with actor = session user and the children in scope; `log-audit list` is the reader. Caregivers get nothing from a link: access starts after accepting an invitation while signed in, per child, per section and within the access period (`_shared/family-caregivers.ts`). Files live in private buckets and are returned as 1-hour signed URLs.
+
+**Function per module.**
+
+| Module | Edge function(s) | Client store(s) |
+|---|---|---|
+| Sign-in, register, reset | `custom-auth` | `auth-store.js`, `sessie-store.js` |
+| Profile, preferences, onboarding | `manage-profile` | `auth-store.js`, `start-store.js` |
+| Children, child profile, custody, private note | `manage-children` | `start-store.js`, `kindprofiel-store.js`, `gezag-store.js` |
+| Invite / connect / disconnect the other parent | `send-invitation`, `accept-invitation` | `start-store.js` (`uitnodigingen`, `coOuders`) |
+| Circle / caregivers, `/verzorger`, Connected persons | `manage-caregivers` | `kring-store.js` |
+| Agenda, care schedule + proposals/exceptions, attendance, Nu afstemmen | `manage-agenda` | `agenda-store.js` (load hub), `zorg-store.js`, `aanwezigheid-store.js`, `nu-afstemmen-store.js` |
+| Holidays & special days | `manage-vacations` | `vakantie-store.js` |
+| Handover packing list, notes, routines | `manage-handover` | `overdracht-store.js` |
+| Costs, receipts, budgets, settlements, fixed costs, cost agreement | `manage-expenses` | `kosten-store.js` (one source), `budget-store.js`, `vaste-lasten-store.js` |
+| Nog nodig | `manage-still-needed` | `nog-nodig-store.js` |
+| Messages | `manage-messages` | `berichten-store.js` |
+| AI ("Co") | `ai-assistant`, `ai-coach`, `co-assistant`, `ai-tools` | `*.functions.js` via `ai-aanroep.js` |
+| Tasks & belongings | `manage-tasks` | `taken-store.js` |
+| Moments & milestones | `manage-moments` | `momentjes-store.js` |
+| Documents | `manage-documents` | `documenten-store.js` |
+| Agreements, decisions, evaluations | `manage-agreements` | `afspraken-store.js` (agreements + decisions), `evaluatie-store.js` |
+| History (timeline, export, "Bekijk geschiedenis") | `log-audit` | `audit-store.js` |
+| Activities / notifications | `send-notification` | `meldingen-store.js`, `activiteiten.js` |
+
+Out of scope until Milestone 3–4: professionals portal, admin (`manage-admin` is a `410 GONE` stub), subscription/Stripe, calls (`/gesprekken`), e-mail integration.
+
+**Schema.** `supabase/schema.sql` is the historical baseline only (never run it again). Changes are additive, idempotent migrations in `supabase/migrations/` (Phase 1: `20261123000001_phase1_lockdown`, `20261123000002_custody_default`; Phase 2: `20261124000001_family` … `20261124000005_practical`). Deploy steps: `supabase/DEPLOY-PHASE1.md`, `supabase/DEPLOY-PHASE2.md`. All functions run with `verify_jwt = false` (`supabase/config.toml`) because they check the custom session themselves.
+
+**Mock mode.** `VITE_API_MOCK=1 npx vite` answers every `api()` call in the browser (`src/lib/api-mock.js` + one file per domain in `src/lib/mock/*.js`, with the same field names, statuses and error codes as the real functions; data lives in the browser, verification codes are logged to the console). It is dev-only and tree-shaken from production builds. Two browser profiles give two connected test parents.
 
 # 1. Home, onboarding, account & global UI
 
@@ -591,6 +631,7 @@ General conventions observed in this area:
 - **Navigates to:** `/`, `/zorgregeling`, `/berichten`, `/kring/$kindId`, `/taken`, `/samen-regelen`.
 
 ### `/activiteiten` — "Meldingen" (Notifications / activity)
+- **Phase 2 (server data):** besides open proposals (server-backed sources only), audit events by the other parent and shared moments, the feed shows server notifications created when the other parent acts (`send-notification list`), plus "waiting for you" items for task requests and decisions. Read-marks are stored per user on the server (`mark-read`).
 - **File(s):** `routes/activiteiten.jsx`, `components/Activiteiten.jsx` (`useActiviteiten`), `lib/activiteiten.js`, `components/VoorstellenOverzicht`.
 - **Purpose:** One feed of what was added, changed or is waiting for your response. It is derived from existing sources; only read-marks are stored.
 - **Features:**
@@ -1704,6 +1745,17 @@ General conventions that apply throughout:
   - `?budget=<id>` opens the "Budgetdetails" sheet for that budget.
   - `?bron=kindrekening` preselects "Betaald van: Kindrekening" in the new-expense form.
 
+#### Phase 2 — real data for the own family (supersedes the demo notes below where they differ)
+
+- **One source:** `kosten-store.js` loads `manage-expenses` `overview` (expenses + steps + receipts, budgets + steps, settlements + steps, fixed costs, cost agreement) after login, on window focus and after changes; `budget-store.js` / `vaste-lasten-store.js` are thin layers on it. "Nog nodig" uses `nog-nodig-store.js` (`manage-still-needed`). No demo seeds; records hold profile ids and the UI shows "jij" / "de andere ouder" (viewer-relative tokens `ik` / `ander`).
+- **Empty state:** with nothing yet, `EigenLeeg` with "Eerste uitgave toevoegen" and "Kostenafspraken instellen". Solo parent: expenses are only tracked (`opgeslagen`), the saldo card shows "invite the other parent" and budgets point to `/solo`.
+- **Cost agreement** (`EigenAfspraken`, also "Verdeling & afrekenen"/"Wijzigen"): split mode, own %, settle moment and the new approval limit (grensbedrag). With a linked parent "Opslaan en aan de andere ouder voorleggen" creates a proposal; the other parent sees it under "Wacht op jou" and answers Akkoord / Niet akkoord. Until confirmed the previous (or provisional) agreement applies.
+- **Expense:** paid by the signed-in parent; "Betaald van" Eigen rekening / Kindrekening; split Jullie verdeling / 50/50 / Ander percentage / Helemaal voor mij. Kindrekening and Helemaal voor mij are saved as `opgeslagen` (never settled). Shared own-account expenses wait for the other parent (`wacht`, `turn_to_respond`). Above a confirmed limit a budget is required first ("Eerst een budgetvoorstel" + "Budgetvoorstel doen"), and with a budget a receipt is required. Receipts/attachments (jpg/png/webp/pdf ≤ 10 MB) go to the private `receipts` bucket and open via 1-hour signed links.
+- **Responses:** only the parent whose turn it is sees Akkoord / Ander voorstel / Niet akkoord / Meer tijd nodig; the submitter sees "Wacht op reactie van de andere ouder". Ander voorstel (amount and/or split) passes the turn back; Akkoord after an ander voorstel applies the proposed values. Corrections on confirmed items stay comments.
+- **Budgets:** the four responses, change proposals, withdraw (proposer only) and reminders (max 2, 24 h apart) are server actions with append-only steps. Budgets never become expenses and never enter the balance; coverage of a waiting expense stays decided by `beoordeelKosten` in the UI and, on the server, only through an explicit `budget_id` within the agreed amount.
+- **Settlement:** "Verrekenen" creates one settlement for the eligible expenses (server computes amount and direction; an open settlement reserves its expenses). Only the receiving parent adds a payment link (known hosts) and/or IBAN + account holder (stored on the settlement, visible to both parents, copy buttons for the payer). The payer's "Ik heb betaald" is not proof; only the receiver's "Ontvangen" marks the linked expenses `verrekend`, then "Afronden".
+- **Fixed costs:** display only (`recurring_expenses`), never in the balance. **Savings pots:** no UI (records in `savings_pots` are kept).
+
 #### Features — main overview (demo family)
 
 **Header**
@@ -1932,6 +1984,7 @@ See the component description below. In `/kosten` a scanned receipt becomes a re
 ---
 
 ### `/taken` — "Taken" (Tasks)
+- **Phase 2 (server data):** the full task UI is used for the signed-in family; tasks come from `manage-tasks` (table `tasks`). "Wie regelt dit?" = me / the other parent (a request they accept with "Ik doe het" or decline with "Liever niet") / nog afstemmen. Reassignments, completion and requests are logged server-side in `audit_events`; the asked parent and the requester get a notification. No demo seeds.
 
 - **File(s):** `src/routes/taken.jsx` (`TakenWrap`, `EigenTaken`, `Taken`, `KopMetPlus`, `Groep`, `Klap`, `TaakRij`, `NieuweTaak`); store `src/lib/taken-store.js`; `HulpVragen.jsx` (`HulpKnop`, `HulpVragen`); `Geschiedenis.jsx`.
 - **Purpose:** Who arranges what for the children ("Wie regelt wat en wat moet nog gebeuren").
@@ -1953,6 +2006,7 @@ See the component description below. In `/kosten` a scanned receipt becomes a re
 ---
 
 ### `/spullen` — "Spullen" (Belongings)
+- **Phase 2 (server data):** belongings are `belongings` rows via `manage-tasks` (`belonging-create`/`belonging-update`): type mee / vast (place = a parent or free text) / dubbel / terug ("Niet vergeten", ticked when back). "Vaste spullen per dag" shows the routines from `slimme-hulp` (no demo routines). The per-handover packing list (`extraMee`/`weg`) stays with the handover domain.
 
 - **File(s):** `src/routes/spullen.jsx` (`SpullenWrap`, `EigenSpullen`, `Spullen`, `KlapBlok`, `PlekKeuze`, `SpulDetail`, `NieuwSpul`); `KleineLijst.jsx` (`Lijst`, `useLijst`); store `taken-store.js`.
 - **Purpose:** What travels between the two homes, what has a fixed place and what exists in both homes.
@@ -1986,6 +2040,7 @@ See the component description below. In `/kosten` a scanned receipt becomes a re
 ---
 
 ### `/momentjes` — "Momenten" (Moments)
+- **Phase 2 (server data):** moments and milestones come from `manage-moments` (`shared_moments`, reactions in `moment_reactions`, photos resized on the device and stored in the private `moments` bucket, shown via 1 h signed URLs). "Alleen voor mij" is never returned to the other parent; reactions notify the author. `Mijlpalen` uses the same source (kind `mijlpaal`).
 
 - **File(s):** `src/routes/momentjes.jsx` (`MomentjesPaginaWrap`, `EigenMomentjes`, `MomentjesPagina`, `Schakel`); components `Momentjes.jsx` (`MomentjeKaart`, `DeelMomentje`); store `src/lib/momentjes-store.js`.
 - **Purpose:** Share nice moments of the children with the other parent ("Ook als je er niet bij bent, maak je het mee." — Even when you're not there, you experience it).
@@ -2010,6 +2065,7 @@ See the component description below. In `/kosten` a scanned receipt becomes a re
 ---
 
 ### `/documenten` — "Documenten" (Documents)
+- **Phase 2 (server data):** documents come from `manage-documents` (table `documents`, private bucket `documents`, upload ≤ 10 MB through the function, open via a 1 h signed link). Upload form: name, child or whole family, category. The parenting-plan import stores the original here and imports confirmed items as agreement proposals (`manage-agreements import`); receipt photos from `BonScanner` are stored as documents.
 
 - **File(s):** `src/routes/documenten.jsx` (`DocumentenWrap`, `EigenDocumenten`, `Documenten`, `stijl`, `catLabel`, `korteNaam`); components `BonScanner`, `OuderschapsplanImport`, `SchoolinfoUitlezen`, `ContextToevoegen`, `Assistent`; seed `demo-data.documenten`; `import-store.js` (via `OuderschapsplanImport`).
 - **Purpose:** Important documents (parenting plan, school reports, medical papers, insurance) in one place, "Veilig gedeeld tussen jou en Joris".
@@ -2229,6 +2285,7 @@ General conventions used below:
 ---
 
 ### `/afspraken` — "Afspraken tussen jullie" (Agreements between you)
+- **Phase 2 (server data):** agreements come from `manage-agreements` (`parent_agreements`): new/change/stop are proposals; only the other parent answers (Akkoord / Ander voorstel / Niet akkoord / Meer tijd nodig), the proposer can withdraw, history is append-only and `revision` drives the stale guard. A parent without a connected co-parent records directly. No demo seeds; the professional card only shows in the professional view.
 - **File(s):** `src/routes/afspraken.jsx`; store `src/lib/afspraken-store.js`; `VoorstelIntrekken`, `RustigTip`/`useKeuzeTeksten`, `ui-kit` (`Badge`, `BewerkPotlood`, `FilterBalk`, `OverzichtKaart`).
 - **Purpose:** This is the single list of agreements between the parents. Each agreement has versions, proposals and per-parent approval, and its history cannot be edited.
 - **Search params:**
@@ -2308,6 +2365,7 @@ General conventions used below:
 - **Navigates to:** `/afspraken`.
 
 ### `/beslissingen` — "Beslissingen" (Decisions)
+- **Phase 2 (server data):** decisions are `parent_agreements` rows of type `decision` via `manage-agreements` (`decision-create` / `decision-respond`); only the other parent answers, once. Logged to the audit (`besluit`) and notified.
 - **File(s):** `src/routes/beslissingen.jsx`, `src/lib/besluiten-data.js`, `src/components/Geschiedenis.jsx`.
 - **Purpose:** Propose, discuss and record important decisions per child, with a neutral per-decision log.
 - **Search params:** `soort` (preselect the type) and `kind` (preselect the child). Both are used by `MedischGezag` ("Medische beslissing toevoegen" → `?soort=Medisch&kind=<id>`).
@@ -2389,6 +2447,7 @@ General conventions used below:
 - **Navigates to:** `/meer`, `/juridisch`, external sites.
 
 ### `/tijdlijn` — "Terugkijken" (Looking back / timeline)
+- **Phase 2 (server data):** audit events come from `log-audit list` (family-scoped, append-only); agreement history from the agreements source. Private items are never logged.
 - **File(s):** `src/routes/tijdlijn.jsx`; `audit-store`, `afspraken-store`, `export-rechten`.
 - **Purpose:** A factual, chronological, read-only overview of what changed.
 - **Features:**
@@ -2456,6 +2515,7 @@ General conventions used below:
 - **Navigates to:** `/documenten` or `/professionals` (back); external share or mailto.
 
 ### `/evaluatie` — "Evaluatiemoment" (Half-yearly evaluation)
+- **Phase 2 (server data):** evaluations are saved per parent on the server (`manage-agreements evaluation-save`, private to the author); the 182-day reminder reads them.
 - **File(s):** `src/routes/evaluatie.jsx`, `src/lib/evaluatie-store.js`.
 - **Purpose:** A private, half-yearly reflection using a "circle of influence". You then choose yourself what to share; nothing is sent automatically.
 - **Features (steps):**
@@ -3000,8 +3060,8 @@ Findings recorded during the analysis. Nothing was changed in the code; these ar
 
 | # | Observation | Where |
 |---|---|---|
-| P1 | **No backend / auth.** All data is on the device; most stores are memory-only and reset on full reload (see §0.7). | `src/lib/*-store.js` |
-| P2 | **AI key exposed client-side.** AI functions read `import.meta.env.VITE_LOVABLE_API_KEY` in the browser; any `VITE_` key is bundled into public JS. A real server/proxy is needed. | `src/lib/*.functions.js` |
+| P1 | ~~No backend / auth~~ — resolved in Phase 1–2: custom session auth and edge functions per module (§0.15). Professionals, admin, subscription and calls are still Milestone 3–4. | `supabase/functions/*` |
+| P2 | ~~AI key exposed client-side~~ — resolved in Phase 2: all AI runs in edge functions with the secret `OPENAI_API_KEY` (§0.8). | `supabase/functions/ai-*` |
 | P3 | **Dark-mode flash.** `index.html` reads theme from `ouderapp_voorkeuren` with `thema === "donker"`, but the store saves under `onzeapp-voorkeuren` (and supports `"automatisch"`). The pre-paint script never matches. | `index.html`, `voorkeuren-store.js` (`themaScript` is the correct version) |
 | P4 | **Tests not runnable via npm.** Tests import `bun:test`; `package.json` has no test script or bun dependency. | `src/**/*.test.js` |
 | P5 | **Stale docs.** `AGENTS.md` and `routes/README.md` refer to `.ts/.tsx` and TanStack Start; files are now `.js/.jsx` in a Vite SPA. | `src/lib/AGENTS.md`, `src/routes/README.md` |

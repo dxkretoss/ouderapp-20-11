@@ -1,16 +1,20 @@
 import i18n, { taalLocale, tLijst } from "@/i18n";
 import { useSyncExternalStore } from "react";
-import { afspraken, categorieMeta, zorgweek } from "@/lib/demo-data";
+import { categorieMeta } from "@/lib/demo-data";
 import { kringState } from "@/lib/kring-store";
 import { meeLijst, takenState } from "@/lib/taken-store";
 import { leg, alleRegels } from "@/lib/audit-store";
+import { gezinState, isIk } from "@/lib/gezin";
 import { nuLijst } from "@/lib/nu-afstemmen-store";
 /**
  * Slimme laag ("Even vooruitkijken", Deze week, Morgen, Wat moet mee?, conflictcontrole, Sinds je laatste bezoek).
  * Leest en combineert bestaande stores — één bron per gegeven, nooit kopieën. Signalen zijn losse regels;
  * Home toont er hooguit 3. Niets wijzigt zichzelf: elke actie opent de bestaande flow of vraagt bevestiging.
  * Persoonlijke hulp: een suggestie aan de ene ouder wordt niet met de andere ouder gedeeld.
+ * Het voorbeeldgezin bestaat niet meer: er zijn geen vaste voorbeeldafspraken of een voorbeeld-zorgweek;
+ * agenda-afspraken komen als `extra` mee vanuit de agenda (agenda-store).
  */
+const afspraken = [];
 export const DEMO_VANDAAG = "2025-03-12"; // woensdag, gelijk aan de rest van de demo
 // Dagnamen zijn interne id's (routines, vergelijkingen); voor weergave gaat alles via dagTekst().
 const dagNamen = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"];
@@ -32,11 +36,7 @@ const kindPast = (a, b) => {
     return namen(a).some((n) => namen(b).includes(n));
 };
 let state = {
-    routines: [
-        { id: "r1", dag: "maandag", kind: "emma", get item() { return i18n.t(`${NS}.routines.r1.item`); }, get reden() { return i18n.t(`${NS}.routines.r1.reden`); } },
-        { id: "r2", dag: "zaterdag", kind: "emma", get item() { return i18n.t(`${NS}.routines.r2.item`); }, get reden() { return i18n.t(`${NS}.routines.r2.reden`); } },
-        { id: "r3", dag: "vrijdag", kind: "noah", get item() { return i18n.t(`${NS}.routines.r3.item`); }, get reden() { return i18n.t(`${NS}.routines.r3.reden`); } },
-    ],
+    routines: [],
     wieGaat: {},
     afstem: {},
     later: {},
@@ -87,12 +87,14 @@ export const laterHerinneren = (id, tot) => {
 export const nietMeerTonen = (t) => zet({ nietMeer: [...new Set([...state.nietMeer, t])] });
 export const zetWeerAan = () => zet({ nietMeer: [], later: {}, routineNietNodig: [] });
 export function ikGa(afspraakId, titel) {
-    leg("afspraak", afspraakId, titel, "UPDATED", { veld: i18n.t(`${NS}.audit.wieGaatMee`), oud: i18n.t(`${NS}.audit.nogNietBepaald`), nieuw: "Sanne" });
+    // Geen serverfunctie voor "ik ga mee": via log-audit (actor = sessie); het profiel-id wordt in de weergave een naam.
+    leg("afspraak", afspraakId, titel, "UPDATED", { veld: i18n.t(`${NS}.audit.wieGaatMee`), oud: i18n.t(`${NS}.audit.nogNietBepaald`), nieuw: gezinState().ik?.id ?? "" });
     zet({ wieGaat: { ...state.wieGaat, [afspraakId]: "sanne" } });
 }
-const plekNaam = (p) => i18n.t(`${NS}.plek.${p === "sanne" ? "sanne" : p === "joris" ? "joris" : "anders"}`);
-/** Wie heeft het kind die dag volgens de huidige zorgweek (alleen demo-week 10–16 maart bekend). */
-const verblijfOp = (iso) => zorgweek.find((d) => isoVanDag(d.datum) === iso)?.ouder;
+/** Plek van een spul: profiel-id van jou of de andere ouder, anders vrije tekst. */
+const plekNaam = (p) => (isIk(p) || p === "sanne" ? i18n.t(`${NS}.plek.sanne`) : p && (p === gezinState().ander?.id || p === "joris") ? i18n.t(`${NS}.plek.joris`) : p && !/^[0-9a-f-]{36}$/i.test(p) ? p : i18n.t(`${NS}.plek.anders`));
+/** Wie heeft het kind die dag: geen voorbeeld-zorgweek meer (de echte verdeling staat in agenda-zorg). */
+const verblijfOp = () => undefined;
 const regelOverdracht = () => {
     const w = kringState().momenten.find((m) => m.soort === "wissel");
     if (!w)
@@ -304,7 +306,8 @@ export function sindsLaatsteBezoek() {
     // Alleen als je de app een tijdje (≥ 1 uur) niet hebt geopend
     if (Date.now() - new Date(vorige).getTime() < 36e5)
         return null;
-    const nieuw = alleRegels().filter((e) => e.moment > vorige && e.actie !== "EXPORTED" && e.actorId !== "sanne");
+    // Audit-events dragen het profiel-id van de actor (server); eigen handelingen tellen niet.
+    const nieuw = alleRegels().filter((e) => e.moment > vorige && e.actie !== "EXPORTED" && e.actorId !== "sanne" && !isIk(e.actorId));
     if (!nieuw.length)
         return null;
     const routes = { afspraak: "/agenda", kosten: "/kosten", schema: "/zorgregeling", besluit: "/beslissingen", dossier: "/exporteren", taak: "/taken", spul: "/spullen" };

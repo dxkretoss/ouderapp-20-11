@@ -1,261 +1,344 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-// Phase 1: session required (see _shared/phase2-guard.ts)
-import { phase2Guard } from "../_shared/phase2-guard.ts";
+// manage-tasks — shared tasks ("Taken") and belongings ("Spullen") of the signed-in parent's family.
+// Session required for every action. Scope: see _shared/practical-scope.ts.
+// Assigning a task to the other parent is a REQUEST: it only becomes theirs when they accept.
+// Every change is written to the family audit (append-only); requests and answers notify the other parent.
+import { db } from "../_shared/db.ts";
+import { check, err, ok, serveActions } from "../_shared/respond.ts";
+import { requireUser } from "../_shared/session.ts";
+import { optDate, optText, reqText, requireUuid } from "../_shared/util.ts";
+import { assertChildren, caregiverAccess, canSee, Family, familyFor, familyMembers, otherParents } from "../_shared/practical-scope.ts";
+import { logAudit, notify } from "../_shared/practical-audit.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-session-token",
-};
+const RECURRENCE = ["eenmalig", "wekelijks", "maandelijks", "jaarlijks", "aangepast"];
+const CONTACT = ["nog-te-regelen", "contact-opgenomen", "wacht-op-reactie", "afgerond", "niet-mogelijk"];
+const ITEM_TYPES = ["mee", "vast", "dubbel", "terug"];
+const TASK_COLS =
+  "id, user_id, title, child_ids, assignee_id, requested_to, requested_by, deadline, recurrence, recurrence_text, reminder_days, is_completed, completed_at, completed_by, contact_status, source, created_at, updated_at, deleted_at";
+const BELONGING_COLS =
+  "id, created_by, child_id, name, item_type, location_parent_id, location_text, responsible_id, is_done, created_at, updated_at, deleted_at";
 
-const isUUID = (str: any) =>
-  typeof str === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+type Row = Record<string, any>;
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+function taskOut(r: Row) {
+  return {
+    id: r.id,
+    title: r.title,
+    child_ids: r.child_ids ?? [],
+    created_by: r.user_id,
+    assignee_id: r.assignee_id ?? null,
+    requested_to: r.requested_to ?? null,
+    requested_by: r.requested_by ?? null,
+    deadline: r.deadline ?? null,
+    recurrence: r.recurrence || "eenmalig",
+    recurrence_text: r.recurrence_text ?? null,
+    reminder_days: r.reminder_days || 0,
+    is_completed: !!r.is_completed,
+    completed_at: r.completed_at ?? null,
+    completed_by: r.completed_by ?? null,
+    contact_status: r.contact_status ?? null,
+    source: r.source ?? {},
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  };
+}
+
+function belongingOut(r: Row) {
+  return {
+    id: r.id,
+    created_by: r.created_by,
+    child_id: r.child_id,
+    name: r.name,
+    item_type: r.item_type,
+    location_parent_id: r.location_parent_id ?? null,
+    location_text: r.location_text ?? null,
+    responsible_id: r.responsible_id ?? null,
+    is_done: !!r.is_done,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  };
+}
+
+async function loadTask(f: Family, id: unknown): Promise<Row> {
+  const taskId = requireUuid(id, "task_id");
+  const row = check(await db().from("tasks").select(TASK_COLS).eq("id", taskId).maybeSingle(), "load task") as Row | null;
+  if (!row || row.deleted_at || !canSee(f, row.user_id, row.child_ids)) throw err.notFound("Task not found");
+  return row;
+}
+
+async function saveTask(id: string, patch: Row): Promise<Row> {
+  return check(
+    await db().from("tasks").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id).select(TASK_COLS).single(),
+    "update task",
+  ) as Row;
+}
+
+/** The other parent for a task: a co-parent who shares its children (or any co-parent for family-wide tasks). */
+function otherFor(f: Family, childIds: string[]): string {
+  const o = otherParents(f, childIds);
+  if (!o.length) throw err.validation("NO_CO_PARENT: invite the other parent first");
+  return o[0];
+}
+
+function optSource(v: unknown) {
+  if (v === undefined || v === null) return {};
+  if (typeof v !== "object" || Array.isArray(v)) throw err.validation("source must be an object");
+  const s = v as Row;
+  const out: Row = {};
+  for (const k of ["bericht_id", "gesprek_id", "afspraak_id"]) {
+    if (s[k] !== undefined && s[k] !== null && s[k] !== "") out[k] = String(s[k]).slice(0, 120);
   }
+  return out;
+}
 
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+const audit = (me: string, row: Row, action: "CREATED" | "UPDATED", changes?: Array<{ veld: string; oud?: string | null; nieuw?: string | null }>, meta?: Row) =>
+  logAudit({ actorId: me, section: "taak", entityId: row.id, label: row.title, action, changes, childIds: row.child_ids ?? [], meta });
 
-    const body = await req.json();
-    const __denied = await phase2Guard(req, body);
-    if (__denied) return __denied;
-    const { action } = body;
+async function loadBelonging(f: Family, id: unknown): Promise<Row> {
+  const bId = requireUuid(id, "belonging_id");
+  const row = check(await db().from("belongings").select(BELONGING_COLS).eq("id", bId).maybeSingle(), "load belonging") as Row | null;
+  if (!row || row.deleted_at || !canSee(f, row.created_by, [row.child_id]) || !f.childIds.includes(row.child_id)) {
+    throw err.notFound("Belonging not found");
+  }
+  return row;
+}
 
-    // Helper: find connected co-parents
-    const getConnectedParentIds = async (userId: string) => {
-      const ids = [userId];
-      if (!isUUID(userId)) return ids;
+/** location: { parent_id } (the caller or a co-parent) | { text } | null */
+function optLocation(f: Family, v: unknown): { location_parent_id: string | null; location_text: string | null } | undefined {
+  if (v === undefined) return undefined;
+  if (v === null) return { location_parent_id: null, location_text: null };
+  if (typeof v !== "object" || Array.isArray(v)) throw err.validation("location must be an object");
+  const l = v as Row;
+  if (l.parent_id) {
+    const id = requireUuid(l.parent_id, "location.parent_id");
+    if (!familyMembers(f).includes(id)) throw err.validation("location.parent_id must be a parent of this family");
+    return { location_parent_id: id, location_text: null };
+  }
+  const text = optText(l.text, "location.text", 120);
+  return { location_parent_id: null, location_text: text ?? null };
+}
 
-      try {
-        const { data: conns } = await adminClient
-          .from("parent_connections")
-          .select("parent_1_id, parent_2_id")
-          .or(`parent_1_id.eq.${userId},parent_2_id.eq.${userId}`)
-          .in("status", ["active", "connected"]);
+Deno.serve(serveActions("manage-tasks", {
+  async list(req) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const members = familyMembers(f);
+    const [tasks, belongings] = await Promise.all([
+      db().from("tasks").select(TASK_COLS).in("user_id", members).is("deleted_at", null).order("created_at", { ascending: false }).limit(1000),
+      f.childIds.length
+        ? db().from("belongings").select(BELONGING_COLS).in("child_id", f.childIds).is("deleted_at", null).order("created_at", { ascending: true }).limit(1000)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    const t = (check(tasks, "list tasks") ?? []) as Row[];
+    const b = (check(belongings, "list belongings") ?? []) as Row[];
+    // Caregiver sessions: read-only view of tasks/belongings of the children they were granted ("taken" / "spullen").
+    const cg = await caregiverAccess(me.id);
+    const cgTaskKids = cg.view("taken").filter((k) => !f.childIds.includes(k));
+    const cgItemKids = cg.view("spullen").filter((k) => !f.childIds.includes(k));
+    const [ct, cb] = await Promise.all([
+      cgTaskKids.length ? db().from("tasks").select(TASK_COLS).overlaps("child_ids", cgTaskKids).is("deleted_at", null).limit(500) : Promise.resolve({ data: [], error: null }),
+      cgItemKids.length ? db().from("belongings").select(BELONGING_COLS).in("child_id", cgItemKids).is("deleted_at", null).limit(500) : Promise.resolve({ data: [], error: null }),
+    ]);
+    const circleTasks = ((check(ct, "caregiver tasks") ?? []) as Row[]).filter((r) => (r.child_ids ?? []).length && r.child_ids.every((k: string) => cgTaskKids.includes(k)));
+    const circleItems = (check(cb, "caregiver belongings") ?? []) as Row[];
+    return ok({
+      tasks: [...t.filter((r) => canSee(f, r.user_id, r.child_ids)), ...circleTasks].map(taskOut),
+      belongings: [...b.filter((r) => canSee(f, r.created_by, [r.child_id])), ...circleItems].map(belongingOut),
+    });
+  },
 
-        if (conns) {
-          conns.forEach((c: any) => {
-            if (c.parent_1_id && !ids.includes(c.parent_1_id)) ids.push(c.parent_1_id);
-            if (c.parent_2_id && !ids.includes(c.parent_2_id)) ids.push(c.parent_2_id);
-          });
-        }
-
-        const { data: acceptedInvs } = await adminClient
-          .from("invitations")
-          .select("from_parent_id, to_parent_id")
-          .or(`from_parent_id.eq.${userId},to_parent_id.eq.${userId}`)
-          .eq("status", "accepted");
-
-        if (acceptedInvs) {
-          acceptedInvs.forEach((inv: any) => {
-            if (inv.from_parent_id && !ids.includes(inv.from_parent_id)) ids.push(inv.from_parent_id);
-            if (inv.to_parent_id && !ids.includes(inv.to_parent_id)) ids.push(inv.to_parent_id);
-          });
-        }
-      } catch (err) {
-        console.warn("Error finding connected parents:", err);
-      }
-      return ids;
-    };
-
-    // 1. LIST TASKS
-    if (action === "list") {
-      const { user_id } = body;
-      if (!user_id || !isUUID(user_id)) {
-        return new Response(JSON.stringify({ success: true, tasks: [] }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Fetch accessible children for user_id
-      const { data: parentLinks } = await adminClient
-        .from("child_parents")
-        .select("child_id")
-        .eq("parent_id", user_id);
-
-      const { data: createdKids } = await adminClient
-        .from("children")
-        .select("id")
-        .eq("created_by", user_id);
-
-      const accessibleChildIds = new Set<string>();
-      (parentLinks || []).forEach((l: any) => l.child_id && accessibleChildIds.add(l.child_id));
-      (createdKids || []).forEach((k: any) => k.id && accessibleChildIds.add(k.id));
-
-      const { data: userInvs } = await adminClient
-        .from("invitations")
-        .select("child_ids")
-        .or(`from_parent_id.eq.${user_id},to_parent_id.eq.${user_id}`)
-        .eq("status", "accepted");
-
-      (userInvs || []).forEach((inv: any) => {
-        if (Array.isArray(inv.child_ids)) {
-          inv.child_ids.forEach((cid: string) => isUUID(cid) && accessibleChildIds.add(cid));
-        }
-      });
-
-      const parentIds = await getConnectedParentIds(user_id);
-
-      const { data: allTasks, error } = await adminClient
-        .from("tasks")
-        .select("*")
-        .in("user_id", parentIds)
-        .order("created_at", { ascending: false });
-
-      if (error) throw new Error(error.message);
-
-      // Filter tasks: user sees own tasks, or co-parent tasks relevant to user's children/assignments
-      const filteredTasks = (allTasks || []).filter((task: any) => {
-        if (task.user_id === user_id) return true;
-        if (task.assigned_to === user_id || task.transfer_to === user_id) return true;
-        if (task.child_id) {
-          return accessibleChildIds.has(task.child_id);
-        }
-        return true;
-      });
-
-      return new Response(JSON.stringify({ success: true, tasks: filteredTasks }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+  async create(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const title = reqText(body.title, "title", 300);
+    const childIds = assertChildren(f, body.child_ids);
+    const source = optSource(body.source);
+    // Message-derived tasks are deduplicated by their source ids.
+    if (source.bericht_id && source.gesprek_id) {
+      const dup = check(
+        await db().from("tasks").select(TASK_COLS).in("user_id", familyMembers(f)).is("deleted_at", null)
+          .eq("source->>bericht_id", source.bericht_id).eq("source->>gesprek_id", source.gesprek_id).limit(1),
+        "dedupe task",
+      ) as Row[] | null;
+      if (dup?.length && canSee(f, dup[0].user_id, dup[0].child_ids)) return ok({ task: taskOut(dup[0]), duplicate: true });
     }
-
-    // 2. CREATE TASK
-    if (action === "create") {
-      const { user_id, child_id, title, assigned_to, deadline, recurrence = "eenmalig", reminder_days = 0, caregiver_ids } = body;
-      if (!user_id || !title?.trim()) {
-        return new Response(JSON.stringify({ success: false, error: "user_id and title are required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const insertData: any = {
-        user_id,
-        title: title.trim(),
-        assigned_to: assigned_to || "self",
+    const assign = body.assign ?? "me";
+    if (!["me", "other", "none"].includes(assign)) throw err.validation("assign must be me, other or none");
+    const recurrence = body.recurrence ?? "eenmalig";
+    if (!RECURRENCE.includes(recurrence)) throw err.validation("recurrence is invalid");
+    const reminder = body.reminder_days === undefined || body.reminder_days === null ? 0 : Number(body.reminder_days);
+    if (!Number.isInteger(reminder) || reminder < 0 || reminder > 60) throw err.validation("reminder_days is invalid");
+    const contact = body.contact_status ?? null;
+    if (contact !== null && !CONTACT.includes(contact)) throw err.validation("contact_status is invalid");
+    const other = assign === "other" ? otherFor(f, childIds) : null;
+    const row = check(
+      await db().from("tasks").insert({
+        user_id: me.id,
+        title,
+        child_id: childIds.length === 1 ? childIds[0] : null,
+        child_ids: childIds,
+        assignee_id: assign === "me" ? me.id : null,
+        assigned_to: assign === "me" ? me.id : null,
+        requested_to: other,
+        requested_by: other ? me.id : null,
+        transfer_to: other,
+        deadline: optDate(body.deadline, "deadline") ?? null,
         recurrence,
-        reminder_days: Number(reminder_days) || 0,
-        is_completed: false,
-      };
-
-      if (isUUID(child_id)) insertData.child_id = child_id;
-      if (deadline) insertData.deadline = deadline;
-      if (Array.isArray(caregiver_ids) && caregiver_ids.length > 0) {
-        insertData.caregiver_ids = caregiver_ids;
-      }
-
-      let data: any, error: any;
-      const res = await adminClient
-        .from("tasks")
-        .insert([insertData])
-        .select()
-        .single();
-
-      if (res.error && res.error.message?.includes("caregiver_ids")) {
-        delete insertData.caregiver_ids;
-        const retryRes = await adminClient
-          .from("tasks")
-          .insert([insertData])
-          .select()
-          .single();
-        data = retryRes.data;
-        error = retryRes.error;
-      } else {
-        data = res.data;
-        error = res.error;
-      }
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, task: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        recurrence_text: recurrence === "aangepast" ? optText(body.recurrence_text, "recurrence_text", 120) ?? null : null,
+        reminder_days: reminder,
+        contact_status: contact,
+        source,
+      }).select(TASK_COLS).single(),
+      "create task",
+    ) as Row;
+    const auditId = await audit(me.id, row, "CREATED", undefined, other ? { type: "Taak gevraagd" } : undefined);
+    if (other) {
+      await notify({ to: other, actorId: me.id, type: "task", category: "actie", key: "taakGevraagd", params: { titel: title }, link: "/taken", entityType: "task", entityId: row.id, childIds, auditId });
     }
+    return ok({ task: taskOut(row) });
+  },
 
-    // 3. TOGGLE TASK
-    if (action === "toggle") {
-      const { id, is_completed } = body;
-      if (!id) {
-        return new Response(JSON.stringify({ success: false, error: "id is required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+  async toggle(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadTask(f, body.task_id);
+    if (row.requested_to) throw err.validation("Task is waiting for an answer");
+    const done = body.done === undefined ? !row.is_completed : !!body.done;
+    if (done === !!row.is_completed) return ok({ task: taskOut(row) });
+    const patch: Row = { is_completed: done, completed_at: done ? new Date().toISOString() : null, completed_by: done ? me.id : null };
+    if (row.contact_status) patch.contact_status = done ? "afgerond" : "nog-te-regelen";
+    const upd = await saveTask(row.id, patch);
+    await audit(me.id, upd, "UPDATED", [{ veld: "gedaan", oud: row.is_completed ? "ja" : "nee", nieuw: done ? "ja" : "nee" }]);
+    return ok({ task: taskOut(upd) });
+  },
 
-      const { data, error } = await adminClient
-        .from("tasks")
-        .update({ is_completed: Boolean(is_completed), updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, task: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 4. REASSIGN TASK
-    if (action === "reassign") {
-      const { id, assigned_to, transfer_to } = body;
-      if (!id) {
-        return new Response(JSON.stringify({ success: false, error: "id is required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const updateData: any = { updated_at: new Date().toISOString() };
-      if (assigned_to !== undefined) updateData.assigned_to = assigned_to;
-      if (transfer_to !== undefined) updateData.transfer_to = transfer_to;
-
-      const { data, error } = await adminClient
-        .from("tasks")
-        .update(updateData)
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, task: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 5. DELETE TASK
-    if (action === "delete") {
-      const { id } = body;
-      if (!id) {
-        return new Response(JSON.stringify({ success: false, error: "id is required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { error } = await adminClient.from("tasks").delete().eq("id", id);
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, id }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ success: false, error: "Unknown action" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+  async "set-contact-status"(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadTask(f, body.task_id);
+    if (row.requested_to) throw err.validation("Task is waiting for an answer");
+    if (!CONTACT.includes(body.contact_status)) throw err.validation("contact_status is invalid");
+    const done = body.contact_status === "afgerond";
+    const upd = await saveTask(row.id, {
+      contact_status: body.contact_status,
+      is_completed: done,
+      completed_at: done ? new Date().toISOString() : null,
+      completed_by: done ? me.id : null,
     });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
+    await audit(me.id, upd, "UPDATED", [{ veld: "contactStatus", oud: row.contact_status, nieuw: body.contact_status }]);
+    return ok({ task: taskOut(upd) });
+  },
+
+  /** "Ik doe het": take an unowned task, or accept a request addressed to you. */
+  async claim(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadTask(f, body.task_id);
+    if (row.is_completed) throw err.validation("Task is already done");
+    if (row.requested_to && row.requested_to !== me.id) throw err.validation("Task is waiting for the other parent");
+    if (row.assignee_id && row.assignee_id !== me.id && !row.requested_to) throw err.validation("Task already has an owner");
+    if (row.assignee_id === me.id && !row.requested_to) return ok({ task: taskOut(row) });
+    const wasRequest = row.requested_to === me.id;
+    const upd = await saveTask(row.id, { assignee_id: me.id, assigned_to: me.id, requested_to: null, requested_by: null, transfer_to: null });
+    const auditId = await audit(me.id, upd, "UPDATED", [{ veld: "verantwoordelijke", oud: row.assignee_id, nieuw: me.id }], { type: "Taak opnieuw toegewezen" });
+    if (wasRequest && row.requested_by) {
+      await notify({ to: row.requested_by, actorId: me.id, type: "task", category: "wijziging", key: "taakGeaccepteerd", params: { titel: row.title }, link: "/taken", entityType: "task", entityId: row.id, childIds: row.child_ids, auditId });
+    }
+    return ok({ task: taskOut(upd) });
+  },
+
+  /** Ask the other parent to take the task. Stays pending until they answer. */
+  async request(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadTask(f, body.task_id);
+    if (row.is_completed) throw err.validation("Task is already done");
+    if (row.requested_to) throw err.validation("A request is already open");
+    const other = otherFor(f, row.child_ids ?? []);
+    if (row.assignee_id === other) throw err.validation("Task already belongs to the other parent");
+    const upd = await saveTask(row.id, { requested_to: other, requested_by: me.id, transfer_to: other });
+    const auditId = await audit(me.id, upd, "UPDATED", [{ veld: "gevraagdAan", oud: null, nieuw: other }], { type: "Taak gevraagd" });
+    await notify({ to: other, actorId: me.id, type: "task", category: "actie", key: "taakGevraagd", params: { titel: row.title }, link: "/taken", entityType: "task", entityId: row.id, childIds: row.child_ids, auditId });
+    return ok({ task: taskOut(upd) });
+  },
+
+  async "cancel-request"(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadTask(f, body.task_id);
+    if (!row.requested_to) return ok({ task: taskOut(row) });
+    if (row.requested_by !== me.id) throw err.forbidden("Only the parent who asked can withdraw the request");
+    const upd = await saveTask(row.id, { requested_to: null, requested_by: null, transfer_to: null });
+    const auditId = await audit(me.id, upd, "UPDATED", [{ veld: "gevraagdAan", oud: row.requested_to, nieuw: null }], { type: "Verzoek ingetrokken" });
+    await notify({ to: row.requested_to, actorId: me.id, type: "task", category: "info", key: "taakVerzoekIngetrokken", params: { titel: row.title }, link: "/taken", entityType: "task", entityId: row.id, childIds: row.child_ids, auditId });
+    return ok({ task: taskOut(upd) });
+  },
+
+  /** Only the asked parent answers. accept=true is the same as claim. */
+  async "respond-request"(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadTask(f, body.task_id);
+    if (row.requested_to !== me.id) throw err.forbidden("This request is not addressed to you");
+    if (body.accept) {
+      const upd = await saveTask(row.id, { assignee_id: me.id, assigned_to: me.id, requested_to: null, requested_by: null, transfer_to: null });
+      const auditId = await audit(me.id, upd, "UPDATED", [{ veld: "verantwoordelijke", oud: row.assignee_id, nieuw: me.id }], { type: "Taak opnieuw toegewezen" });
+      await notify({ to: row.requested_by, actorId: me.id, type: "task", category: "wijziging", key: "taakGeaccepteerd", params: { titel: row.title }, link: "/taken", entityType: "task", entityId: row.id, childIds: row.child_ids, auditId });
+      return ok({ task: taskOut(upd) });
+    }
+    const upd = await saveTask(row.id, { requested_to: null, requested_by: null, transfer_to: null });
+    const auditId = await audit(me.id, upd, "UPDATED", [{ veld: "gevraagdAan", oud: me.id, nieuw: null }], { type: "Verzoek afgewezen" });
+    await notify({ to: row.requested_by, actorId: me.id, type: "task", category: "wijziging", key: "taakAfgewezen", params: { titel: row.title }, link: "/taken", entityType: "task", entityId: row.id, childIds: row.child_ids, auditId });
+    return ok({ task: taskOut(upd) });
+  },
+
+  // ---------------- belongings ----------------
+  async "belonging-create"(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const childId = requireUuid(body.child_id, "child_id");
+    if (!f.childIds.includes(childId)) throw err.notFound("Child not found");
+    const name = reqText(body.name, "name", 200);
+    const type = body.item_type ?? "mee";
+    if (!ITEM_TYPES.includes(type)) throw err.validation("item_type is invalid");
+    const loc = optLocation(f, body.location) ?? { location_parent_id: null, location_text: null };
+    const row = check(
+      await db().from("belongings").insert({ created_by: me.id, child_id: childId, name, item_type: type, ...loc }).select(BELONGING_COLS).single(),
+      "create belonging",
+    ) as Row;
+    await logAudit({ actorId: me.id, section: "spul", entityId: row.id, label: name, action: "CREATED", childIds: [childId], meta: { type: "Spul" } });
+    return ok({ belonging: belongingOut(row) });
+  },
+
+  async "belonging-update"(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadBelonging(f, body.belonging_id);
+    const patch: Row = {};
+    const changes: Array<{ veld: string; oud: string | null; nieuw: string | null }> = [];
+    if (body.name !== undefined) {
+      const name = reqText(body.name, "name", 200);
+      if (name !== row.name) { patch.name = name; changes.push({ veld: "naam", oud: row.name, nieuw: name }); }
+    }
+    if (body.item_type !== undefined) {
+      if (!ITEM_TYPES.includes(body.item_type)) throw err.validation("item_type is invalid");
+      if (body.item_type !== row.item_type) { patch.item_type = body.item_type; changes.push({ veld: "meewisselen", oud: row.item_type, nieuw: body.item_type }); }
+    }
+    const loc = optLocation(f, body.location);
+    if (loc && (loc.location_parent_id !== row.location_parent_id || loc.location_text !== row.location_text)) {
+      Object.assign(patch, loc);
+      changes.push({ veld: "plek", oud: row.location_parent_id ?? row.location_text, nieuw: loc.location_parent_id ?? loc.location_text });
+    }
+    if (body.responsible === "me" && row.responsible_id !== me.id) {
+      patch.responsible_id = me.id;
+      changes.push({ veld: "wieRegelt", oud: row.responsible_id, nieuw: me.id });
+    }
+    if (body.is_done !== undefined && !!body.is_done !== !!row.is_done) {
+      patch.is_done = !!body.is_done;
+      changes.push({ veld: "terug", oud: row.is_done ? "ja" : "nee", nieuw: body.is_done ? "ja" : "nee" });
+    }
+    if (!changes.length) return ok({ belonging: belongingOut(row) });
+    const upd = check(await db().from("belongings").update(patch).eq("id", row.id).select(BELONGING_COLS).single(), "update belonging") as Row;
+    await logAudit({ actorId: me.id, section: "spul", entityId: row.id, label: upd.name, action: "UPDATED", changes, childIds: [row.child_id], meta: { type: "Spul" } });
+    return ok({ belonging: belongingOut(upd) });
+  },
+}));

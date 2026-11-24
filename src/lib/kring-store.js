@@ -1,6 +1,11 @@
 import { useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import { leg as legAudit } from "@/lib/audit-store";
-import i18n, { taalLocale, tLijst } from "@/i18n";
+import { api, foutTekst } from "@/lib/api";
+import { authState, opAuth } from "@/lib/auth-store";
+import { start, startState } from "@/lib/start-store";
+import { gezinState, isIk, naamVan } from "@/lib/gezin";
+import i18n, { taalLocale } from "@/i18n";
 const t = (sleutel, opties) => i18n.t(sleutel, opties);
 const niv = (id, sleutel) => ({ id, get label() { return t(`lib.kringStore.niveau.${sleutel}`); } });
 const onderdeel = (id, niveaus) => ({ id, get titel() { return t(`lib.kringStore.onderdelen.${id}.titel`); }, get uitleg() { return t(`lib.kringStore.onderdelen.${id}.uitleg`); }, niveaus });
@@ -18,86 +23,123 @@ export const rolOpties = ["Opa", "Oma", "Stiefouder / bonusouder", "Familielid",
 /** rol blijft een vaste (Nederlandse) waarde; dit is de weergavenaam. Zelf ingevulde rollen blijven zoals ingevuld. */
 const ROL_SLEUTEL = { Opa: "opa", Oma: "oma", "Stiefouder / bonusouder": "stiefouder", Familielid: "familielid", Oppas: "oppas", "Andere verzorger": "andereVerzorger", Anders: "anders", Professional: "professional" };
 export const rolNaam = (rol) => (ROL_SLEUTEL[rol] ? t(`lib.kringStore.rol.${ROL_SLEUTEL[rol]}`) : rol);
-/** Spullen die mee moeten: weergave in de huidige taal (per taal één vaste lijst, zodat vergelijken blijft werken). */
-const lijstCache = new Map();
-const gecachet = (id, maak) => {
-    const sleutel = `${i18n.resolvedLanguage}|${id}`;
-    if (!lijstCache.has(sleutel))
-        lijstCache.set(sleutel, maak());
-    return lijstCache.get(sleutel);
-};
-const meeLijst = (id) => gecachet(id, () => tLijst(`lib.kringStore.momenten.${id}.mee`));
 export const geenRechten = () => ({ wissel: "geen", momentjes: "geen", taken: "geen", spullen: "geen", agenda: "geen", nood: "geen", documenten: "geen" });
-const r = (p) => ({ ...geenRechten(), ...p });
-let state = {
-    personen: [
-        { id: "marja", naam: "Marja", rol: "Oma", contact: "06 - 22 33 44 55", periode: { type: "doorlopend" }, ingetrokken: false, sleutel: "k1",
-            rechten: { emma: r({ wissel: "bekijken", momentjes: "bijdragen", taken: "bekijken", spullen: "bekijken", agenda: "bekijken", nood: "bekijken" }), noah: r({ wissel: "bekijken", momentjes: "bekijken" }) } },
-        { id: "peter", naam: "Peter", rol: "Opa", contact: "06 - 55 44 33 22", periode: { type: "doorlopend" }, ingetrokken: false, sleutel: "k2",
-            rechten: { emma: r({ momentjes: "bekijken" }), noah: r({ momentjes: "bekijken" }) } },
-        { id: "lisa", naam: "Lisa", rol: "Oppas", contact: "lisa@voorbeeld.nl", periode: { type: "tot", eind: "2027-07-24" }, ingetrokken: false, sleutel: "k3",
-            rechten: { emma: r({ wissel: "bekijken", nood: "bekijken", agenda: "bekijken" }), noah: r({ wissel: "bekijken", nood: "bekijken" }) } },
-    ],
-    momenten: [
-        { id: "w1", kindIds: ["emma", "noah"], soort: "wissel", get titel() { return t("lib.kringStore.momenten.w1.titel"); }, get dag() { return t("lib.kringStore.momenten.w1.dag"); }, tijd: "14:30", datum: "2027-03-12", plek: "Basisschool De Boomgaard", get mee() { return meeLijst("w1"); }, get daarna() { return t("lib.kringStore.momenten.w1.daarna"); } },
-        { id: "a1", kindIds: ["emma"], soort: "afspraak", get titel() { return t("lib.kringStore.momenten.a1.titel"); }, get dag() { return t("lib.kringStore.momenten.a1.dag"); }, tijd: "09:00", datum: "2027-03-13", get plek() { return t("lib.kringStore.momenten.a1.plek"); }, get mee() { return meeLijst("a1"); } },
-        { id: "w2", kindIds: ["emma", "noah"], soort: "wissel", get titel() { return t("lib.kringStore.momenten.w2.titel"); }, get dag() { return t("lib.kringStore.momenten.w2.dag"); }, tijd: "18:00", datum: "2027-03-14", plek: "Molenstraat 12", get mee() { return meeLijst("w2"); } },
-        { id: "w3", kindIds: ["emma", "noah"], soort: "wissel", get titel() { return t("lib.kringStore.momenten.w3.titel"); }, get dag() { return t("lib.kringStore.momenten.w3.dag"); }, tijd: "08:15", datum: "2027-03-15", plek: "Basisschool De Boomgaard", get mee() { return meeLijst("w3"); } },
-    ],
-    wie: { w1: "marja", a1: "marja", w2: "sanne", w3: "joris" },
-    bevestigd: { w1: "regel" },
-    // Al klaargezet: Schooltas en Knuffel (dezelfde teksten als in de mee-lijst van w1).
-    meeKlaar: { get w1() { return gecachet("w1-klaar", () => { const l = meeLijst("w1"); return [l[0], l[2]]; }); } },
-    takenKlaar: {},
-    noodkaart: { emma: ["geboortedatum", "contacten", "huisarts", "allergieen", "medicatie"], noah: ["contacten", "huisarts", "allergieen"] },
-    noodExtra: { get noah() { return t("lib.kringStore.noodExtraNoah"); } },
-    gedeeldeDocs: {},
-};
+/**
+ * De kring rond de kinderen komt van de server (manage-caregivers): beide ouders zien dezelfde personen
+ * van hun gedeelde kinderen. Rechten zijn per kind en per onderdeel, standaard "geen", en gelden pas na
+ * een geaccepteerde uitnodiging (inloggen + bevestigen). De server handhaaft dezelfde regels.
+ * `momenten`/`wie`/`bevestigd` (ophalen en brengen) worden gevoed door het agenda-domein via zetMomenten;
+ * er staan hier geen voorbeeldmomenten meer.
+ */
+const leeg = { personen: [], momenten: [], wie: {}, bevestigd: {}, meeKlaar: {}, takenKlaar: {}, noodkaart: {}, noodExtra: {}, gedeeldeDocs: {}, geladen: false, voor: null };
+let state = leeg;
 const listeners = new Set();
-const serverState = state;
-const PERSONEN_SLEUTEL = "onzeapp-kring-personen";
-let personenGeladen = false;
-function laadPersonen() {
-    if (personenGeladen || typeof window === "undefined")
-        return;
-    personenGeladen = true;
-    try {
-        const opgeslagen = window.localStorage.getItem(PERSONEN_SLEUTEL);
-        if (!opgeslagen)
-            return;
-        const personen = JSON.parse(opgeslagen);
-        if (Array.isArray(personen) && personen.every((p) => p && typeof p.id === "string" && typeof p.naam === "string" && p.rechten && p.periode)) {
-            state = { ...state, personen };
-        }
-    }
-    catch { /* Bestaande gegevens blijven intact als opslag niet beschikbaar is. */ }
-}
 const zet = (p) => {
-    laadPersonen();
-    if (p.personen && typeof window !== "undefined") {
-        // Bewaar dezelfde kringobjecten; geen aparte contactlijst of afgeleide rechten.
-        // Bij een opslagfout blijft het formulier open zodat de ouder opnieuw kan proberen.
-        window.localStorage.setItem(PERSONEN_SLEUTEL, JSON.stringify(p.personen));
-    }
     state = { ...state, ...p };
     listeners.forEach((l) => l());
 };
-export function useKring() {
-    return useSyncExternalStore((l) => { laadPersonen(); listeners.add(l); queueMicrotask(l); return () => listeners.delete(l); }, () => { laadPersonen(); return state; }, () => serverState);
+/* ---------- server ↔ store ---------- */
+const isUuid = (id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
+const periodeVan = (m) => (m.valid_from && m.valid_to ? { type: "periode", start: m.valid_from, eind: m.valid_to } : m.valid_to ? { type: "tot", eind: m.valid_to } : m.valid_from ? { type: "periode", start: m.valid_from, eind: m.valid_from } : { type: "doorlopend" });
+const periodeNaar = (p) => (!p || p.type === "doorlopend" ? { valid_from: null, valid_to: null } : p.type === "tot" ? { valid_from: null, valid_to: p.eind || null } : { valid_from: p.start || null, valid_to: p.eind || null });
+/** Server-lid → de vorm die de schermen al gebruiken. */
+export function persoonVanServer(m) {
+    return {
+        id: m.id, naam: m.name, rol: m.role, contact: m.phone || m.email || "", telefoon: m.phone || undefined, email: m.email || undefined, adres: m.address || undefined, foto: m.photo || undefined,
+        noodcontact: !!m.is_emergency_contact, periode: periodeVan(m), ingetrokken: m.status === "revoked", sleutel: m.invite_token || undefined,
+        uitgenodigd: m.status !== "contact_only", ...(m.status === "invited" ? { bevestigd: false } : m.status === "active" ? { bevestigd: true } : {}),
+        rechten: Object.fromEntries((m.child_ids ?? []).map((k) => [k, { ...geenRechten(), ...(m.permissions?.[k] ?? {}) }])),
+        status: m.status, heeftAccount: !!m.has_account, toegevoegdDoor: m.created_by, doorMij: !!m.added_by_me, toegevoegdDoorNaam: m.added_by_name || "",
+    };
 }
-export const kringState = () => { laadPersonen(); return state; };
+const rechtenNaar = (rechten) => Object.fromEntries(Object.entries(rechten ?? {}).filter(([k]) => isUuid(k)).map(([k, r]) => [k, Object.fromEntries(Object.entries(r ?? {}).filter(([, n]) => n && n !== "geen"))]));
+function velden(p) {
+    const v = {};
+    if (p.naam !== undefined)
+        v.name = p.naam;
+    if (p.rol !== undefined)
+        v.role = p.rol;
+    if (p.telefoon !== undefined || p.contact !== undefined)
+        v.phone = p.telefoon ?? (p.contact && !p.contact.includes("@") ? p.contact : null) ?? null;
+    if (p.email !== undefined || (p.contact && p.contact.includes("@")))
+        v.email = p.email ?? (p.contact?.includes("@") ? p.contact : null) ?? null;
+    if (p.adres !== undefined)
+        v.address = p.adres || null;
+    if (p.noodcontact !== undefined)
+        v.is_emergency_contact = !!p.noodcontact;
+    if (p.periode !== undefined)
+        Object.assign(v, periodeNaar(p.periode));
+    if (p.foto !== undefined && typeof p.foto === "string" && p.foto.startsWith("data:"))
+        v.image_base64 = p.foto;
+    return v;
+}
+function noodkaartUitKinderen() {
+    const kaart = {}, extra = {};
+    for (const k of startState().kinderen ?? []) {
+        const n = k.profiel?.noodkaart;
+        if (n) {
+            kaart[k.id] = Array.isArray(n.velden) ? n.velden : [];
+            if (n.extra)
+                extra[k.id] = n.extra;
+        }
+    }
+    return { noodkaart: kaart, noodExtra: extra };
+}
+function meldFout(e) {
+    if (e?.code === "UNAUTHORIZED")
+        return;
+    toast.error(foutTekst(e), { id: "kring-fout" });
+}
+let bezig = null;
+/** Kring van de server halen (na inloggen, bij terugkeer naar het venster, of handmatig). */
+export function laadKring() {
+    const a = authState();
+    if (a.status !== "aan" || !a.gebruiker)
+        return Promise.resolve();
+    if (bezig)
+        return bezig;
+    bezig = api("manage-caregivers", "list")
+        .then((r) => zet({ personen: (r.members ?? []).map(persoonVanServer), ...noodkaartUitKinderen(), geladen: true, voor: a.gebruiker.id }))
+        .catch(meldFout)
+        .finally(() => { bezig = null; });
+    return bezig;
+}
+let gekoppeld = false;
+function koppel() {
+    if (gekoppeld || typeof window === "undefined")
+        return;
+    gekoppeld = true;
+    const volg = () => {
+        const a = authState();
+        if (a.status !== "aan") {
+            if (state.voor)
+                state = leeg;
+            return;
+        }
+        if (state.voor !== a.gebruiker?.id)
+            laadKring();
+    };
+    opAuth(volg);
+    queueMicrotask(volg);
+    window.addEventListener("focus", () => { if (authState().status === "aan")
+        laadKring(); });
+}
+export function useKring() {
+    return useSyncExternalStore((l) => { koppel(); listeners.add(l); return () => listeners.delete(l); }, () => state, () => leeg);
+}
+export const kringState = () => { koppel(); return state; };
 /** Toegang vervalt automatisch na de einddatum; geen handmatige actie nodig. */
 export function isActief(p, nu = new Date()) {
     if (p.ingetrokken)
         return false;
-    const dag = nu.toISOString().slice(0, 10);
+    const dag = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam", year: "numeric", month: "2-digit", day: "2-digit" }).format(nu);
     if (p.periode.type === "tot")
         return dag <= p.periode.eind;
     if (p.periode.type === "periode")
         return dag >= p.periode.start && dag <= p.periode.eind;
     return true;
 }
-/** Effectief niveau: altijd "geen" als toegang niet actief is of kind niet gedeeld. */
+/** Effectief niveau: altijd "geen" als toegang niet actief is, nog niet bevestigd, of kind niet gedeeld. */
 export function niveau(p, kindId, o) {
     if (!isActief(p) || p.uitgenodigd === false || p.bevestigd === false)
         return "geen";
@@ -107,30 +149,87 @@ export const mag = (p, kindId, o, min = "bekijken") => {
     const n = niveau(p, kindId, o);
     return min === "bekijken" ? n !== "geen" : n === "bijdragen";
 };
+const vervang = (id, nieuw) => zet({ personen: state.personen.map((x) => (x.id === id ? nieuw : x)) });
+/**
+ * Persoon toevoegen (contact of uitnodiging). Geeft de server-persoon terug (met uitnodigingssleutel),
+ * of undefined bij een fout (dan staat er al een melding).
+ */
+export async function maakPersoon(p) {
+    const kinderen = Object.keys(p.rechten ?? {}).filter(isUuid);
+    const tijdelijk = { ...p, id: `tmp-${Date.now()}`, ingetrokken: false, ...(p.uitgenodigd ? { bevestigd: false } : {}) };
+    zet({ personen: [...state.personen, tijdelijk] });
+    try {
+        const r = await api("manage-caregivers", "create", { ...velden(p), child_ids: kinderen, invite: !!p.uitgenodigd, ...(p.uitgenodigd ? { permissions: rechtenNaar(p.rechten) } : {}) });
+        const nieuw = persoonVanServer(r.member);
+        vervang(tijdelijk.id, nieuw);
+        return nieuw;
+    }
+    catch (e) {
+        zet({ personen: state.personen.filter((x) => x.id !== tijdelijk.id) });
+        meldFout(e);
+        return undefined;
+    }
+}
+/** Zelfde als maakPersoon, maar meteen (optimistisch) zichtbaar voor schermen die niet wachten. */
 export const voegPersoonToe = (p) => {
-    laadPersonen();
-    const nieuw = { ...p, id: `k${Date.now()}`, sleutel: crypto.randomUUID(), ingetrokken: false, ...(p.uitgenodigd ? { bevestigd: false } : {}) };
-    zet({ personen: [...state.personen, nieuw] });
-    return nieuw;
+    const tijdelijk = { ...p, id: `tmp-${Date.now()}`, ingetrokken: false };
+    maakPersoon(p);
+    return tijdelijk;
 };
-/** Alleen na inloggen/account aanmaken: de link alleen geeft nooit toegang. Sleutel wordt daarna vernieuwd zodat de link niet hergebruikt kan worden. */
-export const bevestigUitnodiging = (sleutel, ingelogd) => {
-    const p = state.personen.find((x) => x.sleutel === sleutel);
-    if (!p || !ingelogd || p.bevestigd !== false || p.ingetrokken)
-        return null;
-    wijzigPersoon(p.id, { bevestigd: true });
-    return p;
-};
-export const persoonVoorUitnodiging = (sleutel) => state.personen.find((x) => x.sleutel === sleutel && x.bevestigd === false && !x.ingetrokken);
-export const wijzigPersoon = (id, p) => {
-    laadPersonen();
-    zet({ personen: state.personen.map((x) => (x.id === id ? { ...x, ...p } : x)) });
-};
-export const trekIn = (id) => wijzigPersoon(id, { ingetrokken: true, sleutel: crypto.randomUUID() });
+/** Wijzigen (contact, noodcontact, rechten, periode, of van contact naar uitnodiging). Optimistisch. */
+export async function wijzigPersoon(id, p) {
+    const vorig = state.personen.find((x) => x.id === id);
+    if (!vorig || !isUuid(id))
+        return undefined;
+    const lokaal = { ...vorig, ...p, ...(p.uitgenodigd && vorig.uitgenodigd === false ? { bevestigd: false } : {}) };
+    vervang(id, lokaal);
+    try {
+        const body = { caregiver_id: id, ...velden(p) };
+        if (p.uitgenodigd === true && vorig.uitgenodigd === false)
+            body.invite = true;
+        if (p.rechten !== undefined)
+            body.permissions = rechtenNaar(p.rechten);
+        if (p.foto === null)
+            body.photo = null;
+        const r = await api("manage-caregivers", "update", body);
+        const nieuw = persoonVanServer(r.member);
+        vervang(id, nieuw);
+        return nieuw;
+    }
+    catch (e) {
+        vervang(id, vorig);
+        meldFout(e);
+        return undefined;
+    }
+}
+/** Toegang intrekken: werkt meteen, ook op open schermen van de verzorger; de geschiedenis blijft. */
+export async function trekIn(id) {
+    const vorig = state.personen.find((x) => x.id === id);
+    if (!vorig)
+        return;
+    vervang(id, { ...vorig, ingetrokken: true, sleutel: undefined });
+    try {
+        const r = await api("manage-caregivers", "revoke", { caregiver_id: id });
+        vervang(id, persoonVanServer(r.member));
+    }
+    catch (e) {
+        vervang(id, vorig);
+        meldFout(e);
+    }
+}
+/** Uitnodiging per e-mail laten versturen door de server (alleen bij een open uitnodiging met e-mailadres). */
+export const mailUitnodiging = (id) => api("manage-caregivers", "send-invite-email", { caregiver_id: id, redirect_origin: typeof window !== "undefined" ? window.location.origin : undefined });
+/** Wat dit kringlid ziet, precies zoals de server het aan hem/haar zou geven (voorbeeld voor ouders). */
+export const bekijkAls = (id) => api("manage-caregivers", "view-as", { caregiver_id: id }).then((r) => r.view);
+/** Als verzorger ingelogd: de kringen waar dit account nu toegang toe heeft. */
+export const mijnKringen = () => api("manage-caregivers", "get-for-user").then((r) => r.views ?? []);
+/** Ophaal-/brengmomenten (bron: agenda-domein). Alleen weergave; kiezen is nooit automatisch akkoord. */
+export const zetMomenten = (momenten) => zet({ momenten: Array.isArray(momenten) ? momenten : [] });
+const ikNaam = () => gezinState().ik?.naam || t("common.jij");
 export const zetWie = (momentId, wie) => {
     const m = state.momenten.find((x) => x.id === momentId);
     if (m && state.wie[momentId] !== wie)
-        legAudit("afspraak", momentId, m.titel, "UPDATED", { veld: t("lib.kringStore.veld.verantwoordelijke"), oud: wieNaam(state.wie[momentId]), nieuw: wieNaam(wie) }, "Sanne", { kinderen: m.kindIds.map((k) => k[0].toUpperCase() + k.slice(1)) });
+        legAudit("afspraak", momentId, m.titel, "UPDATED", { veld: t("lib.kringStore.veld.verantwoordelijke"), oud: wieNaam(state.wie[momentId]), nieuw: wieNaam(wie) }, ikNaam(), { kinderen: m.kindIds.map((k) => startState().kinderen.find((x) => x.id === k)?.naam ?? "") });
     const bevestigd = { ...state.bevestigd };
     delete bevestigd[momentId];
     zet({ wie: { ...state.wie, [momentId]: wie }, bevestigd });
@@ -140,23 +239,39 @@ export const toggleMee = (momentId, item) => {
     const l = state.meeKlaar[momentId] ?? [];
     zet({ meeKlaar: { ...state.meeKlaar, [momentId]: l.includes(item) ? l.filter((x) => x !== item) : [...l, item] } });
 };
-export const toggleNoodVeld = (kindId, v) => {
-    const l = state.noodkaart[kindId] ?? [];
-    zet({ noodkaart: { ...state.noodkaart, [kindId]: l.includes(v) ? l.filter((x) => x !== v) : [...l, v] } });
-};
+/** Noodkaart per kind = profielsectie "noodkaart" van het kind (gedeeld door beide ouders). */
+export function toggleNoodVeld(kindId, v) {
+    const vorig = state.noodkaart[kindId] ?? [];
+    const nieuw = vorig.includes(v) ? vorig.filter((x) => x !== v) : [...vorig, v];
+    return zetNoodkaart(kindId, nieuw, state.noodExtra[kindId] ?? "");
+}
+export async function zetNoodkaart(kindId, velden, extra) {
+    const vorig = { noodkaart: state.noodkaart, noodExtra: state.noodExtra };
+    zet({ noodkaart: { ...state.noodkaart, [kindId]: velden }, noodExtra: { ...state.noodExtra, [kindId]: extra } });
+    try {
+        await api("manage-children", "update", { child_id: kindId, updates: { profile: { noodkaart: { velden, extra: extra || "" } } } });
+        // start-store spiegelt de kindprofielen; zo leest een volgende kringlading dezelfde noodkaart.
+        start.hydrateer();
+    }
+    catch (e) {
+        zet(vorig);
+        meldFout(e);
+    }
+}
 export const persoonLabel = (p) => (["Opa", "Oma"].includes(p.rol) ? t("lib.kringStore.persoonLabel", { rol: rolNaam(p.rol), naam: p.naam }) : p.naam);
 export function wieNaam(id) {
     if (!id)
         return t("lib.kringStore.nogNiemand");
-    if (id === "sanne")
-        return "Sanne";
-    if (id === "joris")
-        return "Joris";
+    if (isIk(id))
+        return t("common.jij");
+    const ouder = naamVan(id);
+    if (ouder)
+        return gezinState().ander?.id === id ? t("common.deAndereOuder") : ouder;
     const p = state.personen.find((x) => x.id === id);
     return p ? persoonLabel(p) : t("lib.kringStore.onbekend");
 }
 export function periodeTekst(p) {
-    const f = (d) => new Date(d).toLocaleDateString(taalLocale(), { day: "numeric", month: "long", year: "numeric" });
+    const f = (d) => new Date(`${d}T12:00:00`).toLocaleDateString(taalLocale(), { day: "numeric", month: "long", year: "numeric" });
     if (p.type === "tot")
         return t("lib.kringStore.periode.tot", { datum: f(p.eind) });
     if (p.type === "periode")
@@ -168,7 +283,7 @@ export function rechtenSamenvatting(p, kindId) {
     return onderdelen.filter((o) => niveau(p, kindId, o.id) !== "geen").map((o) => o.titel).join(" · ") || t("lib.kringStore.nogNietsGedeeld");
 }
 /** Adresboek rond een kind: iedereen in de kring (ook contacten zonder app-toegang). */
-export const adresboek = (kindId) => { laadPersonen(); return state.personen.filter((p) => !p.ingetrokken && p.rechten[kindId]); };
+export const adresboek = (kindId) => state.personen.filter((p) => !p.ingetrokken && p.rechten[kindId]);
 export const noodcontacten = (kindId) => adresboek(kindId).filter((p) => p.noodcontact);
 /** Contacten zonder app die een ouder wél kan registreren als ophaler (zonder digitale bevestiging). */
 export const contactKandidaten = (m) => state.personen.filter((p) => !p.ingetrokken && p.uitgenodigd === false && m.kindIds.every((k) => p.rechten[k]));
@@ -178,29 +293,34 @@ export function kandidatenVoor(m) {
     const o = m.soort === "wissel" ? "wissel" : "agenda";
     return state.personen.filter((p) => isActief(p) && m.kindIds.every((k) => niveau(p, k, o) !== "geen"));
 }
+/** Is dit id een ouder (ik of de andere ouder)? */
+const isOuder = (id) => isIk(id) || (!!id && gezinState().ander?.id === id);
 /** Wie regelt dit — met bevestigingsstatus. Kiezen is nooit automatisch akkoord van een kringlid. */
 export function regelStatus(momentId) {
     const wie = state.wie[momentId];
     if (!wie)
         return null;
-    if (wie === "sanne")
+    if (isIk(wie))
         return { wie, tekst: t("lib.kringStore.regel.jij"), bevestigd: true };
-    if (wie === "joris")
+    if (isOuder(wie))
         return { wie, tekst: t("lib.kringStore.regel.andereOuder"), bevestigd: true };
     if (!heeftApp(wie))
         return { wie, tekst: t("lib.kringStore.regel.geregistreerd", { naam: wieNaam(wie) }), bevestigd: false };
     const b = state.bevestigd[momentId];
     return { wie, tekst: b ? t("lib.kringStore.regel.bevestigd", { naam: wieNaam(wie) }) : t("lib.kringStore.regel.gevraagd", { naam: wieNaam(wie) }), bevestigd: !!b };
 }
+export { isOuder };
 /** Tijd of plek van een afspraak definitief aanpassen (wisselmomenten lopen via een voorstel). */
-export function wijzigMoment(id, p, door = "Sanne") {
+export function wijzigMoment(id, p, door = ikNaam()) {
     const m = state.momenten.find((x) => x.id === id);
     if (!m)
         return;
-    const kids = m.kindIds.map((k) => k[0].toUpperCase() + k.slice(1));
+    const kids = m.kindIds.map((k) => startState().kinderen.find((x) => x.id === k)?.naam ?? "");
     if (p.tijd && p.tijd !== m.tijd)
         legAudit("afspraak", id, m.titel, "UPDATED", { veld: t("lib.kringStore.veld.tijdstip"), oud: `${m.dag} ${m.tijd}`, nieuw: `${m.dag} ${p.tijd}` }, door, { kinderen: kids });
     if (p.plek && p.plek !== m.plek)
         legAudit("afspraak", id, m.titel, "UPDATED", { veld: t("lib.kringStore.veld.locatie"), oud: m.plek, nieuw: p.plek }, door, { kinderen: kids });
     zet({ momenten: state.momenten.map((x) => (x.id === id ? { ...x, ...p } : x)) });
 }
+/** Alleen voor tests: kringpersonen direct zetten (de echte bron is de server). */
+export const zetPersonenVoorTest = (personen) => zet({ personen });

@@ -2,8 +2,9 @@ import { useTranslation } from "react-i18next";
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { Assistent } from "@/components/Assistent";
 import { AppIcon } from "@/components/AppIcon";
-import { gesprekken } from "@/lib/demo-data";
+import { useOngelezenTotaal } from "@/lib/berichten-store";
 import { useStart } from "@/lib/start-store";
+import { useKringMomentenVoeden } from "@/lib/overdracht-store";
 import { isVanOverzicht, vraagHeropen, wisTerug } from "@/lib/terug-store";
 import { Chevron, MetChevron } from "@/components/Tekens";
 // Houdt de bezochte pagina's binnen de app bij, zodat "terug" altijd
@@ -48,6 +49,7 @@ const meerPaden = [
     "/kind-tips",
     "/documenten",
     "/kinderen",
+    "/verbonden-personen",
     "/afspraken",
     "/professionals",
     "/instellingen",
@@ -77,7 +79,8 @@ export function AppShell({ children, breed = false }) {
     const { t } = useTranslation();
     const pathname = useRouterState({ select: (s) => s.location.pathname });
     const { eigen } = useStart();
-    const ongelezen = eigen ? 0 : gesprekken.reduce((s, g) => s + g.ongelezen, 0);
+    const ongelezen = useOngelezenTotaal();
+    useKringMomentenVoeden();
     const isActive = (to) => {
         if (to === "/")
             return pathname === "/";

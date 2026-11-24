@@ -1,114 +1,161 @@
 import { useSyncExternalStore } from "react";
 import i18n from "@/i18n";
-import { leg } from "@/lib/audit-store";
-import { wijzigMoment } from "@/lib/kring-store";
+import { api } from "@/lib/api";
 import { dt } from "@/lib/agenda-datum";
-export const kindNamen = { emma: "Emma", noah: "Noah" };
-const ander = (o) => (o === "sanne" ? "joris" : "sanne");
-const bereik = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
-let state = {
-    basis: [
-        { id: "b-emma-1", kind: "emma", vanafDag: 1, eersteOuder: "joris", get omschrijving() { return i18n.t("lib.zorgStore.seed.weekOpWeekAf"); } },
-        { id: "b-noah-1", kind: "noah", vanafDag: 1, eersteOuder: "joris", get omschrijving() { return i18n.t("lib.zorgStore.seed.weekOpWeekAf"); } },
-    ],
-    uitz: [
-        ...["emma", "noah"].flatMap((kind) => bereik(28, 31).map((dag) => ({ id: `u-${kind}-${dag}`, kind, dag, ouder: "joris", get reden() { return i18n.t("lib.zorgStore.seed.voorjaarsvakantie"); } }))),
-        { id: "u-emma-25", kind: "emma", dag: 25, ouder: "sanne", get reden() { return i18n.t("lib.zorgStore.seed.verjaardagEmma"); } },
-    ],
-    voorstellen: [
-        { id: "v1", van: "Joris", soort: "eenmalig", kinderen: ["emma", "noah"], get tekst() { return i18n.t("lib.zorgStore.seed.v1.tekst"); }, get datumLabel() { return i18n.t("lib.zorgStore.seed.v1.datumLabel"); }, dagen: [21], naarOuder: "sanne", aanleiding: "ruil", status: "open" },
-        { id: "v2", van: "Sanne", soort: "eenmalig", kinderen: ["emma", "noah"], get tekst() { return i18n.t("lib.zorgStore.seed.v2.tekst"); }, get datumLabel() { return i18n.t("lib.zorgStore.seed.v2.datumLabel"); }, dagen: [], naarOuder: "sanne", status: "geaccepteerd" },
-        { id: "v3", van: "Joris", soort: "eenmalig", kinderen: ["noah"], get tekst() { return i18n.t("lib.zorgStore.seed.v3.tekst"); }, get datumLabel() { return i18n.t("lib.zorgStore.seed.v3.datumLabel"); }, dagen: [26], naarOuder: "sanne", aanleiding: "nachtje", status: "open" },
-    ],
-};
+import { geldigeRegeling, maandagVan, plekOp, startState } from "@/lib/start-store";
+import { herlaad, meldFout, online, opAgendaLijst, startAgendaSync } from "@/lib/agenda-store";
+/**
+ * Zorgverdeling van het eigen gezin: wijzigingsvoorstellen ("Alleen deze keer" / "Vanaf nu"), geaccepteerde
+ * uitzonderingen per kind/datum en nieuwe versies van de basisregeling. Bron: manage-agenda (server).
+ * De basisregeling zelf staat per kind op de server (manage-children save-schedule) en in start-store.
+ * Alleen een geaccepteerd voorstel verandert de planning; definitieve statussen veranderen nooit meer;
+ * een reactiedatum is alleen een verzoek. Zonder gekoppelde andere ouder past de server de wijziging direct toe.
+ *
+ * Kijker-relatieve waarden (zoals elders in de app): "sanne"/"Sanne" = de ingelogde ouder, "joris"/"Joris" =
+ * de andere ouder. Dit zijn geen namen en worden nooit getoond; de server bewaart profiel-id's.
+ */
+const IK = "sanne", ANDER = "joris";
+const leeg = { basis: [], uitz: [], versies: [], voorstellen: [] };
+let state = leeg;
 const listeners = new Set();
 const zet = (s) => { state = s; listeners.forEach((l) => l()); };
-/** Bij wie is dit kind op deze dag? Uitzondering gaat voor; anders de basisversie die op die dag geldt. */
-export function zorgDag(s, kind, dag) {
-    const u = [...s.uitz].reverse().find((x) => x.kind === kind && x.dag === dag);
-    if (u)
-        return { ouder: u.ouder, uitzondering: u.reden };
-    const v = [...s.basis].filter((b) => b.kind === kind && b.vanafDag <= dag).pop();
-    const week = Math.floor(dag / 7); // demo maart 2025: wissel op vrijdag 7, 14, 21, 28
-    return { ouder: week % 2 === 0 ? v.eersteOuder : ander(v.eersteOuder) };
+/** Naam van een kind (server-id) voor weergave; onbekend → het id zelf. */
+export const kindNamen = new Proxy({}, { get: (_, k) => (typeof k === "string" ? startState().kinderen.find((x) => x.id === k)?.naam ?? k : undefined) });
+const relNaarOuder = (r) => (r === "ik" ? IK : r === "ander" ? ANDER : undefined);
+const ouderNaarRel = (o) => (o === IK ? "ik" : o === ANDER ? "ander" : o);
+const voorstelVanServer = (v) => Object.freeze({
+    id: v.id, van: v.mine ? "Sanne" : "Joris", vanMij: !!v.mine, soort: v.soort, kinderen: v.kind_ids ?? [], tekst: v.tekst ?? "",
+    datumLabel: v.datum_label ?? v.datums?.[0] ?? "", datums: v.datums ?? [], dagen: (v.datums ?? []).map((d) => dt(d).getDate()),
+    naarOuder: relNaarOuder(v.naar), wisseltijd: v.wisseltijd ?? undefined, plek: v.plek ?? undefined, aanleiding: v.aanleiding ?? undefined,
+    reactieDatum: v.reactie_datum ?? undefined, herinneringen: v.herinneringen ?? [], alternatief: v.alternatief ?? undefined,
+    meerTijd: v.meer_tijd ? { door: v.meer_tijd.mine ? "Sanne" : "Joris", datum: v.meer_tijd.datum, ...(v.meer_tijd.tot ? { tot: v.meer_tijd.tot } : {}) } : undefined,
+    moment: v.moment ?? undefined, reden: v.reden ?? undefined, status: v.status ?? "open", aangemaakt: v.created_at,
+});
+opAgendaLijst((r) => {
+    if (!r)
+        return zet(leeg);
+    zet({
+        basis: [],
+        uitz: (r.care_exceptions ?? []).map((u) => ({ id: u.id, kind: u.kind_id, datum: u.datum, dag: dt(u.datum).getDate(), ouder: relNaarOuder(u.ouder), reden: u.reden ?? undefined, voorstelId: u.proposal_id })),
+        versies: (r.care_versions ?? []).map((v) => ({ id: v.id, kind: v.kind_id, vanaf: v.vanaf, regeling: v.regeling, voorstelId: v.proposal_id })),
+        voorstellen: (r.care_proposals ?? []).map(voorstelVanServer),
+    });
+});
+const reden = () => i18n.t("lib.zorgStore.eenmaligeWijziging");
+/** De regeling die op deze datum voor dit kind geldt: de laatste geaccepteerde versie, anders de basisregeling. */
+export function regelingOp(s, kind, datum) {
+    const v = s.versies.filter((x) => x.kind === kind && x.vanaf <= datum).at(-1);
+    const r = v?.regeling ?? startState().regeling;
+    return geldigeRegeling(r) ? r : null;
 }
-export const huidigeBasis = (s, kind) => [...s.basis].filter((b) => b.kind === kind).pop();
-/** Date-based reading of the same care source, with legacy exceptions confined to demo March. */
+/** Bij wie is dit kind op deze datum? Uitzondering gaat voor; anders de regeling die dan geldt. */
 export function zorgOp(s, kind, datum) {
-    const uitzondering = [...s.uitz].reverse().find((u) => u.kind === kind && (u.datum ? u.datum === datum : datum === `2025-03-${String(u.dag).padStart(2, "0")}`));
-    const basis = s.basis.filter((b) => b.kind === kind && (b.vanafDatum ?? `2025-03-${String(b.vanafDag).padStart(2, "0")}`) <= datum).at(-1) ?? s.basis.find((b) => b.kind === kind);
-    if (!basis)
-        return { ouder: "sanne", tijd: "" };
-    const anchor = basis.vanafDatum ?? "2025-03-07";
-    const weken = Math.floor(Math.round((dt(datum).getTime() - dt(anchor).getTime()) / 86400000) / 7);
-    const ouder = basis.vanafDatum ? (weken % 2 === 0 ? basis.eersteOuder : ander(basis.eersteOuder)) : (Math.abs(weken + 1) % 2 === 0 ? basis.eersteOuder : ander(basis.eersteOuder));
-    return { ouder: uitzondering?.ouder ?? ouder, ...(uitzondering ? { uitzondering: uitzondering.reden } : {}), tijd: basis.wisseltijd ?? "14:30", plek: basis.plek };
+    const u = s.uitz.filter((x) => x.kind === kind && (x.datum ? x.datum === datum : false)).at(-1);
+    const r = regelingOp(s, kind, datum);
+    const basis = r ? (plekOp(r, dt(datum)) === "ik" ? IK : ANDER) : undefined;
+    return { ouder: u?.ouder ?? basis, ...(u ? { uitzondering: u.reden ?? reden() } : {}), tijd: r?.wisseltijd ?? "", plek: r?.plek };
 }
+/** Oude dag-nummerweergave (maart van de voorbeeldagenda); bestaat alleen nog voor de oude planningsonderdelen. */
+export function zorgDag(s, kind, dag) {
+    const u = [...s.uitz].reverse().find((x) => x.kind === kind && x.dag === dag && !x.datum);
+    return u ? { ouder: u.ouder, uitzondering: u.reden } : { ouder: undefined };
+}
+/** Nieuwe versie bij een "Vanaf nu"-voorstel: hetzelfde ritme, opnieuw gestart in de week van `vanaf`, met de kinderen bij `naar` op die dag (zelfde regel als de server). */
+export function nieuweVersie(s, kind, vanaf, naar, wisseltijd, plek) {
+    const r = regelingOp(s, kind, vanaf) ?? { dagen: [...Array(7).fill("ik"), ...Array(7).fill("ander")], wisseltijd: "14:30" };
+    const nieuw = { ...r, startMaandag: maandagVan(dt(vanaf)) };
+    const doel = naar === IK ? "ik" : "ander";
+    const dagen = plekOp(nieuw, dt(vanaf)) === doel ? nieuw.dagen : nieuw.dagen.map((d) => (d === "ik" ? "ander" : "ik"));
+    return { ...nieuw, dagen, ...(wisseltijd ? { wisseltijd } : {}), ...(plek ? { plek } : {}) };
+}
+/** Voorbeeld van een "Vanaf nu"-voorstel voor de vergelijkingstabel. */
+export function structureelOp(s, kind, vanaf, naar, datum) {
+    return datum < vanaf ? zorgOp(s, kind, datum).ouder : plekOp(nieuweVersie(s, kind, vanaf, naar), dt(datum)) === "ik" ? IK : ANDER;
+}
+export const huidigeBasis = (s, kind) => s.versies.filter((b) => b.kind === kind).at(-1);
 export const zorgState = () => state;
-const kindLabels = (k) => k.map((x) => kindNamen[x]);
-export function dienVoorstelIn(v) {
-    const nieuw = Object.freeze({ ...v, id: `v${Date.now()}-${crypto.randomUUID().slice(0, 6)}`, van: "Sanne", status: "open" });
-    leg("schema", nieuw.id, nieuw.tekst, "CREATED", undefined, "Sanne", { kinderen: kindLabels(nieuw.kinderen), meta: { soort: nieuw.soort === "eenmalig" ? i18n.t("lib.zorgStore.eenmaligeWijziging") : i18n.t("lib.zorgStore.structureleWijziging"), betreft: nieuw.datumLabel } });
-    zet({ ...state, voorstellen: [...state.voorstellen, nieuw] });
-    return nieuw.id;
+/* ---------- acties: lokaal meteen zichtbaar, daarna de server (die is leidend) ---------- */
+function naarServer(actie, body) {
+    startAgendaSync();
+    if (!online())
+        return;
+    api("manage-agenda", actie, body).then(() => herlaad(), (e) => { meldFout(e); herlaad(); });
 }
-function sluit(id, status, door, alternatief) {
+const vervang = (id, f) => zet({ ...state, voorstellen: state.voorstellen.map((x) => (x.id === id ? Object.freeze({ ...x, ...f(x) }) : x)) });
+/** Nieuw voorstel. `alternatiefVoor` = het voorstel van de ander waarop dit "Ander voorstel" het antwoord is. */
+export function dienVoorstelIn(v, alternatiefVoor) {
+    if (alternatiefVoor && !sluit(alternatiefVoor, "alternatief", { alternatief: v.tekst }))
+        return null;
+    const id = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const nieuw = Object.freeze({ ...v, id, van: "Sanne", vanMij: true, status: "open", herinneringen: [] });
+    zet({ ...state, voorstellen: [...state.voorstellen, nieuw] });
+    naarServer("propose-care", {
+        ...(alternatiefVoor ? { counter_of: alternatiefVoor } : {}),
+        proposal: { soort: v.soort, kind_ids: v.kinderen, tekst: v.tekst, naar: ouderNaarRel(v.naarOuder ?? IK), datums: v.datums ?? [], wisseltijd: v.wisseltijd || null, plek: v.plek || null, datum_label: v.datumLabel, aanleiding: v.aanleiding ?? null, reactie_datum: v.reactieDatum ?? null, moment: v.moment ?? null, reden: v.reden ?? null },
+    });
+    return id;
+}
+/** Alleen de ander reageert; de indiener kan zijn eigen voorstel alleen intrekken. Definitief blijft definitief. */
+function sluit(id, status, extra = {}) {
     const v = state.voorstellen.find((x) => x.id === id);
-    if (!v || v.status !== "open")
+    if (!v || v.status !== "open" || (status === "ingetrokken") !== v.vanMij)
         return false;
-    // Alleen de ander reageert; de indiener kan zijn eigen voorstel alleen intrekken.
-    if ((status === "ingetrokken") !== (door === v.van))
-        return false; // definitieve status kan niet stilletjes terug of opnieuw
-    const code = status === "geaccepteerd" ? "ACCEPTED" : status === "ingetrokken" ? "CANCELLED" : "DECLINED";
-    let { basis, uitz } = state;
-    if (status === "geaccepteerd" && v.moment)
-        wijzigMoment(v.moment.id, { ...(v.moment.tijd ? { tijd: v.moment.tijd } : {}), ...(v.moment.plek ? { plek: v.moment.plek } : {}) }, door);
-    if (status === "geaccepteerd") {
-        if (v.soort === "eenmalig" && v.naarOuder) {
-            const ouder = v.naarOuder;
-            uitz = [...uitz, ...v.kinderen.flatMap((kind) => v.datums?.length ? v.datums.map((datum) => ({ id: `u-${v.id}-${kind}-${datum}`, kind, datum, dag: dt(datum).getDate(), ouder, get reden() { return i18n.t("lib.zorgStore.eenmaligeWijziging"); }, voorstelId: v.id })) : v.dagen.map((dag) => ({ id: `u-${v.id}-${kind}-${dag}`, kind, dag, ouder, get reden() { return i18n.t("lib.zorgStore.eenmaligeWijziging"); }, voorstelId: v.id })))];
-        }
-        else if (v.soort === "structureel" && v.naarOuder && v.dagen[0]) {
-            const eersteOuder = v.naarOuder, vanafDag = v.dagen[0];
-            basis = [...basis, ...v.kinderen.map((kind) => ({ id: `b-${v.id}-${kind}`, kind, vanafDag, eersteOuder, omschrijving: v.tekst, voorstelId: v.id, ...(v.datums?.[0] ? { vanafDatum: v.datums[0] } : {}), ...(v.wisseltijd ? { wisseltijd: v.wisseltijd } : {}), ...(v.plek ? { plek: v.plek } : {}) }))];
-        }
-    }
-    leg("schema", v.id, v.tekst, code, { veld: "status", oud: "open", nieuw: status }, door, { kinderen: kindLabels(v.kinderen), meta: { soort: v.soort === "eenmalig" ? i18n.t("lib.zorgStore.eenmaligeWijziging") : i18n.t("lib.zorgStore.structureleWijziging"), betreft: v.datumLabel, ...(alternatief ? { alternatief } : {}) } });
-    zet({ basis, uitz, voorstellen: state.voorstellen.map((x) => (x.id === id ? Object.freeze({ ...x, status, ...(alternatief ? { alternatief } : {}) }) : x)) });
+    let uitz = state.uitz;
+    if (status === "geaccepteerd" && v.soort === "eenmalig" && v.naarOuder)
+        uitz = [...uitz, ...v.kinderen.flatMap((kind) => (v.datums ?? []).map((datum) => ({ id: `u-${v.id}-${kind}-${datum}`, kind, datum, dag: dt(datum).getDate(), ouder: v.naarOuder, voorstelId: v.id })))];
+    let versies = state.versies;
+    if (status === "geaccepteerd" && v.soort === "structureel" && v.naarOuder && v.datums?.[0])
+        versies = [...versies, ...v.kinderen.map((kind) => ({ id: `b-${v.id}-${kind}`, kind, vanaf: v.datums[0], regeling: nieuweVersie(state, kind, v.datums[0], v.naarOuder, v.wisseltijd, v.plek), voorstelId: v.id }))].sort((a, b) => a.vanaf.localeCompare(b.vanaf));
+    zet({ ...state, uitz, versies, voorstellen: state.voorstellen.map((x) => (x.id === id ? Object.freeze({ ...x, status, ...extra }) : x)) });
     return true;
 }
-/** Reageren kan alleen op een voorstel van de ander. */
-const reageerder = (id) => (state.voorstellen.find((x) => x.id === id)?.van === "Joris" ? "Sanne" : "Joris");
-export const accepteer = (id, door = reageerder(id)) => sluit(id, "geaccepteerd", door);
-export const wijsAf = (id, door = reageerder(id)) => sluit(id, "afgewezen", door);
-export const stelAlternatiefVoor = (id, tekst, door = reageerder(id)) => sluit(id, "alternatief", door, tekst);
+const antwoord = (id, response, extra = {}) => naarServer("respond-care", { proposal_id: id, response, ...extra });
+export function accepteer(id) {
+    const ok = sluit(id, "geaccepteerd");
+    if (ok)
+        antwoord(id, "akkoord");
+    return ok;
+}
+export function wijsAf(id) {
+    const ok = sluit(id, "afgewezen");
+    if (ok)
+        antwoord(id, "niet-akkoord");
+    return ok;
+}
+/** "Ander voorstel" zonder nieuw formulier: het voorstel sluit met de tekst als alternatief. */
+export function stelAlternatiefVoor(id, tekst) {
+    const ok = sluit(id, "alternatief", tekst ? { alternatief: tekst } : {});
+    if (ok)
+        antwoord(id, "ander-voorstel", { alternative: tekst || null });
+    return ok;
+}
 /** Intrekken kan alleen door de indiener, zolang het voorstel nog open is. */
 export function trekIn(id) {
-    const v = state.voorstellen.find((x) => x.id === id);
-    if (!v || v.van !== "Sanne")
-        return false;
-    return sluit(id, "ingetrokken", "Sanne");
+    const ok = sluit(id, "ingetrokken");
+    if (ok)
+        naarServer("withdraw-care", { proposal_id: id });
+    return ok;
 }
-/** Meer tijd vragen: alleen de ontvanger, alleen bij een open voorstel. Geen instemming, geen verplichting; het voorstel blijft open. */
-export function vraagMeerTijd(id, tot, door = reageerder(id)) {
+/** Meer tijd vragen: alleen de ontvanger, alleen bij een open voorstel. Geen instemming; het voorstel blijft open. */
+export function vraagMeerTijd(id, tot) {
     const v = state.voorstellen.find((x) => x.id === id);
-    if (!v || v.status !== "open" || door === v.van)
+    if (!v || v.status !== "open" || v.vanMij)
         return false;
-    leg("schema", v.id, v.tekst, "UPDATED", { veld: "reactie", oud: "open", nieuw: tot ? i18n.t("lib.zorgStore.audit.meerTijdTot", { tot }) : i18n.t("lib.zorgStore.audit.meerTijd") }, door, { kinderen: kindLabels(v.kinderen) });
-    zet({ ...state, voorstellen: state.voorstellen.map((x) => (x.id === id ? Object.freeze({ ...x, meerTijd: { door, datum: new Date().toISOString().slice(0, 10), ...(tot ? { tot } : {}) } }) : x)) });
+    vervang(id, () => ({ meerTijd: { door: "Sanne", datum: new Date().toISOString().slice(0, 10), ...(tot ? { tot } : {}) } }));
+    antwoord(id, "meer-tijd", tot ? { until: tot } : {});
     return true;
 }
-/** Vriendelijke herinnering: alleen de indiener, alleen bij een open voorstel. Vastgelegd in de historie; begrensd via herinneringen.ts. */
-export function stuurHerinnering(id, door = "Sanne") {
+/** Vriendelijke herinnering: alleen de indiener, alleen bij een open voorstel. De server begrenst (herinneringen.ts-regels). */
+export function stuurHerinnering(id) {
     const v = state.voorstellen.find((x) => x.id === id);
-    if (!v || v.status !== "open" || v.van !== door)
+    if (!v || v.status !== "open" || !v.vanMij)
         return false;
-    const nu = new Date().toISOString().slice(0, 10);
-    leg("schema", v.id, v.tekst, "UPDATED", { veld: "herinnering", oud: "", nieuw: i18n.t("lib.zorgStore.audit.herinnering") }, door, { kinderen: kindLabels(v.kinderen) });
-    zet({ ...state, voorstellen: state.voorstellen.map((x) => (x.id === id ? Object.freeze({ ...x, herinneringen: [...(x.herinneringen ?? []), nu] }) : x)) });
+    vervang(id, (x) => ({ herinneringen: [...(x.herinneringen ?? []), new Date().toISOString().slice(0, 10)] }));
+    naarServer("remind-care", { proposal_id: id });
     return true;
 }
 export function useZorg() {
+    startAgendaSync();
     return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => state, () => state);
 }
 export const uitzonderingenVan = (s, kind) => s.uitz.filter((u) => u.kind === kind);
@@ -119,3 +166,5 @@ export const statusLabel = {
     get ingetrokken() { return i18n.t("lib.zorgStore.status.ingetrokken"); },
     get alternatief() { return i18n.t("lib.zorgStore.status.alternatief"); },
 };
+/** Alleen voor tests: zet de bron direct. */
+export const zetZorgVoorTest = (s) => zet({ ...leeg, ...s });

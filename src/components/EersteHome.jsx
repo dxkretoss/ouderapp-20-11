@@ -11,6 +11,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { basisStappen, geldigeRegeling, gezagKeuzes, maandagVan, patronen, tweeWekenVanaf, start, useStart, vandaagVolgens } from "@/lib/start-store";
 import { uur } from "@/lib/tijd-tekst";
 import { geenRechten, rolNaam, rolOpties, voegPersoonToe } from "@/lib/kring-store";
+import { agendaZorgOp } from "@/lib/agenda-zorg";
+import { iso, plusDagen } from "@/lib/agenda-datum";
+import { useZorg } from "@/lib/zorg-store";
+import { useVakanties } from "@/lib/vakantie-store";
+import { useWisselMomenten, volgendeVan } from "@/lib/overdracht-store";
 
 const knop = "w-full rounded-xl bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40";
 const veld = "mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand";
@@ -219,7 +224,19 @@ function useEigen() {
     // Werkwoordsvorm voor de zinnen hieronder (enkelvoud/meervoud), via count.
     const zijn = namen.length > 1 ? 2 : 1;
     const regeling = s.regeling && s.regeling !== "later" && geldigeRegeling(s.regeling) ? s.regeling : null;
-    const v = regeling && nu ? vandaagVolgens(regeling, nu) : null;
+    const zorg = useZorg();
+    const vak = useVakanties();
+    const momenten = useWisselMomenten(21);
+    // Vandaag volgens dezelfde afleiding als de Agenda: basisregeling, geaccepteerde uitzonderingen en vakanties.
+    let v = null;
+    if (regeling && nu) {
+        const vandaag = iso(nu);
+        const g = agendaZorgOp(zorg, vak, s, vandaag);
+        const volgende = volgendeVan(momenten.filter((m) => m.datum > vandaag), nu).moment;
+        const plek = g.kleur === "ander" ? "ander" : g.kleur === "ik" ? "ik" : g.kleur === "gemengd" ? "gemengd" : vandaagVolgens(regeling, nu).plek;
+        const week = Array.from({ length: 7 }, (_, i) => { const d = plusDagen(iso(new Date(nu.getFullYear(), nu.getMonth(), nu.getDate() - ((nu.getDay() + 6) % 7))), i); const k = agendaZorgOp(zorg, vak, s, d).kleur; return k === "ander" ? "ander" : "ik"; });
+        v = { plek, kinderen: g.kinderen, week, volgende: volgende ? new Date(`${volgende.datum}T12:00:00`) : vandaagVolgens(regeling, nu).volgende, tijd: volgende?.tijd || regeling.wisseltijd, waar: volgende?.plek || regeling.plek };
+    }
     return { s, nu, namen, namenTekst, zijn, regeling, v };
 }
 /** Kinderen van het eigen gezin, op dezelfde plek als op Home. */
@@ -258,7 +275,6 @@ export function EigenVandaag() {
     const { t } = useTranslation();
     const { s, nu, namenTekst, zijn, regeling, v } = useEigen();
     const [schema, setSchema] = useState(false);
-    const [kindOpen, setKindOpen] = useState(false);
     const [regOpen, setRegOpen] = useState(false);
     return (<>
       {/* Vandaag: dezelfde plek, eerst uitleg, daarna de echte stand van zaken */}
@@ -268,11 +284,11 @@ export function EigenVandaag() {
         {!s.kinderen.length ? (<>
             <p className="mt-1 font-display text-xl font-bold leading-snug">{t("components.EersteHome.vandaag.voorWie")}</p>
             <p className="mt-1 text-sm text-ink-soft">{t("components.EersteHome.vandaag.voegToe")}</p>
-            <button onClick={() => setKindOpen(true)} className="mt-3 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.vandaag.kindToevoegen")}</button>
+            <Link to="/kinderen" className="mt-3 inline-block rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.vandaag.kindToevoegen")}</Link>
           </>) : v && regeling ? (<>
-            <p className="mt-1 font-display text-xl font-bold leading-snug">{t(v.plek === "ik" ? "components.EersteHome.vandaag.bijJou" : "components.EersteHome.vandaag.bijAnder", { namen: namenTekst, count: zijn })}</p>
-            <p className="mt-0.5 text-sm text-ink-soft">{t("components.EersteHome.vandaag.volgende", { datum: v.volgende.toLocaleDateString(taalLocale(), { weekday: "long", day: "numeric", month: "short" }), tijd: uur(regeling.wisseltijd) })}{regeling.plek ? ` · ${regeling.plek}` : ""}</p>
-            {nu ? <WeekLijn dagen={tweeWekenVanaf(regeling, nu).slice(0, 7)} vandaag={(nu.getDay() + 6) % 7}/> : null}
+            {v.plek === "gemengd" ? <p className="mt-1 font-display text-xl font-bold leading-snug">{v.kinderen.map((k) => <Link key={k.id} to="/kinderen/$kindId" params={{ kindId: k.id }} className="mr-2 inline-block">{t(k.ouder === "sanne" ? "components.EersteHome.vandaag.bijJou" : "components.EersteHome.vandaag.bijAnder", { namen: k.naam, count: 1 })}</Link>)}</p> : <p className="mt-1 font-display text-xl font-bold leading-snug">{t(v.plek === "ik" ? "components.EersteHome.vandaag.bijJou" : "components.EersteHome.vandaag.bijAnder", { namen: namenTekst, count: zijn })}</p>}
+            <p className="mt-0.5 text-sm text-ink-soft">{t("components.EersteHome.vandaag.volgende", { datum: v.volgende.toLocaleDateString(taalLocale(), { weekday: "long", day: "numeric", month: "short" }), tijd: uur(v.tijd) })}{v.waar ? ` · ${v.waar}` : ""}</p>
+            {nu ? <WeekLijn dagen={v.week} vandaag={(nu.getDay() + 6) % 7}/> : null}
             <div className="mt-2 flex gap-4">
               <button onClick={() => setSchema((x) => !x)} aria-expanded={schema} className="text-xs font-semibold text-brand">{schema ? t("components.EersteHome.vandaag.verbergen") : t("components.EersteHome.vandaag.bekijken")}</button>
             </div>
@@ -290,7 +306,6 @@ export function EigenVandaag() {
             <button onClick={() => setRegOpen(true)} className="mt-3 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.vandaag.verdelingToevoegen")}</button>
           </>)}
       </section>
-      <KindSheet open={kindOpen} onClose={() => setKindOpen(false)}/>
       <RegelingSheet open={regOpen} onClose={() => setRegOpen(false)} kindNaam={namenTekst || t("components.EersteHome.jeKind")}/>
     </>);
 }
@@ -309,8 +324,6 @@ export function EigenVolgende() {
         volgende.push({ icoon: "juridisch", titel: t("components.EersteHome.volgende.gezag.titel"), tekst: t("components.EersteHome.volgende.gezag.tekst"), naar: "gezag" });
     if (s.kinderen.length && !s.afspraakToegevoegd)
         volgende.push({ icoon: "agenda", titel: t("components.EersteHome.volgende.afspraak.titel"), tekst: t("components.EersteHome.volgende.afspraak.tekst", { naam: namen[0] }), naar: "/agenda", actie: () => start.markeer({ afspraakToegevoegd: true }) });
-    if (s.kinderen.length && s.gebruik === "samen" && !s.uitgenodigd)
-        volgende.push({ icoon: "samen", titel: t("components.EersteHome.volgende.uitnodigen.titel"), tekst: t("components.EersteHome.volgende.uitnodigen.tekst"), naar: "/solo", hash: "samen" });
     if (regeling)
         volgende.push({ icoon: "overdracht", titel: t("components.EersteHome.volgende.mee.titel"), tekst: t("components.EersteHome.volgende.mee.tekst"), naar: "/overdracht" });
     return (<>

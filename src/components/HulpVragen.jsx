@@ -17,10 +17,8 @@ const kindTekst = (k) => kindNaam(k).join(" & ");
 export function HulpForm({ voorstel = {}, onKlaar }) {
     const { t } = useTranslation();
     const st = useStart();
-    const opties = st.eigen
-        ? [...st.kinderen.map((k) => ({ id: k.id, naam: k.naam })), ...(st.kinderen.length > 1 ? [{ id: "alle", naam: t("common.alleKinderen") }] : [])]
-        : [{ id: "emma", naam: "Emma" }, { id: "noah", naam: "Noah" }, { id: "beide", naam: "Emma & Noah" }];
-    const standaard = voorstel.kind ?? (st.eigen ? st.kinderen[0]?.id ?? "alle" : "emma");
+    const opties = [...st.kinderen.map((k) => ({ id: k.id, naam: k.naam })), ...(st.kinderen.length > 1 ? [{ id: "alle", naam: t("common.alleKinderen") }] : [])];
+    const standaard = voorstel.kind ?? st.kinderen[0]?.id ?? "alle";
     const [kind, setKind] = useState(standaard);
     const [wat, setWat] = useState(voorstel.wat ?? "");
     const [datum, setDatum] = useState(voorstel.datum ?? "");
@@ -102,6 +100,6 @@ export function HulpVragen({ open: openVanBuiten, onOpenChange }) {
               </div>
             </div>))}
         </div>) : null}
-      <p className="mt-5 text-center text-xs text-ink-soft">{t("components.HulpVragen.voorbeeldgezin")}</p>
+      <p className="mt-5 text-center text-xs text-ink-soft">{t("components.HulpVragen.nogLokaal")}</p>
     </section>);
 }

@@ -17,7 +17,7 @@ export function AgendaWissels({ datum, gegevens }) {
     const od = useOverdracht();
     if (!gegevens.wissels.length)
         return null;
-    const gedeeld = od.gedeeld.length > 0;
+    const gedeeld = od.gedeeld.some((o) => o.momentId === datum);
     return <section className="my-2 rounded-[20px] border-2 border-[#A9BCA8] bg-[#E9EFE3] px-3.5 py-3 text-[#26211D]">
     <button type="button" className="flex w-full items-center gap-3 text-left" onClick={() => setOpen(true)}><AppIcon functie="wissel" maat="lg"/><span className="min-w-0 flex-1"><span className="block text-[16px] font-black">{t("components.AgendaWissels.wisseldag")}</span><span className="block text-sm text-[#3F5747]">{dt(datum).toLocaleDateString(taalLocale(), { day: "numeric", month: "long" })} · {gegevens.wissels.map((k) => `${k.naam}${k.tijd ? ` · ${uur(k.tijd)}` : ""}`).join(" · ")}</span></span><Chevron className="size-5 text-[#3F5747]"/></button>
     <div className="mt-2.5 grid grid-cols-2 gap-2">

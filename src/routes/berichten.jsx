@@ -5,20 +5,21 @@ import { useEffect, useRef, useState } from "react";
 import { pauzeAdvies, pauzeRegel } from "@/lib/communicatiedruk";
 import { AppShell, TerugKnop } from "@/components/AppShell";
 import { Kruis, MetChevron } from "@/components/Tekens";
-import { gesprekken, parents } from "@/lib/demo-data";
+import { useBerichten, usePeilBerichten, maakGesprek, verstuurBericht, probeerOpnieuw, wisselVastgezet, dempGesprek, isGedempt, dagLabel } from "@/lib/berichten-store";
+import { useGezin } from "@/lib/gezin";
 import { useServerFn } from "@/lib/server-fn";
 import { coachBericht, toonBericht, alGereageerd } from "@/lib/coach.functions";
 import { vatGesprekSamen } from "@/lib/samenvatting.functions";
 import { HulpKaart } from "@/components/Onveilig";
 import { Plus, Mail, Search, Moon, ChevronRight, Pin, PinOff, Bell, BellOff, MoreHorizontal, Info, SendHorizontal, Check } from "lucide-react";
-import { useVoorkeuren, zetVoorkeur, wisselVastgezet, dempGesprek, isGedempt } from "@/lib/voorkeuren-store";
+import { useVoorkeuren, zetVoorkeur } from "@/lib/voorkeuren-store";
 import { EmailGesprek } from "@/components/EmailGesprek";
 import { EvenMeedenken } from "@/components/EvenMeedenken";
 import { useEmailKoppeling } from "@/lib/email-koppeling-store";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { NuAfstemmenKaart, NuAfstemmenStart } from "@/components/NuAfstemmen";
 import { openNuAfstemmen, useNuAfstemmen } from "@/lib/nu-afstemmen-store";
-import { start as eigenStart, useStart } from "@/lib/start-store";
+import { useStart } from "@/lib/start-store";
 import { AppIcon, Pictogram } from "@/components/AppIcon";
 import { z } from "zod";
 import { Communicatiemeter, FijnGecommuniceerd } from "@/components/Communicatiemeter";
@@ -57,7 +58,6 @@ function BerichtenPagina() {
     const { t } = useTranslation();
     const context = Route.useSearch();
     const [actief, setActief] = useState(context.gesprek ?? null);
-    const [, forceer] = useState(0);
     const [nieuwOpen, setNieuwOpen] = useState(false);
     const [naam, setNaam] = useState("");
     const [berichtOpen, setBerichtOpen] = useState(false);
@@ -68,32 +68,22 @@ function BerichtenPagina() {
     } }, [context.concept]);
     const { koppeling, berichten: mails } = useEmailKoppeling();
     const startSt = useStart();
-    const start = () => {
+    const bs = useBerichten();
+    const gezin = useGezin();
+    // Elke 25 s verversen (en het open gesprek) zolang Berichten open staat, plus bij terugkeren naar het venster.
+    usePeilBerichten(actief && actief !== "__email" ? actief : null);
+    /** Berichten uitwisselen kan pas met een gekoppelde andere ouder; tot dan zijn onderwerpen voorbereide concepten. */
+    const verbonden = gezin.gekoppeld || bs.coOuders.length > 0;
+    const start = async () => {
         const n = naam.trim();
         if (!n)
             return;
-        if (startSt.eigen) {
-            const eid = eigenStart.onderwerpToevoegen(n);
-            setNaam("");
-            setNieuwOpen(false);
-            setActief(eid);
+        const eid = await maakGesprek({ titel: n });
+        if (!eid)
             return;
-        }
-        const id = `nieuw-${Date.now()}`;
-        gesprekken.unshift({
-            ...gesprekken[0],
-            id,
-            onderwerp: n,
-            icoon: "berichten",
-            laatste: t("routes.berichten.nogGeenBerichten"),
-            laatsteTijd: t("routes.berichten.nu"),
-            ongelezen: 0,
-            berichten: [],
-        });
         setNaam("");
         setNieuwOpen(false);
-        forceer((x) => x + 1);
-        setActief(id);
+        setActief(eid);
     };
     const vk = useVoorkeuren();
     const [rustOpen, setRustOpen] = useState(false);
@@ -101,7 +91,9 @@ function BerichtenPagina() {
     const [zoek, setZoek] = useState("");
     const zoekActief = zoekOpen && zoek.trim().length > 0;
     const q = zoek.trim().toLowerCase();
-    const lijst = gesprekken
+    const voorbereid = bs.gesprekken.filter((g) => g.concept);
+    const lijst = bs.gesprekken
+        .filter((g) => !g.concept)
         .map((g) => {
         if (!zoekActief)
             return { g, treffer: null };
@@ -110,8 +102,7 @@ function BerichtenPagina() {
         const b = g.berichten.find((x) => x.tekst.toLowerCase().includes(q) || x.tijd.toLowerCase().includes(q));
         return b ? { g, treffer: `${b.tijd} · ${b.tekst}` } : null;
     })
-        .filter((x) => !!x)
-        .sort((a, b) => Number(vk.vastgezet.includes(b.g.id)) - Number(vk.vastgezet.includes(a.g.id)));
+        .filter((x) => !!x);
     const [naOpen, setNaOpen] = useState(false);
     const nuAfstemmen = useNuAfstemmen();
     if (!actief) {
@@ -121,11 +112,11 @@ function BerichtenPagina() {
           <button onClick={() => setZoekOpen((o) => !o)} aria-label={t("routes.berichten.zoekenLabel")} aria-pressed={zoekOpen} className="grid size-10 shrink-0 place-items-center rounded-full border border-white/90 bg-white/60 text-[#3F5747]">
             <Search className="size-[18px]" strokeWidth={2}/>
           </button>
-          {startSt.eigen ? null : <button onClick={() => setBerichtOpen(true)} aria-label={t("routes.berichten.nieuwBericht")} className="grid size-10 shrink-0 place-items-center rounded-full bg-brand text-primary-foreground">
+          {verbonden ? <button onClick={() => setBerichtOpen(true)} aria-label={t("routes.berichten.nieuwBericht")} className="grid size-10 shrink-0 place-items-center rounded-full bg-brand text-primary-foreground">
             <Plus className="size-5" strokeWidth={2}/>
-          </button>}
+          </button> : null}
         </div>
-        {startSt.eigen ? null : <NieuwBericht open={berichtOpen} voorinvul={context.concept} onSluit={() => setBerichtOpen(false)} onStart={(gid, tekst) => { setBerichtOpen(false); setConcept(tekst); forceer((x) => x + 1); setActief(gid); }}/>}
+        {verbonden ? <NieuwBericht open={berichtOpen} voorinvul={context.concept} gesprekken={lijst.map((x) => x.g)} onSluit={() => setBerichtOpen(false)} onStart={(gid, tekst) => { setBerichtOpen(false); setConcept(tekst); setActief(gid); }}/> : null}
         <NuAfstemmenStart open={naOpen} onSluit={() => setNaOpen(false)}/>
         <RustSheet open={rustOpen} onSluit={() => setRustOpen(false)}/>
         {zoekOpen ? (<input autoFocus value={zoek} onChange={(e) => setZoek(e.target.value)} placeholder={t("routes.berichten.zoekPlaceholder")} aria-label={t("routes.berichten.zoekenLabel")} className="mt-3 w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm"/>) : null}
@@ -146,19 +137,24 @@ function BerichtenPagina() {
                 <p className="truncate text-xs text-ink-soft">{t("components.EmailGesprek.viaEmailNaam", { naam: mails[mails.length - 1]?.tekst ?? t("routes.berichten.nogGeenBerichten") })}</p>
               </div>
             </button>) : null}
-          {startSt.eigen && !koppeling ? (<section className="rounded-lg border border-border bg-card p-4">
+          {!verbonden && !koppeling ? (<section className="rounded-lg border border-border bg-card p-4">
               <p className="font-display text-lg font-bold">{t("routes.berichten.eigen.titel")}</p>
               <p className="mt-1 text-sm text-ink-soft">{startSt.uitgenodigd ? t("routes.berichten.eigen.uitgenodigd") : t("routes.berichten.eigen.nietUitgenodigd")} {t("routes.berichten.eigen.alvast")}</p>
-              {!startSt.uitgenodigd ? <Link to="/solo" onClick={() => eigenStart.markeer({ uitgenodigd: true })} className="mt-3 inline-flex min-h-[44px] items-center rounded-xl bg-brand px-4 text-sm font-semibold text-primary-foreground">{t("routes.berichten.uitnodigen")}</Link> : null}
+              {!startSt.uitgenodigd ? <Link to="/solo" className="mt-3 inline-flex min-h-[44px] items-center rounded-xl bg-brand px-4 text-sm font-semibold text-primary-foreground">{t("routes.berichten.uitnodigen")}</Link> : null}
             </section>) : null}
-          {startSt.eigen && startSt.onderwerpen.map((o) => (<button key={o.id} onClick={() => setActief(o.id)} className="flex w-full items-center gap-3 rounded-md border border-border p-3 text-left">
+          {voorbereid.map((o) => (<button key={o.id} onClick={() => setActief(o.id)} className="flex w-full items-center gap-3 rounded-md border border-border p-3 text-left">
               <AppIcon functie="berichten" maat="sm"/>
-              <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{o.naam}</p><p className="truncate text-xs text-ink-soft">{t("routes.berichten.voorbereid")}</p></div>
+              <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{o.onderwerp}</p><p className="truncate text-xs text-ink-soft">{t("routes.berichten.voorbereid")}</p></div>
             </button>))}
-          {!startSt.eigen && zoekActief && !lijst.length ? <p className="py-6 text-center text-sm text-ink-soft">{t("routes.berichten.geenGevonden", { zoek: zoek.trim() })}</p> : null}
-          {!startSt.eigen && lijst.map(({ g, treffer }) => {
-                const vast = vk.vastgezet.includes(g.id);
-                const stil = isGedempt(vk, g.id);
+          {verbonden && bs.status === "laden" && !lijst.length ? <p className="py-6 text-center text-sm text-ink-soft">{t("common.laden")}</p> : null}
+          {verbonden && bs.status !== "laden" && !zoekActief && !lijst.length && !voorbereid.length ? (<section className="rounded-lg border border-border bg-card p-4">
+              <p className="font-display text-lg font-bold">{t("routes.berichten.leeg.titel")}</p>
+              <p className="mt-1 text-sm text-ink-soft">{t("routes.berichten.leeg.tekst")}</p>
+            </section>) : null}
+          {zoekActief && !lijst.length ? <p className="py-6 text-center text-sm text-ink-soft">{t("routes.berichten.geenGevonden", { zoek: zoek.trim() })}</p> : null}
+          {lijst.map(({ g, treffer }) => {
+                const vast = g.vastgezet;
+                const stil = isGedempt(g);
                 return (<button key={g.id} onClick={() => setActief(g.id)} className="flex w-full items-center gap-3 rounded-[22px] border border-white/85 bg-white/60 px-3.5 py-3 text-left">
                 <div className="grid size-[42px] shrink-0 place-items-center rounded-[14px] bg-brand-soft text-lg">
                   <Pictogram waarde={g.icoon} maat="md" vorm="kaal"/>
@@ -169,7 +165,7 @@ function BerichtenPagina() {
                     <span className="truncate">{g.onderwerp}</span>
                     {stil ? <BellOff aria-label={t("routes.berichten.gedempt")} className="size-3 shrink-0 text-ink-soft" strokeWidth={1.8}/> : null}
                   </p>
-                  <p className={`truncate text-[13px] ${g.ongelezen > 0 ? "font-bold text-ink" : "text-ink-soft"}`}>{treffer ?? g.laatste}</p>
+                  <p className={`truncate text-[13px] ${g.ongelezen > 0 ? "font-bold text-ink" : "text-ink-soft"}`}>{treffer ?? (g.laatste || t("routes.berichten.nogGeenBerichten"))}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className="text-xs text-ink-soft">{g.laatsteTijd}</span>
@@ -184,13 +180,13 @@ function BerichtenPagina() {
           <span className="flex-1 text-[13px] text-ink-soft">{vk.rustmodus ? t("routes.berichten.rust.aan", { van: vk.rustVan, tot: vk.rustTot }) : t("routes.berichten.rust.uit")}</span>
           <span className="text-[13px] font-extrabold text-[#3F5747]">{vk.rustmodus ? t("routes.berichten.rust.aanpassen") : t("routes.berichten.rust.instellen")}</span>
         </button>
-        {startSt.eigen ? <div className="mt-4 rounded-md border border-border p-4">
+        {!verbonden ? <div className="mt-4 rounded-md border border-border p-4">
           <p className="text-sm font-semibold">{t("routes.berichten.onderwerpVoorbereiden")}</p>
           <p className="mt-1 text-xs text-ink-soft">
             {t("routes.berichten.onderwerpVoorbeelden")}
           </p>
-          {nieuwOpen ? (<form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); start(); }}>
-              <input autoFocus value={naam} onChange={(e) => setNaam(e.target.value)} placeholder={t("routes.berichten.naamOnderwerp")} className="min-w-0 flex-1 rounded-md border bg-background px-3 py-2.5 text-sm"/>
+          {nieuwOpen ? (<form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); void start(); }}>
+              <input autoFocus value={naam} onChange={(e) => setNaam(e.target.value)} maxLength={120} placeholder={t("routes.berichten.naamOnderwerp")} className="min-w-0 flex-1 rounded-md border bg-background px-3 py-2.5 text-sm"/>
               <button type="submit" disabled={!naam.trim()} className="rounded-md bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">
                 {t("routes.berichten.startKnop")}
               </button>
@@ -202,34 +198,39 @@ function BerichtenPagina() {
     }
     if (actief === "__email")
         return <EmailGesprek onTerug={() => setActief(null)}/>;
-    if (startSt.eigen) {
-        const o = startSt.onderwerpen.find((x) => x.id === actief);
-        return <Gesprek id={actief} eigen={{ naam: o?.naam ?? t("routes.berichten.onderwerp"), uitgenodigd: startSt.uitgenodigd }} concept={concept} onTerug={() => { setActief(null); setConcept(""); }}/>;
-    }
     return <Gesprek id={actief} concept={concept} onTerug={() => { setActief(null); setConcept(""); }}/>;
 }
-/** Nieuw bericht: kiest een bevoegde ontvanger + onderwerp/kind en gebruikt het bestaande gesprekkensysteem. */
-function NieuwBericht({ open, voorinvul, onSluit, onStart }) {
+/** Nieuw bericht: kiest de gekoppelde andere ouder + onderwerp/kind; het bericht komt eerst in het schrijfvak om na te lezen. */
+function NieuwBericht({ open, voorinvul, gesprekken, onSluit, onStart }) {
     const { t } = useTranslation();
-    const [ontvanger, setOntvanger] = useState("joris");
+    const { kinderen } = useGezin();
+    const { coOuders } = useBerichten();
+    const [ontvanger, setOntvanger] = useState("");
     const [onderwerp, setOnderwerp] = useState("nieuw");
     const [nieuwNaam, setNieuwNaam] = useState("");
-    const [kind, setKind] = useState("Emma & Noah");
+    const [kind, setKind] = useState("alle");
     const [tekst, setTekst] = useState("");
+    const [bezig, setBezig] = useState(false);
     useEffect(() => { if (voorinvul) {
         setTekst(voorinvul);
         setNieuwNaam(t("routes.berichten.nieuw.gaatNietDoor"));
     } }, [voorinvul]);
-    // Alleen ontvangers met toegang tot Berichten. De mediator heeft in deze demo geen toegang tot berichten tussen ouders.
-    const ontvangers = [{ id: "joris", label: t("routes.berichten.nieuw.andereOuder", { naam: parents.joris.naam }) }];
-    const kan = tekst.trim() && (onderwerp !== "nieuw" || nieuwNaam.trim());
-    const start = () => {
+    // Alleen ontvangers met toegang tot Berichten: de gekoppelde andere ouder(s). Professionals hebben geen toegang tot berichten tussen ouders.
+    const ontvangers = coOuders.map((c) => ({ id: c.id, label: t("routes.berichten.nieuw.andereOuder", { naam: c.name || t("common.deAndereOuder") }) }));
+    const aan = ontvanger || ontvangers[0]?.id || "";
+    const kan = tekst.trim() && (onderwerp !== "nieuw" || nieuwNaam.trim()) && !bezig;
+    const kindNaam = (id) => kinderen.find((k) => k.id === id)?.naam ?? "";
+    const start = async () => {
         let gid = onderwerp;
         if (onderwerp === "nieuw") {
-            gid = `nieuw-${Date.now()}`;
-            gesprekken.unshift({ ...gesprekken[0], id: gid, onderwerp: kind === "Emma & Noah" ? nieuwNaam.trim() : `${nieuwNaam.trim()} · ${kind}`, icoon: "berichten", laatste: t("routes.berichten.nogGeenBerichten"), laatsteTijd: t("routes.berichten.nu"), ongelezen: 0, berichten: [] });
+            setBezig(true);
+            const titel = kind === "alle" || !kindNaam(kind) ? nieuwNaam.trim() : `${nieuwNaam.trim()} · ${kindNaam(kind)}`;
+            gid = await maakGesprek({ titel, kindId: kind === "alle" ? undefined : kind });
+            setBezig(false);
+            if (!gid)
+                return;
         }
-        onStart(gid, tekst.trim());
+        onStart(gid, tekst.trim(), aan);
         setTekst("");
         setNieuwNaam("");
         setOnderwerp("nieuw");
@@ -243,27 +244,27 @@ function NieuwBericht({ open, voorinvul, onSluit, onStart }) {
         </SheetHeader>
         <div className="mt-3 space-y-3 text-sm">
           <label className="block"><span className="text-xs font-semibold text-ink-soft">{t("routes.berichten.nieuw.aan")}</span>
-            <select value={ontvanger} onChange={(e) => setOntvanger(e.target.value)} className={veld}>{ontvangers.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>
+            <select value={aan} onChange={(e) => setOntvanger(e.target.value)} className={veld}>{ontvangers.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>
           </label>
           <label className="block"><span className="text-xs font-semibold text-ink-soft">{t("routes.berichten.onderwerp")}</span>
             <select value={onderwerp} onChange={(e) => setOnderwerp(e.target.value)} className={veld}>
               <option value="nieuw">{t("routes.berichten.nieuw.nieuwOnderwerp")}</option>
-              {gesprekken.map((g) => <option key={g.id} value={g.id}>{g.onderwerp}</option>)}
+              {gesprekken.filter((g) => !g.anderId || g.anderId === aan).map((g) => <option key={g.id} value={g.id}>{g.onderwerp}</option>)}
             </select>
           </label>
           {onderwerp === "nieuw" ? (<>
               <label className="block"><span className="text-xs font-semibold text-ink-soft">{t("routes.berichten.naamOnderwerp")}</span>
-                <input value={nieuwNaam} onChange={(e) => setNieuwNaam(e.target.value)} placeholder={t("routes.berichten.nieuw.placeholderNaam")} className={veld}/>
+                <input value={nieuwNaam} onChange={(e) => setNieuwNaam(e.target.value)} maxLength={100} placeholder={t("routes.berichten.nieuw.placeholderNaam")} className={veld}/>
               </label>
-              <label className="block"><span className="text-xs font-semibold text-ink-soft">{t("routes.berichten.nieuw.over")}</span>
-                <select value={kind} onChange={(e) => setKind(e.target.value)} className={veld}><option>Emma & Noah</option><option>Emma</option><option>Noah</option></select>
-              </label>
+              {kinderen.length ? <label className="block"><span className="text-xs font-semibold text-ink-soft">{t("routes.berichten.nieuw.over")}</span>
+                <select value={kind} onChange={(e) => setKind(e.target.value)} className={veld}><option value="alle">{kinderen.length > 1 ? kinderen.map((k) => k.naam).join(" & ") : kinderen[0].naam}</option>{kinderen.length > 1 ? kinderen.map((k) => <option key={k.id} value={k.id}>{k.naam}</option>) : null}</select>
+              </label> : null}
             </>) : null}
           <label className="block"><span className="text-xs font-semibold text-ink-soft">{t("routes.berichten.nieuw.bericht")}</span>
-            <textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={4} className={`${veld} resize-none`} placeholder={t("routes.berichten.nieuw.schrijf")}/>
+            <textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={4} maxLength={4000} className={`${veld} resize-none`} placeholder={t("routes.berichten.nieuw.schrijf")}/>
           </label>
           {tekst.trim() && onderwerp === "nieuw" && !nieuwNaam.trim() ? <p className="text-[12.5px] font-semibold text-[#2F4A3A]">{t("routes.berichten.nieuw.geefNaam")}</p> : null}
-          <button disabled={!kan} onClick={start} className="h-12 w-full rounded-full bg-brand text-[15px] font-black text-primary-foreground disabled:opacity-40">{t("routes.berichten.nieuw.bekijk")}</button>
+          <button disabled={!kan} onClick={() => void start()} className="h-12 w-full rounded-full bg-brand text-[15px] font-black text-primary-foreground disabled:opacity-40">{t("routes.berichten.nieuw.bekijk")}</button>
           <p className="text-center text-xs text-ink-soft">{t("routes.berichten.nieuw.nietsVerstuurd")}</p>
         </div>
       </SheetContent>
@@ -272,16 +273,22 @@ function NieuwBericht({ open, voorinvul, onSluit, onStart }) {
 const stijlen = ["Rustiger", "Korter", "Neutraler", "Duidelijker", "Meer kindgericht"];
 /** Stijlen blijven Nederlandse ids voor de schrijfcoach; alleen het label wordt vertaald. */
 const stijlSleutel = { "Rustiger": "rustiger", "Korter": "korter", "Neutraler": "neutraler", "Duidelijker": "duidelijker", "Meer kindgericht": "kindgericht" };
-function Gesprek({ id, concept = "", onTerug, eigen }) {
+function Gesprek({ id, concept = "", onTerug }) {
     const { t } = useTranslation();
-    // Eigen gezin: alleen het eigen onderwerp, geen voorbeeldgesprek of -deelnemers.
-    const gesprek = eigen ? { id, onderwerp: eigen.naam, icoon: "berichten", berichten: [] } : gesprekken.find((g) => g.id === id);
+    const bs = useBerichten();
+    const startSt = useStart();
+    const gesprek = bs.gesprekken.find((g) => g.id === id) ?? { id, onderwerp: t("routes.berichten.onderwerp"), icoon: "berichten", concept: true, kanVersturen: false };
+    /** Versturen kan alleen met een gekoppelde andere ouder; anders blijft dit een concept (voorbereid onderwerp). */
+    const eigen = gesprek.kanVersturen ? null : { naam: gesprek.onderwerp, uitgenodigd: startSt.uitgenodigd, concept: gesprek.concept };
+    // Per feedback: "de andere ouder" in plaats van steeds de naam te herhalen.
+    const ander = t("routes.berichten.voorstel.deAndereOuder");
+    const anderKlein = t("common.deAndereOuder");
     const coach = useServerFn(coachBericht);
     const toonFn = useServerFn(toonBericht);
     const vatSamen = useServerFn(vatGesprekSamen);
     const [samenvatting, setSamenvatting] = useState(null);
     const [vatBezig, setVatBezig] = useState(false);
-    const [berichten, setBerichten] = useState(gesprek.berichten);
+    const berichten = bs.berichten[id] ?? [];
     const [tekst, setTekst] = useState(concept);
     const conceptSleutel = `onzeapp-concept-${id}`;
     const [conceptGeladen, setConceptGeladen] = useState(false);
@@ -324,10 +331,10 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
     const geenAgenda = useRef(geenAgendaGeheugen);
     const geefAkkoord = (b) => {
         const label = vraagLabel(b.tekst, suggestieNamen) ?? b.tekst;
-        const g = vraagGegevens(b.tekst, suggestieNamen, !!eigen);
-        // Joris vroeg het, jij geeft akkoord: dan staat het meteen als afgesproken in de agenda (geen tweede formulier).
+        const g = vraagGegevens(b.tekst, suggestieNamen, true);
+        // De andere ouder vroeg het, jij geeft akkoord: dan staat het meteen als afgesproken in de agenda (geen tweede formulier).
         if (g.datum && g.tijd)
-            voegChatAfspraakToe({ titel: g.titel ?? label, datum: g.datum, tijd: g.tijd, kind: g.kind ?? "Emma & Noah", toelichting: t("routes.berichten.akkoord.toelichting", { tekst: b.tekst }) });
+            voegChatAfspraakToe({ titel: g.titel ?? label, datum: g.datum, tijd: g.tijd, kind: g.kind ?? gezinsStart.kinderen.map((k) => k.naam).join(" & "), toelichting: t("routes.berichten.akkoord.toelichting", { tekst: b.tekst }) });
         else
             geenAgenda.current.add(b.id);
         const nieuw = { ...akkoorden, [b.id]: label };
@@ -337,16 +344,16 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
             verstuur(akkoordTekst);
         setAkkoordVoor(null);
         setAkkoordTekst("");
-        bevestig(g.datum && g.tijd ? t("routes.berichten.akkoord.inAgenda") : t("routes.berichten.akkoord.gegeven"), { uitleg: t("routes.berichten.akkoord.zietDit", { naam: parents.joris.naam }) });
+        bevestig(g.datum && g.tijd ? t("routes.berichten.akkoord.inAgenda") : t("routes.berichten.akkoord.gegeven"), { uitleg: t("routes.berichten.akkoord.zietDit", { naam: ander }) });
     };
     const vkG = useVoorkeuren();
     const gezinsStart = useStart();
-    const suggestieNamen = eigen ? gezinsStart.kinderen.map((k) => k.naam) : ["Emma", "Noah"];
+    const suggestieNamen = gezinsStart.kinderen.map((k) => k.naam);
     // Geen geverifieerde gezinsbron beschikbaar; voorbeeldplanning is geen bewijs van akkoord.
     const bevestigd = false;
     const [alGewaarschuwd, setAlGewaarschuwd] = useState(null);
     const analyse = useRef(null);
-    const contextVoorCoach = berichten.slice(-6).map((b) => ({ van: b.van === "sanne" ? "ik" : "ander", tekst: b.tekst.slice(0, 1200) }));
+    const contextVoorCoach = berichten.slice(-6).map((b) => ({ van: b.van === "ik" ? "ik" : "ander", tekst: b.tekst.slice(0, 1200) }));
     const analyseSleutel = (inhoud) => JSON.stringify([inhoud, contextVoorCoach]);
     const huidigeSleutel = analyseSleutel(tekst);
     const actueleSleutel = useRef(huidigeSleutel);
@@ -370,7 +377,8 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
     } }, [vkG.aiSchrijfhulp]);
     useEffect(() => () => { schrijfNummer.current++; }, []);
     // Pauze bij snel heen-en-weer: kijkt naar het werkelijke patroon van beide kanten (configureerbare regel).
-    const [tikken, setTikken] = useState([]);
+    // Het werkelijke patroon van beide kanten: tijdstippen van de berichten in dit gesprek.
+    const tikken = berichten.filter((b) => !b.mislukt).map((b) => ({ van: b.van, ts: Date.parse(b.at) }));
     const [ruimte, setRuimte] = useState(false);
     const [pauzeTot, setPauzeTot] = useState(null);
     const [nu, setNu] = useState(Date.now());
@@ -428,7 +436,7 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
     const verstuur = (inhoud, negeerRuimte = false) => {
         if (!inhoud.trim() || pauzeTot || eigen)
             return;
-        const nieuw = [...tikken, { van: "sanne", ts: Date.now() }];
+        const nieuw = [...tikken, { van: "ik", ts: Date.now() }];
         const advies = pauzeAdvies(nieuw);
         if (advies === "pauze" && negeerRuimte) {
             setPauzeTot(Date.now() + pauzeRegel.pauzeMs);
@@ -439,18 +447,10 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
             setRuimte(true);
             return;
         }
-        setTikken(nieuw);
         setRuimte(false);
         const beoordelingBijVerzenden = analyseVoor(analyse.current, analyseSleutel(inhoud)) ?? (meter?.sleutel === analyseSleutel(inhoud) ? meter.resultaat : null);
         const nieuwId = `n${berichten.length}-${Date.now()}`;
-        const nieuweBerichten = [...berichten, { id: nieuwId, van: "sanne", tekst: inhoud.trim(), tijd: t("routes.berichten.nu") }];
-        const bronGesprek = gesprekken.find((g) => g.id === id);
-        if (bronGesprek) {
-            bronGesprek.berichten = nieuweBerichten;
-            bronGesprek.laatste = inhoud.trim();
-            bronGesprek.laatsteTijd = t("routes.berichten.nu");
-        }
-        setBerichten(nieuweBerichten);
+        void verstuurBericht(id, inhoud, beoordelingBijVerzenden?.niveau ?? "geen");
         // Pas ná het toevoegen, alleen voor de afzender, alleen bij betrouwbaar rustige/neutrale toon.
         setFijn(meterAan && verdientBevestiging(beoordelingBijVerzenden) ? nieuwId : null);
         schrijfNummer.current++;
@@ -460,11 +460,6 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
         setVoorstel(null);
         setWaarschuwing(null);
         setBeledigingCheck(false);
-    };
-    /** Demo: simuleer een snelle reactie van de andere ouder om het patroon te kunnen testen. */
-    const demoReactie = () => {
-        setTikken((t) => [...t, { van: "joris", ts: Date.now() }]);
-        setBerichten((b) => [...b, { id: `r${b.length}`, van: "joris", tekst: t("routes.berichten.demoReactie"), tijd: t("routes.berichten.nu") }]);
     };
     const probeerVersturen = () => {
         if (!tekst.trim())
@@ -536,10 +531,10 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
         setFout(null);
         setActiesVoor(null);
         const i = berichten.findIndex((x) => x.id === b.id);
-        const zet = (x) => ({ van: x.van === "sanne" ? "ik" : "ander", tekst: x.tekst });
+        const zet = (x) => ({ van: x.van === "ik" ? "ik" : "ander", tekst: x.tekst });
         const context = berichten.slice(Math.max(0, i - 8), i).map(zet);
         // Alleen wat er ná dit bericht kwam tot het volgende bericht van de ander: dat is jouw reactie hierop.
-        const volgendeAnder = berichten.findIndex((x, j) => j > i && x.van !== "sanne");
+        const volgendeAnder = berichten.findIndex((x, j) => j > i && x.van !== "ik");
         const daarna = berichten.slice(i + 1, volgendeAnder === -1 ? i + 9 : Math.min(volgendeAnder, i + 9)).map(zet);
         const gedaan = alGereageerd(daarna);
         try {
@@ -562,10 +557,10 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
         <TerugKnop onClick={onTerug}/>
         <div className="min-w-0 flex-1">
           <h1 className="lora text-[26px] leading-tight">{gesprek.onderwerp}</h1>
-          <p className="text-xs text-ink-soft">{eigen ? t("routes.berichten.gesprek.conceptNietGekoppeld") : t("routes.berichten.gesprek.deelnemers")}</p>
+          <p className="text-xs text-ink-soft">{eigen ? (eigen.concept ? t("routes.berichten.gesprek.conceptNietGekoppeld") : t("routes.berichten.gesprek.nietMeerGekoppeld")) : t("routes.berichten.gesprek.jullieTweeen")}</p>
         </div>
         {eigen ? null : <GesprekOpties id={gesprek.id} onderwerp={gesprek.onderwerp} onSamenvatten={vkG.aiSchrijfhulp && berichten.length ? async () => { setVatBezig(true); setFout(null); try {
-        setSamenvatting(await vatSamen({ data: { berichten: berichten.map((b) => ({ van: b.van === "sanne" ? "Ik" : "Andere ouder", tekst: b.tekst })) } }));
+        setSamenvatting(await vatSamen({ data: { gesprekId: id } }));
     }
     catch (e) {
         setFout(e instanceof Error ? e.message : t("routes.berichten.foutAlgemeen"));
@@ -580,21 +575,23 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
           <p className="mt-1 whitespace-pre-line text-ink">{samenvatting}</p>
         </div>) : vatBezig ? <p className="mt-3 text-center text-xs text-ink-soft">{t("routes.berichten.samenvatting.bezig")}</p> : null}
 
-      {berichten.length ? <p className="mt-4 text-center"><span className="rounded-full bg-white/60 px-2.5 py-1 text-[11.5px] font-extrabold text-ink-soft">{t("common.vandaag")}</span></p> : null}
-      <div className="mt-3 space-y-3">
-        {berichten.map((b) => {
-            const vanMij = b.van === "sanne";
+      <div className="mt-4 space-y-3">
+        {berichten.map((b, i) => {
+            const dag = dagLabel(b.at);
+            const nieuweDag = i === 0 || dag !== dagLabel(berichten[i - 1].at);
+            const vanMij = b.van === "ik";
             const vraag = !vanMij && !akkoorden[b.id] ? vraagLabel(b.tekst, suggestieNamen) : null;
-            const laatsteVanAnder = b.id === berichten.filter((x) => x.van !== "sanne").at(-1)?.id;
+            const laatsteVanAnder = b.id === berichten.filter((x) => x.van !== "ik").at(-1)?.id;
             return (<div key={b.id}>
+              {nieuweDag ? <p className="mb-3 mt-1 text-center"><span className="rounded-full bg-white/60 px-2.5 py-1 text-[11.5px] font-extrabold text-ink-soft">{dag}</span></p> : null}
               <div className={`flex ${vanMij ? "justify-end" : "justify-start"}`}>
                 <div className="min-w-0 max-w-[80%] break-words">
-                  <button type="button" onClick={() => setActiesVoor(actiesVoor === b.id ? null : b.id)} aria-expanded={actiesVoor === b.id} aria-label={vanMij ? t("routes.berichten.bericht.vanJouLabel") : t("routes.berichten.bericht.vanAnderLabel", { naam: parents.joris.naam })} className={`block w-full rounded-[20px] px-4 py-2.5 text-left text-[15px] leading-snug ${vanMij ? "rounded-br-md bg-brand text-primary-foreground" : "rounded-bl-md border border-white/95 bg-white/90 text-ink"}`}>{b.tekst}</button>
+                  <button type="button" onClick={() => setActiesVoor(actiesVoor === b.id ? null : b.id)} aria-expanded={actiesVoor === b.id} aria-label={vanMij ? t("routes.berichten.bericht.vanJouLabel") : t("routes.berichten.bericht.vanAnderLabel", { naam: anderKlein })} className={`block w-full rounded-[20px] px-4 py-2.5 text-left text-[15px] leading-snug ${vanMij ? "rounded-br-md bg-brand text-primary-foreground" : "rounded-bl-md border border-white/95 bg-white/90 text-ink"}`}>{b.tekst}</button>
                   {vraag ? (<button type="button" onClick={() => setAkkoordVoor(b)} className="mt-1.5 flex w-full items-center gap-2.5 rounded-[16px] border border-[#C9D6C3] bg-[#E9EFE3] px-3 py-2 text-left">
                       <AppIcon functie="agenda" maat="sm" vorm="kaal"/>
                       <span className="min-w-0"><span className="block text-[13.5px] font-black text-[#2F4A3A]">{vraag}</span><span className="block text-xs text-ink-soft">{t("routes.berichten.bericht.inAgendaVraag")}</span></span>
                     </button>) : null}
-                  <p className={`mt-1 text-[11.5px] text-ink-soft ${vanMij ? "text-right" : ""}`}>{vanMij ? t("routes.berichten.bericht.verstuurd", { tijd: b.tijd }) : `${parents.joris.naam} · ${b.tijd}`}</p>
+                  <p className={`mt-1 text-[11.5px] text-ink-soft ${vanMij ? "text-right" : ""}`}>{vanMij ? (b.mislukt ? <>{t("routes.berichten.bericht.nietVerstuurd")} · <button type="button" onClick={() => void probeerOpnieuw(id, b)} className="font-semibold text-brand">{t("routes.berichten.opnieuw")}</button></> : b.wacht ? t("routes.berichten.bericht.versturen") : t("routes.berichten.bericht.verstuurd", { tijd: b.tijd })) : `${ander} · ${b.tijd}`}</p>
                   {!vanMij && mogelijkeOnveiligheid(b.tekst) ? <div className="mt-2 text-sm" role="note"><p className="text-ink">{t("routes.berichten.bericht.bedreigend")}</p><details className="mt-1 text-xs"><summary className="min-h-11 cursor-pointer text-brand">{t("routes.berichten.bericht.hulpOpties")}</summary><HulpKaart /></details></div> : !vanMij && mogelijkVerwijt(b.tekst) ? <p className="mt-1 text-xs text-ink-soft">{t("routes.berichten.bericht.rustigTijd")}</p> : null}
                   {actiesVoor === b.id ? (<div className="mt-1.5 overflow-hidden rounded-[16px] bg-white text-sm shadow-[0_8px_24px_rgba(60,50,40,.14)]">
                       {/* Elke keuze opent alleen de bestaande flow met de tekst vooraf ingevuld; de gebruiker vult aan en bevestigt. */}
@@ -615,9 +612,9 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
               {akkoorden[b.id] ? (<div className="mt-2.5 flex justify-center">
                   <div className="flex max-w-[90%] items-center gap-2 rounded-[16px] border border-[#C9D6C3] bg-[#E9EFE3] px-3 py-2">
                     <Check className="size-4 shrink-0 text-[#3F5747]" strokeWidth={2.2}/>
-                    <span><span className="block text-[13.5px] font-black text-[#2F4A3A]">{geenAgenda.current.has(b.id) ? t("routes.berichten.akkoord.jijGaf") : t("routes.berichten.akkoord.jijGafAgenda")}</span><span className="block text-xs text-ink-soft">{t("routes.berichten.akkoord.labelZiet", { label: akkoorden[b.id], naam: parents.joris.naam })}</span>
+                    <span><span className="block text-[13.5px] font-black text-[#2F4A3A]">{geenAgenda.current.has(b.id) ? t("routes.berichten.akkoord.jijGaf") : t("routes.berichten.akkoord.jijGafAgenda")}</span><span className="block text-xs text-ink-soft">{t("routes.berichten.akkoord.labelZiet", { label: akkoorden[b.id], naam: anderKlein })}</span>
                       {geenAgenda.current.has(b.id)
-                        ? <Link to="/agenda" search={{ ...agendaVanBericht(b.tekst, suggestieNamen), ...vraagGegevens(b.tekst, suggestieNamen, !!eigen) }} className="mt-1 inline-block text-xs font-extrabold text-[#3F5747]"><MetChevron>{t("routes.berichten.akkoord.inAgendaPijl")}</MetChevron></Link>
+                        ? <Link to="/agenda" search={{ ...agendaVanBericht(b.tekst, suggestieNamen), ...vraagGegevens(b.tekst, suggestieNamen, true) }} className="mt-1 inline-block text-xs font-extrabold text-[#3F5747]"><MetChevron>{t("routes.berichten.akkoord.inAgendaPijl")}</MetChevron></Link>
                         : <Link to="/agenda" className="mt-1 inline-block text-xs font-extrabold text-[#3F5747]"><MetChevron>{t("routes.berichten.akkoord.bekijkAgenda")}</MetChevron></Link>}</span>
                   </div>
                 </div>) : null}
@@ -639,11 +636,11 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
               <AppIcon functie="agenda" maat="sm" vorm="kaal"/>
               <span className="min-w-0"><span className="block text-[15.5px] font-black">{vraagLabel(akkoordVoor.tekst, suggestieNamen) ?? t("routes.berichten.akkoord.afspraakUitBericht")}</span><span className="block text-xs text-ink-soft">“{akkoordVoor.tekst}”</span></span>
             </div>
-            <p className="mt-3 text-[14.5px]">{t("routes.berichten.akkoord.vroegDit", { naam: parents.joris.naam })}</p>
+            <p className="mt-3 text-[14.5px]">{t("routes.berichten.akkoord.vroegDit", { naam: ander })}</p>
             <textarea value={akkoordTekst} onChange={(e) => setAkkoordTekst(e.target.value)} rows={2} aria-label={t("routes.berichten.akkoord.berichtErbij")} placeholder={t("routes.berichten.akkoord.berichtErbijPlaceholder")} className="mt-2 w-full resize-none rounded-[16px] border border-[#E6DED2] bg-white px-3.5 py-2.5 text-[15px] outline-none"/>
             <button onClick={() => geefAkkoord(akkoordVoor)} className="mt-3 h-12 w-full rounded-full bg-brand text-[15px] font-black text-primary-foreground">{t("routes.berichten.akkoord.gevenEnAgenda")}</button>
             <button onClick={() => { setAkkoordVoor(null); setAkkoordTekst(""); }} className="mt-2 h-12 w-full rounded-full border border-[#E6DED2] bg-white text-[15px] font-black text-[#2F4A3A]">{t("routes.berichten.akkoord.eerstBespreken")}</button>
-            <p className="mt-2 text-center text-xs text-ink-soft">{t("routes.berichten.akkoord.zietInGesprek", { naam: parents.joris.naam })}</p>
+            <p className="mt-2 text-center text-xs text-ink-soft">{t("routes.berichten.akkoord.zietInGesprek", { naam: ander })}</p>
           </> : null}
         </SheetContent>
       </Sheet>
@@ -741,7 +738,7 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
                 </div>
               </div>
             </>) : (<button onClick={() => setVoorstel(null)} className="w-full rounded-md border border-border bg-card py-2.5 text-sm font-semibold">{t("common.sluiten")}</button>)}
-          <p className="text-[11px] text-ink-soft">{t("routes.berichten.voorstel.nietsVanzelf", { wie: eigen ? t("routes.berichten.voorstel.deAndereOuder") : "Joris" })}</p>
+          <p className="text-[11px] text-ink-soft">{t("routes.berichten.voorstel.nietsVanzelf", { wie: ander })}</p>
         </div>) : null}
 
 
@@ -766,7 +763,7 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
       <div className="relative mt-4 rounded-[26px] bg-white p-1.5 shadow-[0_6px_18px_rgba(60,50,40,.10)]">
         {fijn ? <FijnGecommuniceerd key={fijn}/> : null}
         <div className="flex items-end gap-2">
-          {vkG.aiSchrijfhulp ? <EvenMeedenken alsKnop gesprekId={id} eigen={!!eigen} huidigConcept={tekst} onOvernemen={(t) => { schrijfNummer.current++; setBezig(false); setVoorstel(null); setWaarschuwing(null); setBeledigingCheck(false); setTekst(t); }}/> : null}
+          {vkG.aiSchrijfhulp ? <EvenMeedenken alsKnop gesprekId={id} berichten={berichten} huidigConcept={tekst} onOvernemen={(t) => { schrijfNummer.current++; setBezig(false); setVoorstel(null); setWaarschuwing(null); setBeledigingCheck(false); setTekst(t); }}/> : null}
           <textarea aria-label={t("routes.berichten.schrijfLabel")} value={tekst} onChange={(e) => { schrijfNummer.current++; setBezig(false); setVoorstel(null); setWaarschuwing(null); setBeledigingCheck(false); setTekst(e.target.value); }} rows={Math.min(6, Math.max(1, tekst.split("\n").length + Math.floor(tekst.length / 34)))} placeholder={t("routes.berichten.schrijfPlaceholder")} className="min-h-10 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-2 text-[15px] leading-snug outline-none placeholder:text-ink-soft/70"/>
           {eigen ? null : <button type="button" disabled={!tekst.trim() || !!pauzeTot} onClick={probeerVersturen} aria-label={t("common.versturen")} className="grid size-10 shrink-0 place-items-center rounded-full bg-brand text-primary-foreground disabled:opacity-40"><SendHorizontal className="size-[18px]" strokeWidth={2}/></button>}
         </div>
@@ -792,18 +789,19 @@ function Gesprek({ id, concept = "", onTerug, eigen }) {
       </div>
       {eigen ? (<div className="mt-3 rounded-md border border-border bg-card p-3 text-sm">
           <p className="text-ink-soft">{t("routes.berichten.eigen.conceptApparaat")}</p>
-          {!eigen.uitgenodigd ? <Link to="/solo" onClick={() => eigenStart.markeer({ uitgenodigd: true })} className="mt-2 inline-flex min-h-[44px] items-center font-semibold text-brand"><MetChevron>{t("routes.berichten.uitnodigenPijl")}</MetChevron></Link> : null}
-        </div>) : import.meta.env.DEV ? <button onClick={demoReactie} className="mt-3 text-[11px] text-ink-soft underline">{t("routes.berichten.demoKnop")}</button> : null}
+          {!eigen.uitgenodigd ? <Link to="/solo" className="mt-2 inline-flex min-h-[44px] items-center font-semibold text-brand"><MetChevron>{t("routes.berichten.uitnodigenPijl")}</MetChevron></Link> : null}
+        </div>) : null}
     </AppShell>);
 }
 /** Compact venster voor de bestaande rustmodus; geen omweg via Instellingen. */
 /** Vastzetten en meldingen dempen: in het gesprek zelf, zodat het overzicht rustig blijft. */
 function GesprekOpties({ id, onderwerp, onSamenvatten }) {
     const { t } = useTranslation();
-    const vk = useVoorkeuren();
+    const { gesprekken } = useBerichten();
+    const g = gesprekken.find((x) => x.id === id);
     const [open, setOpen] = useState(false);
-    const vast = vk.vastgezet.includes(id);
-    const stil = isGedempt(vk, id);
+    const vast = !!g?.vastgezet;
+    const stil = isGedempt(g);
     return (<div className="relative ml-auto">
       <button onClick={() => setOpen(!open)} aria-label={t("routes.berichten.opties.label", { onderwerp })} aria-expanded={open} className="grid size-10 place-items-center rounded-full text-ink-soft">
         <MoreHorizontal className="size-5" strokeWidth={1.8}/>

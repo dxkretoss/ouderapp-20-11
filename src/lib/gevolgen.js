@@ -1,4 +1,5 @@
-import { afspraken } from "@/lib/demo-data";
+/** Geen voorbeeldafspraken meer: de gevolgencheck kijkt alleen naar vaste routines (agenda-koppeling volgt later). */
+const afspraken = [];
 import { useSlimmeHulp } from "@/lib/slimme-hulp";
 import { kindNamen } from "@/lib/zorg-store";
 import i18n, { tLijst } from "@/i18n";

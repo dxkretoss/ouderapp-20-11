@@ -17,7 +17,7 @@ function uitVoorstel(v, i) {
     const basis = { naar: v.naar, volgorde: v.verzonden ? Date.parse(v.verzonden) || 1e12 - i : 1e12 - i, tijd: v.verzonden && !Number.isNaN(Date.parse(v.verzonden)) ? tijdTekst(v.verzonden) : "" };
     if (v.aanJou && isOpen(v)) {
         return { ...basis, id: `act-${v.sleutel}`, categorie: "regelen", icoon: "samen", verzoek: true,
-            titel: v.titel.replace(/^(Budget|Vakantie|Uitgave): /, ""), uitleg: `${bronTerm(v.bron)} · ${v.omschrijving}` };
+            titel: v.kortTitel ?? v.titel, uitleg: `${bronTerm(v.bron)} · ${v.omschrijving}` };
     }
     if (v.status === "akkoord" || v.status === "afgerond") {
         return { ...basis, id: `act-${v.sleutel}-klaar`, categorie: "info", icoon: "akkoord", verzoek: false,
@@ -26,11 +26,12 @@ function uitVoorstel(v, i) {
     return null;
 }
 const termAudit = (soort) => i18n.t(`${NS}.audit.${soort}`);
+const NAAR = { afspraak: "/agenda", schema: "/zorgregeling", besluit: "/beslissingen", kosten: "/kosten", taak: "/taken", spul: "/spullen", spullen: "/spullen", overdracht: "/overdracht", document: "/documenten", vakantie: "/agenda" };
 function uitAudit(e) {
-    if (e.soort === "dossier" || e.actie === "EXPORTED")
+    if (e.soort === "dossier" || e.actie === "EXPORTED" || !i18n.exists(`${NS}.audit.${e.soort}`))
         return null;
     const term = termAudit(e.soort);
-    const naar = e.soort === "afspraak" ? "/agenda" : e.soort === "schema" ? "/zorgregeling" : e.soort === "besluit" ? "/afspraken" : e.soort === "kosten" ? "/kosten" : "/taken";
+    const naar = NAAR[e.soort] ?? "/";
     const details = [
         { label: i18n.t(`${NS}.detail.wat`), waarde: e.itemNaam },
         ...(e.meta["datum"] ? [{ label: i18n.t(`${NS}.detail.datum`), waarde: e.meta["datum"] }] : []),
@@ -56,11 +57,22 @@ function uitAudit(e) {
         return { ...basis, categorie: "gewijzigd", icoon: "info", titel: i18n.t(e.actie === "DECLINED" ? `${NS}.titel.nietAkkoord` : `${NS}.titel.ingetrokken`, { term }), uitleg: `${e.actorNaam} · ${e.itemNaam}` };
     return null;
 }
-function uitMomentje(m, i, ik) {
+function uitMomentje(m, i, ik, anderNaam) {
     if (m.prive || m.van === ik)
         return null;
-    return { id: `act-moment-${m.id}`, categorie: "info", icoon: "momentjes", verzoek: false, volgorde: 1e9 - i, tijd: m.wanneer.split(" · ")[0] ?? "",
-        titel: i18n.t(`${NS}.momentGedeeld`), uitleg: m.tekst.replace(/\p{Extended_Pictographic}/gu, "").trim(), naar: "/momentjes", ...(m.van === "joris" ? { door: "Joris" } : {}) };
+    const moment = m.aangemaakt ? Date.parse(m.aangemaakt) : NaN;
+    return { id: `act-moment-${m.id}`, categorie: "info", icoon: "momentjes", verzoek: false, volgorde: Number.isNaN(moment) ? 1e9 - i : moment, tijd: Number.isNaN(moment) ? m.wanneer.split(" · ")[0] ?? "" : tijdTekst(m.aangemaakt),
+        titel: i18n.t(`${NS}.momentGedeeld`), uitleg: m.tekst.replace(/\p{Extended_Pictographic}/gu, "").trim(), naar: "/momentjes", ...(anderNaam ? { door: anderNaam } : {}) };
+}
+const ICOON_MELDING = { task: "taken", agreement: "afspraak", decision: "beslissing", moment: "momentjes", document: "documenten", belonging: "doos", cost: "kosten", budget: "kosten", care: "zorgregeling", vacation: "agenda", attendance: "agenda", proposal: "samen" };
+/** Servermelding (de andere ouder deed iets) → activiteit. Tekst uit lib.meldingen.<key>; parameters zijn korte, niet-gevoelige waarden. */
+function uitMelding(n) {
+    const params = { ...(n.params ?? {}), naam: n.actor_name || i18n.t("common.deAndereOuder") };
+    if (!i18n.exists(`lib.meldingen.${n.key}.titel`))
+        return null;
+    return { id: `act-notif-${n.id}`, categorie: n.category === "wijziging" ? "gewijzigd" : "info", icoon: ICOON_MELDING[n.type] ?? "melding", verzoek: false,
+        volgorde: Date.parse(n.created_at), tijd: tijdTekst(n.created_at), naar: n.link || "/activiteiten", door: params.naam,
+        titel: i18n.t(`lib.meldingen.${n.key}.titel`, params), uitleg: i18n.t(`lib.meldingen.${n.key}.uitleg`, params) };
 }
 /** Bundel informatieve gebeurtenissen van hetzelfde type (nooit verzoeken of wijzigingen). */
 export function bundel(lijst) {
@@ -86,11 +98,18 @@ export function bundel(lijst) {
     }
     return uit;
 }
+/**
+ * Bronnen: { ik (profiel-id), voorstellen, audit, momentjes, meldingen?, anderNaam? }. Een servermelding die bij een
+ * auditevent hoort (audit_id) vervangt dat event, zodat dezelfde handeling niet twee keer verschijnt.
+ */
 export function verzamelActiviteiten(b) {
+    const meldingen = b.meldingen ?? [];
+    const metMelding = new Set(meldingen.map((n) => n.audit_id).filter(Boolean));
     const ruw = [
         ...b.voorstellen.map(uitVoorstel),
-        ...b.audit.filter((e) => e.actorId !== b.ik).map(uitAudit),
-        ...b.momentjes.map((m, i) => uitMomentje(m, i, b.ik)),
+        ...b.audit.filter((e) => e.actorId !== b.ik && !metMelding.has(e.eventId)).map(uitAudit),
+        ...b.momentjes.map((m, i) => uitMomentje(m, i, b.ik, b.anderNaam)),
+        ...meldingen.map(uitMelding),
     ].filter((x) => x !== null);
     const uniek = [...new Map(ruw.map((a) => [a.id, a])).values()];
     return bundel(uniek);

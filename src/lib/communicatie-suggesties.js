@@ -69,7 +69,7 @@ export function vindCommunicatieSuggestie(concept, berichten, namen, opties) {
     const laatste = recent.at(-1), vorige = recent.at(-2);
     if (!laatste || afgerond.test(laatste.tekst))
         return null;
-    const taak = laatste.van !== "sanne" ? herkenTaakVerzoek(laatste.tekst) : null;
+    const taak = laatste.van !== "sanne" && laatste.van !== "ik" ? herkenTaakVerzoek(laatste.tekst) : null;
     if (taak && !opties.verborgen.includes("taak"))
         return { soort: "taak", sleutel, get tekst() { return i18n.t("lib.communicatieSuggesties.praktischVerzoek"); }, bronnen: [laatste.id], taak };
     const a = vorige ? herkenPraktisch(vorige.tekst, namen) : null;

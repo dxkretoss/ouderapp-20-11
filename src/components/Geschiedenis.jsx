@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { History } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { eventKop, momentTekst, useAudit } from "@/lib/audit-store";
-/** Klein klokje bij een item; opent een alleen-lezen tijdlijn voor dat ene item. */
+import { eventKop, momentTekst, useAudit, verversAudit } from "@/lib/audit-store";
+/** Klein klokje bij een item; opent een alleen-lezen tijdlijn voor dat ene item, gelezen uit de server-audit (log-audit list). */
 export function GeschiedenisKnop({ soort, itemId, naam }) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const alle = useAudit();
     const regels = alle.filter((g) => g.soort === soort && g.itemId === itemId).slice().sort((a, b) => b.moment.localeCompare(a.moment));
     return (<>
-      <button onClick={(e) => { e.stopPropagation(); setOpen(true); }} aria-label={t("components.Geschiedenis.bekijken")} title={t("components.Geschiedenis.bekijken")} className="inline-grid size-10 shrink-0 place-items-center rounded-full text-ink-soft hover:text-ink">
+      <button onClick={(e) => { e.stopPropagation(); verversAudit(); setOpen(true); }} aria-label={t("components.Geschiedenis.bekijken")} title={t("components.Geschiedenis.bekijken")} className="inline-grid size-10 shrink-0 place-items-center rounded-full text-ink-soft hover:text-ink">
         <History className="size-3.5" strokeWidth={1.6}/>
       </button>
       {open ? (<div className="app-modal-achter z-50" onClick={() => setOpen(false)}>

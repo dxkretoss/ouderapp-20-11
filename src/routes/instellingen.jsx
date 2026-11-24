@@ -11,7 +11,7 @@ import { AfmeldenRij } from "@/components/Afmelden";
 import { ProfielBeeld } from "@/components/ProfielBeeld";
 import { start, useStart } from "@/lib/start-store";
 import { useAbonnement } from "@/lib/abonnement";
-import { parents } from "@/lib/demo-data";
+import { useAuth } from "@/lib/auth-store";
 import { setCheckinAan, toonVoorbeeld, useCheckin } from "@/lib/checkin-store";
 import { regioLabel, regioUitleg, useRegio, zetRegio } from "@/lib/schoolvakanties";
 import { useTranslation } from "react-i18next";
@@ -75,8 +75,8 @@ function Instellingen() {
             setSlotMelding(t("routes.instellingen.slot.mislukt"));
         }
     };
-    const s = parents.sanne;
     const st = useStart();
+    const email = useAuth().gebruiker?.email ?? "";
     const checkin = useCheckin();
     // Samen/alleen is het profielveld usage_mode (via start-store, optimistisch).
     const gebruik = st.gebruik === "zelf" || st.gebruik === "alleen" ? "alleen" : "samen";
@@ -90,19 +90,18 @@ function Instellingen() {
         <h1 className="lora min-w-0 flex-1 text-[32px] leading-tight">{t("routes.instellingen.meta.titel")}</h1>
       </div>
 
+      {/* Profielsamenvatting: alleen jijzelf. Gekoppelde ouders en de kring staan onder Verbonden personen. */}
       <section className={`${GLAS} mt-4 flex items-center gap-3.5 p-4`}>
-        {st.eigen
-            ? <span className="shrink-0 rounded-full border-[3px] border-white"><ProfielBeeld beeld={st.beeld} naam={st.naam} maat={54}/></span>
-            : <img src={s.avatar} alt={s.naam} className="size-[60px] shrink-0 rounded-full border-[3px] border-white object-cover"/>}
+        <span className="shrink-0 rounded-full border-[3px] border-white"><ProfielBeeld beeld={st.beeld} naam={st.naam} maat={54}/></span>
         <div className="min-w-0">
-          <p className="truncate text-[18px] font-black">{st.eigen ? st.naam : s.volledigeNaam}</p>
-          <p className="text-[13px] text-ink-soft">{st.eigen ? (st.coOuders?.length ? t("routes.instellingen.ouderGekoppeld", { naam: st.coOuders.map((c) => c.name).join(", ") }) : st.uitgenodigd ? t("routes.instellingen.ouderUitgenodigd") : t("routes.instellingen.ouderNietGekoppeld")) : t("routes.instellingen.ouderGekoppeld", { naam: parents.joris.volledigeNaam })}</p>
-          {st.eigen ? null : <span className="mt-1 inline-block rounded-full bg-[#E9EFE3] px-2 py-0.5 text-[11px] font-bold text-[#3F5747]">{t("routes.instellingen.voorbeeldgezin")}</span>}
+          <p className="truncate text-[18px] font-black">{st.naam}</p>
+          {email ? <p className="truncate text-[13px] text-ink-soft">{email}</p> : null}
         </div>
       </section>
 
       <Groep titel={t("routes.instellingen.groep.gezin")}>
         <Rij to="/kinderen" icoon="kinderen" titel={t("routes.instellingen.gezinBeheren.titel")} uitleg={t("routes.instellingen.gezinBeheren.uitleg")}/>
+        <Rij to="/verbonden-personen" icoon="link" titel={t("routes.instellingen.verbonden.titel")} uitleg={st.coOuders?.length ? t("routes.instellingen.verbonden.gekoppeld") : st.uitgenodigd ? t("routes.instellingen.verbonden.uitgenodigd") : t("routes.instellingen.verbonden.uitleg")}/>
         <Rij to="/gezag" icoon="juridisch" titel={t("routes.instellingen.gezag.titel")} uitleg={t("routes.instellingen.gezag.uitleg")}/>
         <Uitklap icoon="samen" titel={t("routes.instellingen.gebruik.titel")} waarde={gebruik === "samen" ? t("routes.instellingen.gebruik.samen") : t("routes.instellingen.gebruik.alleen")}>
           <Keuze waarde={gebruik} onKies={setGebruik} opties={[

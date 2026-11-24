@@ -14,8 +14,9 @@ const knop = "flex w-full items-center justify-center gap-2 rounded-md bg-brand 
 /**
  * De andere ouder uitnodigen (send-invitation) en de stand tonen: gekoppelde ouder (list-connected)
  * en verstuurde uitnodigingen (list-sent), met intrekken. Alles via start-store, dat de server spiegelt.
+ * `zonderGekoppeld`: de gekoppelde ouders niet tonen (Verbonden personen toont ze zelf, met ontkoppelen).
  */
-export function AndereOuderUitnodigen() {
+export function AndereOuderUitnodigen({ zonderGekoppeld = false } = {}) {
     const { t } = useTranslation();
     const st = useStart();
     const [open, setOpen] = useState(false);
@@ -60,7 +61,7 @@ export function AndereOuderUitnodigen() {
         catch { /* geen klembord */ }
     };
     return (<div className="mt-3 space-y-3">
-      {st.coOuders.map((c) => (<div key={c.id} className="flex items-center gap-3 rounded-md bg-card px-3 py-2.5">
+      {(zonderGekoppeld ? [] : st.coOuders).map((c) => (<div key={c.id} className="flex items-center gap-3 rounded-md bg-card px-3 py-2.5">
           <ProfielBeeld beeld={c.avatar ?? undefined} naam={c.name} maat={36}/>
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5 text-sm font-semibold"><UserCheck className="size-4 text-brand" strokeWidth={1.8} aria-hidden="true"/>{t(N + "gekoppeld", { naam: c.name })}</p>

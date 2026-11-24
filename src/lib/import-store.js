@@ -1,12 +1,7 @@
 import { useSyncExternalStore } from "react";
-import { vandaag, zetAfspraken } from "./afspraken-store";
-import i18n from "@/i18n";
-/** Bevestigde import gaat rechtstreeks in de ene afsprakenbron, met het document als herkomst. */
-export const voegGeimporteerdToe = (a) => {
-    const d = vandaag();
-    zetAfspraken((l) => [{ id: a.id, titel: a.titel, tekst: a.tekst, onderwerp: "Overig", kind: "Emma & Noah", status: "Actief", geldtVanaf: d,
-            bron: { soort: "document", label: `${a.document}: ${a.bron}`, document: true }, versies: [], geschiedenis: [{ datum: d, tekst: i18n.t("lib.importStore.overgenomenUit", { document: a.document }) }] }, ...l]);
-};
+import { importeerAfspraken } from "./afspraken-store";
+/** Bevestigde import gaat via de server rechtstreeks in de ene afsprakenbron, met het document als herkomst. */
+export const voegGeimporteerdToe = (a) => importeerAfspraken([{ titel: a.titel, tekst: a.tekst, onderwerp: "Overig", bron: a.bron }], a.document);
 /** Aantal herkende onderdelen dat nog op een keuze wacht — afgeleid uit de importflow, gedeeld met Home. */
 let teControleren = 0;
 const ls = new Set();

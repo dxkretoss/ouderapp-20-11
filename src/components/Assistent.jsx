@@ -6,7 +6,8 @@ import { useServerFn } from "@/lib/server-fn";
 import { Mic, Search, Square, Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { vraagAssistent, zetSpraakOm } from "@/lib/assistent.functions";
-import { afspraken, documenten, kinderen } from "@/lib/demo-data";
+import { gezinState } from "@/lib/gezin";
+import { startState } from "@/lib/start-store";
 import { afsprakenState } from "@/lib/afspraken-store";
 import { vakantieLijst } from "@/lib/vakantie-store";
 import { kringState, regelStatus } from "@/lib/kring-store";
@@ -46,15 +47,16 @@ const lijst = (sleutel) => { const v = i18n.t(sleutel, { returnObjects: true });
 /** Bouwt de context alleen uit gegevens die de ingelogde ouder in de app zelf ook ziet (geen notities van professionals of privénotities). */
 function bouwContext(regio, pagina) {
     const k = kringState();
+    const g = gezinState();
+    const agenda = Array.isArray(startState().agenda) ? startState().agenda : [];
     return [
         pagina ? `De ouder stelt de vraag vanaf de pagina "${pagina}"; gebruik dat als context bij onduidelijke vragen.` : "",
-        "Vandaag: donderdag 12 maart 2026. Ingelogde ouder: Sanne (de andere ouder heet in de app 'de andere ouder').",
-        `Kinderen: ${kinderen.map((c) => `${c.naam} (id ${c.id})`).join(", ")}.`,
-        "Agenda:", ...afspraken.map((a) => `- ${a.titel} · ${a.datumLabel} · ${a.tijd} · ${a.kind} · ${a.locatie}${a.categorie === "wissel" ? " (wisselmoment)" : ""}`),
+        `Ingelogde ouder: ${g.ik?.naam || "onbekend"} (de andere ouder heet in de app 'de andere ouder').`,
+        `Kinderen: ${g.kinderen.map((c) => `${c.naam} (id ${c.id})`).join(", ") || "nog niet ingevuld"}.`,
+        "Agenda:", ...agenda.slice(0, 40).map((a) => `- ${a.titel ?? ""} · ${a.datum ?? ""} · ${a.tijd ?? ""}`),
         "Halen/brengen:", ...k.momenten.map((m) => `- ${m.titel} ${m.dag} ${m.tijd} (${m.plek}) voor ${m.kindIds.join(" & ")}: ${regelStatus(m.id)?.tekst ?? "nog niemand gekoppeld"}`),
         `Schoolvakanties (${regioLabel[regio]}):`, ...vakantiesVoor(regio).map((v) => `- ${v.naam}: ${v.van} t/m ${v.tot}`),
         "Vakantieverdeling:", ...vakantieLijst().map((v) => `- ${v.naam} (${v.periode}): ${v.ouder} · ${v.status}`),
-        "Documenten (Menu → Documenten):", ...documenten.map((d) => `- ${d.naam} · ${d.categorie} · ${d.kind}`),
     ].join("\n");
 }
 /** Knoplabel per intent (id's uit het intent-register); onbekende intent → "Openen". */
@@ -145,7 +147,7 @@ export function Assistent({ pagina } = {}) {
             case "afspraak_wijzigen": return router.navigate({ to: "/agenda" });
             case "afspraak_maken": return router.navigate({ to: "/afspraken", search: { nieuw: "voorstel", bron: "assistent" } });
             case "document_zoeken": return router.navigate({ to: "/documenten" });
-            case "kring_toevoegen": return router.navigate({ to: "/kring/$kindId", params: { kindId: a.kind || "emma" }, search: { toevoegen: true, ...(a.rol ? { rol: a.rol } : {}) } });
+            case "kring_toevoegen": return router.navigate({ to: "/kring/$kindId", params: { kindId: a.kind || gezinState().kinderen[0]?.id || "" }, search: { toevoegen: true, ...(a.rol ? { rol: a.rol } : {}) } });
             case "vakantie": return router.navigate({ to: "/planning", search: { toevoegen: "vakantie" } });
             case "taak_toevoegen": return router.navigate({ to: "/taken" });
             case "momentje": return router.navigate({ to: "/momentjes" });

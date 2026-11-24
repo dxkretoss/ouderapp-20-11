@@ -542,6 +542,17 @@ const handlers = {
         },
     },
 };
+/**
+ * Uitbreidingen per domein (Phase 2): elk bestand in ./mock/ exporteert `maak(hulp)` en geeft
+ * `{ "<functie>": { "<actie>": (db, body, token) => antwoord } }` terug. Ze krijgen de hulpfuncties
+ * mee (geen import terug naar dit bestand → geen kringverwijzing). Hun tabellen staan in dezelfde db.
+ */
+const hulp = { Fout, ok, uuid, nu, gebruikerVoor, toegang, kindUit, kindIdsVoor, koppelingen };
+for (const mod of Object.values(import.meta.glob("./mock/*.js", { eager: true }))) {
+    const extra = typeof mod.maak === "function" ? mod.maak(hulp) : {};
+    for (const [functie, acties] of Object.entries(extra))
+        handlers[functie] = { ...(handlers[functie] ?? {}), ...acties };
+}
 /** Zelfde vorm als een echte aanroep: { status, data }. */
 export async function roepAan(functie, body, token) {
     await new Promise((r) => setTimeout(r, 120));
@@ -551,7 +562,7 @@ export async function roepAan(functie, body, token) {
     try {
         if (!h)
             throw new Fout(400, "VALIDATION", `unknown ${functie}/${actie}`);
-        const res = h(db, body ?? {}, token);
+        const res = await h(db, body ?? {}, token);
         bewaar(db);
         return JSON.parse(JSON.stringify(res));
     }

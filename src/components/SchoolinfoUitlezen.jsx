@@ -56,7 +56,7 @@ export function SchoolinfoUitlezen() {
                     return null;
                 return (<li key={k} className="py-2.5">
               <p className="text-sm font-semibold">{it.titel}</p>
-              <p className="text-xs text-ink-soft">{nl(it.datum)}{it.tijd ? ` · ${uur(it.tijd)}` : ""}{it.kind ? ` · ${it.kind.charAt(0).toUpperCase()}${it.kind.slice(1)}` : ""}{!it.zeker ? t("components.SchoolinfoUitlezen.controleren") : ""}</p>
+              <p className="text-xs text-ink-soft">{nl(it.datum)}{it.tijd ? ` · ${uur(it.tijd)}` : ""}{it.kindNaam ? ` · ${it.kindNaam}` : ""}{!it.zeker ? t("components.SchoolinfoUitlezen.controleren") : ""}</p>
               <fieldset className="mt-2 space-y-1 text-sm"><legend className="text-xs font-semibold">{t("components.SchoolinfoUitlezen.meenemen")}</legend>
                 <p className="py-2">{t("components.SchoolinfoUitlezen.afspraakInAgenda")}</p>
                 {["kosten", "taak", "voorbereiding"].map((soort) => {
