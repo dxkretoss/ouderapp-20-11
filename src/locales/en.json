@@ -4515,7 +4515,14 @@
       "beheren": "Manage",
       "kindToevoegen": "Add child",
       "familieToevoegen": "Add a family member or someone involved",
-      "leeftijdSchool": "{{leeftijd}} years old · {{school}}"
+      "leeftijdSchool": "{{leeftijd}} years old · {{school}}",
+      "kinderenKop": "Children",
+      "profielAanvullen": "Complete the profile",
+      "leegTitel": "No child added yet",
+      "leegTekst": "Add your child. Planning, agreements and practical information will then fall into place automatically.",
+      "betrokkenenKop": "Family and people involved",
+      "betrokkenenLeeg": "Grandparents, a babysitter or another regular carer? Add them and choose per child what they can see.",
+      "alleVerbonden": "All connected people"
     },
     "momentjes": {
       "meta": {
@@ -5884,7 +5891,8 @@
         "berichten": "Messages",
         "kosten": "Costs",
         "menu": "Menu"
-      }
+      },
+      "navLabel": "Main menu"
     },
     "NuAfstemmen": {
       "kop": "Coordinate now · {{kinderen}}",
@@ -6363,7 +6371,11 @@
         "delen": "Share",
         "bewaren": "Save",
         "delenMetPlus": "Share with {{naam}} + {{n}}",
-        "delenMet": "Share with {{naam}}"
+        "delenMet": "Share with {{naam}}",
+        "andereOuder": "The other parent",
+        "nietGekoppeld": "No other parent is connected yet, so this moment stays with you (or the circle you choose).",
+        "uitnodigen": "Invite the other parent",
+        "delenKring": "Share with the circle"
       }
     },
     "Afmelden": {
@@ -6458,6 +6470,10 @@
       "sinds": "Linked since {{datum}}",
       "eerstKind": "Add a child first; then you can invite the other parent.",
       "nogEen": "Invite someone else"
+    },
+    "TelefoonInvoer": {
+      "ongeldig": "This number isn’t valid for the selected country.",
+      "ongeldigVoorbeeld": "This number isn’t valid for the selected country. Example: {{voorbeeld}}"
     }
   },
   "lib": {

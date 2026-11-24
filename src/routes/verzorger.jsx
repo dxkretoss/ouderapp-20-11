@@ -10,6 +10,8 @@ import { DeelMomentje, MomentjeKaart } from "@/components/Momentjes";
 import { bekijkAls, bevestig, geenRechten, isActief, laadKring, mag, mijnKringen, persoonLabel, rolNaam, toggleMee, useKring, } from "@/lib/kring-store";
 import { useTranslation } from "react-i18next";
 import i18n, { taalLocale } from "@/i18n";
+import { InhoudLaden } from "@/components/Laden";
+import { toonTelefoon } from "@/components/TelefoonInvoer";
 import { Chevron, MetVinkje, MetChevron } from "@/components/Tekens";
 const N = "routes.verzorger.";
 export const Route = createFileRoute("/verzorger")({
@@ -90,7 +92,7 @@ function Verzorger() {
 }
 function Laden() {
     const { t } = useTranslation();
-    return <p className="flex items-center gap-2 pt-10 text-sm font-semibold text-ink-soft" role="status"><Loader2 className="size-5 animate-spin" aria-hidden="true"/>{t("common.laden")}</p>;
+    return <InhoudLaden hoogte="min-h-[60dvh]"/>;
 }
 function Kader({ children, nav }) {
     return (<div className="app-canvas min-h-screen w-full font-body text-ink">
@@ -251,7 +253,7 @@ function Noodkaart({ kind }) {
     const { t } = useTranslation();
     const e = kind.nood ?? {};
     const rij = (l, w) => (w ? <div key={l} className="py-2"><p className="text-[11px] uppercase tracking-wide text-ink-soft">{l}</p><p className="whitespace-pre-line text-sm">{w}</p></div> : null);
-    const contacten = (e.contacts ?? []).map((c) => [c.name, c.role === "ouder" ? t(N + "nood.ouder") : i18n.exists(`routes.kinderenKindId.rol.${c.role}`) ? t(`routes.kinderenKindId.rol.${c.role}`).toLowerCase() : rolNaam(c.role), c.phone].filter(Boolean).join(" · ")).join("\n");
+    const contacten = (e.contacts ?? []).map((c) => [c.name, c.role === "ouder" ? t(N + "nood.ouder") : i18n.exists(`routes.kinderenKindId.rol.${c.role}`) ? t(`routes.kinderenKindId.rol.${c.role}`).toLowerCase() : rolNaam(c.role), c.phone ? toonTelefoon(c.phone) : ""].filter(Boolean).join(" · ")).join("\n");
     const geboren = e.date_of_birth ? new Date(`${e.date_of_birth}T12:00:00`).toLocaleDateString(taalLocale(), { day: "numeric", month: "long", year: "numeric" }) : null;
     return (<section className="mt-7">
       <h2 className={`${kop} flex items-center gap-1.5`}><ShieldPlus className="size-3.5" strokeWidth={1.6}/>{t(N + "nood.titel", { naam: kind.naam })}</h2>

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { DeelMomentje, MomentjeKaart } from "@/components/Momentjes";
 import { useMomentjes } from "@/lib/momentjes-store";
 import { AppIcon } from "@/components/AppIcon";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Pencil, Plus } from "lucide-react";
 import { Chevron, Kruis, MetChevron } from "@/components/Tekens";
 import { useStart, leeftijdTekst, kindKleuren } from "@/lib/start-store";
 import { useGezin } from "@/lib/gezin";
@@ -18,6 +18,9 @@ import { bevestig } from "@/lib/feedback";
 import { MedischGezag } from "@/components/MedischGezag";
 import { BeeldKiezer, ProfielBeeld } from "@/components/ProfielBeeld";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { vandaagIso } from "@/lib/datum-vandaag";
+import { InhoudLaden } from "@/components/Laden";
+import { TelefoonInvoer, telLink, toonTelefoon } from "@/components/TelefoonInvoer";
 import { bewaarKind, bewaarNotitie, useKindProfiel, zetKindBeeld } from "@/lib/kindprofiel-store";
 const N = "routes.kinderenKindId.";
 export const Route = createFileRoute("/kinderen/$kindId")({
@@ -60,12 +63,14 @@ function KindProfielWrap() {
     if (!kind)
         return (<AppShell>
         <div className="flex items-center gap-3"><BackButton terug="/kinderen"/><h1 className="lora min-w-0 flex-1 text-[32px] leading-tight">{i18n.t(N + "allesOver", { naam: k.naam })}</h1></div>
-        <p className="mt-6 flex items-center gap-2 text-sm text-ink-soft" role="status"><Loader2 className="size-4 animate-spin" aria-hidden="true"/>{i18n.t("common.laden")}</p>
+        <InhoudLaden />
       </AppShell>);
     return <KindProfiel kort={k} kind={kind} notitie={notitie}/>;
 }
 const GLAS = "rounded-[22px] border border-white/85 bg-white/60";
-const veld = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal";
+const veld = "mt-1.5 w-full rounded-xl border border-[#E3DACD] bg-white/85 px-3.5 py-2.5 text-[15px] font-normal text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15";
+const knopOpslaan = "flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-brand px-5 text-sm font-black text-primary-foreground shadow-[0_4px_12px_rgba(63,87,71,.2)] active:scale-[.99] disabled:opacity-50";
+const knopAnnuleer = "flex h-11 flex-1 items-center justify-center rounded-full border border-[#E3DACD] bg-white/70 px-5 text-sm font-bold text-ink active:scale-[.99]";
 const obj = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
 const lijst = (v) => (Array.isArray(v) ? v : []);
 const schoon = (v) => (typeof v === "string" ? v.trim() : v ?? "");
@@ -87,32 +92,53 @@ function Formulier({ velden, begin, onBewaar, onAnnuleer, extra, voet }) {
     const { t } = useTranslation();
     const [w, setW] = useState(begin);
     const [bezig, setBezig] = useState(false);
-    return (<form className="space-y-3 border-t border-border pt-3" onSubmit={async (e) => { e.preventDefault(); setBezig(true); const ok = await onBewaar(w); setBezig(false); if (ok)
+    return (<form className="space-y-3.5 border-t border-[#E9E1D5] pt-4" onSubmit={async (e) => { e.preventDefault();
+        // Een ongeldig telefoonnummer (of ander ongeldig veld) eerst laten verbeteren.
+        const fout = e.currentTarget.querySelector("[aria-invalid=\"true\"]");
+        if (fout) {
+            fout.focus();
+            fout.blur();
+            fout.focus();
+            return;
+        }
+        setBezig(true); const ok = await onBewaar(w); setBezig(false); if (ok)
         onAnnuleer(); }}>
-      {velden.map((v) => (<label key={v.id} className="block text-xs font-semibold">{v.label}
+      {velden.map((v) => (<label key={v.id} className="block text-[13px] font-bold text-ink">{v.label}
           {v.type === "lang" ? <textarea aria-label={v.label} rows={2} value={w[v.id] ?? ""} onChange={(e) => setW((x) => ({ ...x, [v.id]: e.target.value }))} className={veld}/>
-            : <input aria-label={v.label} type={v.type === "datum" ? "date" : "text"} required={v.verplicht} value={w[v.id] ?? ""} onChange={(e) => setW((x) => ({ ...x, [v.id]: e.target.value }))} className={veld}/>}
+            : <input aria-label={v.label} type={v.type === "datum" ? "date" : "text"} max={v.type === "datum" ? v.max : undefined} required={v.verplicht} value={w[v.id] ?? ""} onChange={(e) => { const w2 = v.max && e.target.value > v.max ? v.max : e.target.value; setW((x) => ({ ...x, [v.id]: w2 })); }} className={veld}/>}
         </label>))}
       {extra ? extra(w, setW) : null}
       {voet ? <p className="text-xs text-ink-soft">{voet}</p> : null}
-      <div className="flex flex-wrap gap-2"><Button type="submit" disabled={bezig} className="min-h-11 bg-brand text-primary-foreground shadow-none">{bezig ? <Loader2 className="size-4 animate-spin" aria-hidden="true"/> : null}{t("common.opslaan")}</Button><Button type="button" variant="ghost" onClick={onAnnuleer}>{t("common.annuleren")}</Button></div>
+      <div className="flex gap-2 pt-1">
+        <button type="button" onClick={onAnnuleer} className={knopAnnuleer}>{t("common.annuleren")}</button>
+        <button type="submit" disabled={bezig} className={knopOpslaan}>{bezig ? <Loader2 className="size-4 animate-spin" aria-hidden="true"/> : null}{t("common.opslaan")}</button>
+      </div>
     </form>);
+}
+/** Knop onderaan een opengeklapte sectie: "Bewerken" (al gevuld) of "Toevoegen" (nog leeg), over de volle breedte. */
+function SectieKnop({ gevuld, onClick }) {
+    const { t } = useTranslation();
+    return (<button type="button" onClick={onClick} className={`mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-sm font-extrabold text-[#3F5747] transition active:scale-[.99] ${gevuld ? "border border-[#E3DACD] bg-white/70 hover:bg-white" : "border-2 border-dashed border-[#CBD8C6] hover:bg-white/50"}`}>
+      {gevuld ? <Pencil aria-hidden="true" strokeWidth={2} className="size-4"/> : <Plus aria-hidden="true" strokeWidth={2.2} className="size-4"/>}
+      {gevuld ? t("common.bewerken") : t("common.toevoegen")}
+    </button>);
 }
 /** Lijst bewerken (contacten, leerkrachten, activiteiten): items toevoegen en weghalen binnen het formulier. */
 function LijstVelden({ titel, items, velden, onChange, toevoegenTekst }) {
     const { t } = useTranslation();
     const zetItem = (i, p) => onChange(items.map((x, j) => (j === i ? { ...x, ...p } : x)));
     return (<fieldset className="space-y-2">
-      <legend className="text-xs font-semibold">{titel}</legend>
-      {items.map((it, i) => (<div key={it.id ?? i} className="relative space-y-2 rounded-md bg-white/60 px-3 py-2 pr-11">
+      <legend className="mb-1 text-[13px] font-bold text-ink">{titel}</legend>
+      {items.map((it, i) => (<div key={it.id ?? i} className="relative space-y-2.5 rounded-2xl border border-[#E9E1D5] bg-white/70 px-3.5 py-3 pr-12">
           <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label={t("common.verwijderen")} className="absolute right-1 top-1 grid size-9 place-items-center rounded-full text-ink-soft"><Kruis className="size-4"/></button>
           {velden.map((v) => v.type === "rol" ? (<label key={v.id} className="block text-[11px] font-semibold text-ink-soft">{v.label}
               <select value={it[v.id] ?? "anders"} onChange={(e) => zetItem(i, { [v.id]: e.target.value })} className={veld}>
                 {ROLLEN.map((r) => <option key={r} value={r}>{t(N + `rol.${r}`)}</option>)}
               </select></label>) : v.type === "vink" ? (<label key={v.id} className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" checked={!!it[v.id]} onChange={(e) => zetItem(i, { [v.id]: e.target.checked })} className="size-4 accent-[var(--brand)]"/>{v.label}</label>)
-            : (<label key={v.id} className="block text-[11px] font-semibold text-ink-soft">{v.label}<input type={v.type === "tel" ? "tel" : v.type === "email" ? "email" : "text"} value={it[v.id] ?? ""} onChange={(e) => zetItem(i, { [v.id]: e.target.value })} className={veld}/></label>))}
+            : v.type === "tel" ? (<div key={v.id} className="text-[11px] font-semibold text-ink-soft">{v.label}<TelefoonInvoer value={it[v.id] ?? ""} ariaLabel={v.label} onChange={(nr) => zetItem(i, { [v.id]: nr })}/></div>)
+            : (<label key={v.id} className="block text-[11px] font-semibold text-ink-soft">{v.label}<input type={v.type === "email" ? "email" : "text"} value={it[v.id] ?? ""} onChange={(e) => zetItem(i, { [v.id]: e.target.value })} className={veld}/></label>))}
         </div>))}
-      <button type="button" onClick={() => onChange([...items, { id: nieuwId() }])} className="inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-brand"><Plus aria-hidden="true" className="size-4"/>{toevoegenTekst}</button>
+      <button type="button" onClick={() => onChange([...items, { id: nieuwId() }])} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#CBD8C6] text-sm font-extrabold text-[#3F5747] transition hover:bg-white/50 active:scale-[.99]"><Plus aria-hidden="true" strokeWidth={2.2} className="size-4"/>{toevoegenTekst}</button>
     </fieldset>);
 }
 function KindProfiel({ kort, kind, notitie }) {
@@ -144,7 +170,7 @@ function KindProfiel({ kort, kind, notitie }) {
         { id: "school", icoon: "school", titel: t(N + "groep.school"), samenvatting: [kind.school, school.groep, kind.daycare].filter(Boolean).join(" · "), rijen: [
                 { label: t(N + "groep.schoolLabel"), waarde: kind.school },
                 { label: t(N + "groep.klas"), waarde: school.groep },
-                { label: t(N + "eigen.leerkrachten"), waarde: lijst(school.leerkrachten).map((l) => [l.naam, l.telefoon, l.email].filter(Boolean).join(" · ")).join("\n") },
+                { label: t(N + "eigen.leerkrachten"), waarde: lijst(school.leerkrachten).map((l) => [l.naam, l.telefoon ? toonTelefoon(l.telefoon) : "", l.email].filter(Boolean).join(" · ")).join("\n") },
                 { label: t(N + "groep.opvang"), waarde: kind.daycare },
                 { label: t(N + "eigen.opvangDagen"), waarde: opvang.dagen },
                 { label: t(N + "eigen.opvangContact"), waarde: opvang.contact },
@@ -221,7 +247,7 @@ function KindProfiel({ kort, kind, notitie }) {
                   </div>))}
                 {gevuld.length === 0 && bewerk !== g.id ? <p className="text-sm text-ink-soft">{kan ? t(N + "eigen.leegSectie") : t(N + "eigen.leegSectieLezen")}</p> : null}
                 {g.voet && gevuld.length ? <p className="text-[11px] text-ink-soft">{g.voet}</p> : null}
-                {bewerk === g.id ? g.formulier() : kan ? <Button variant="ghost" className="min-h-11 gap-1.5 text-brand" onClick={() => setBewerk(g.id)}>{gevuld.length ? <AppIcon functie="notitie" maat="sm" vorm="kaal"/> : <Plus aria-hidden="true" className="size-4"/>}{gevuld.length ? t("common.bewerken") : t("common.toevoegen")}</Button> : null}
+                {bewerk === g.id ? g.formulier() : kan ? <SectieKnop gevuld={gevuld.length > 0} onClick={() => setBewerk(g.id)}/> : null}
                 {g.na && bewerk !== g.id ? g.na : null}
               </div>) : null}
           </div>);
@@ -276,10 +302,10 @@ function KindProfiel({ kort, kind, notitie }) {
             {bewerk === "contact" ? <Formulier velden={[]} begin={{ personen }} extra={(w, setW) => <LijstVelden titel={t(N + "eigen.contacten")} items={w.personen} onChange={(l) => setW((x) => ({ ...x, personen: l }))} toevoegenTekst={t(N + "eigen.contactToevoegen")} velden={[{ id: "naam", label: t(N + "naam") }, { id: "rol", label: t(N + "eigen.rolLabel"), type: "rol" }, { id: "telefoon", label: t(N + "eigen.telefoon"), type: "tel" }, { id: "email", label: t(N + "eigen.email"), type: "email" }, { id: "nood", label: t(N + "eigen.noodcontact"), type: "vink" }]}/>} voet={t(N + "eigen.contactenUitleg")} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, { profile: { personen: w.personen.filter((c) => schoon(c.naam)).map((c) => ({ id: c.id ?? nieuwId(), naam: schoon(c.naam), rol: c.rol ?? "anders", telefoon: schoon(c.telefoon), email: schoon(c.email), nood: !!c.nood })) } })}/> : <>
               {personen.map((c) => (<div key={c.id ?? c.naam} className="flex items-center justify-between gap-3 rounded-md bg-white/60 px-3 py-2">
                   <div className="min-w-0"><p className="text-sm font-semibold">{c.naam}</p><p className="text-xs text-ink-soft">{t(N + `rol.${ROLLEN.includes(c.rol) ? c.rol : "anders"}`)}{c.nood ? ` · ${t(N + "eigen.noodcontact")}` : ""}{c.email ? ` · ${c.email}` : ""}</p></div>
-                  {c.telefoon ? <a href={`tel:${c.telefoon.replace(/[^\d+]/g, "")}`} className="flex min-h-11 shrink-0 items-center gap-1.5 text-xs font-semibold text-brand"><AppIcon functie="bellen" maat="sm" vorm="kaal"/>{c.telefoon}</a> : null}
+                  {c.telefoon ? <a href={telLink(c.telefoon)} className="flex min-h-11 shrink-0 items-center gap-1.5 text-xs font-semibold text-brand"><AppIcon functie="bellen" maat="sm" vorm="kaal"/>{toonTelefoon(c.telefoon)}</a> : null}
                 </div>))}
               {!personen.length ? <p className="text-sm text-ink-soft">{kan ? t(N + "eigen.leegSectie") : t(N + "eigen.leegSectieLezen")}</p> : null}
-              {kan ? <Button variant="ghost" className="min-h-11 gap-1.5 text-brand" onClick={() => setBewerk("contact")}>{personen.length ? <AppIcon functie="notitie" maat="sm" vorm="kaal"/> : <Plus aria-hidden="true" className="size-4"/>}{personen.length ? t("common.bewerken") : t("common.toevoegen")}</Button> : null}
+              {kan ? <SectieKnop gevuld={personen.length > 0} onClick={() => setBewerk("contact")}/> : null}
             </>}
           </div>) : null}
       </div>
@@ -326,7 +352,7 @@ function BasisFormulier({ kind, onKlaar }) {
     const { t } = useTranslation();
     return (<Formulier velden={[
             { id: "name", label: t(N + "naam"), verplicht: true }, { id: "last_name", label: t(N + "eigen.achternaam") },
-            { id: "date_of_birth", label: t(N + "eigen.geboortedatum"), type: "datum" }, { id: "description", label: t(N + "korteOmschrijving"), type: "lang" },
+            { id: "date_of_birth", label: t(N + "eigen.geboortedatum"), type: "datum", max: vandaagIso() }, { id: "description", label: t(N + "korteOmschrijving"), type: "lang" },
         ]} begin={{ name: kind.name ?? "", last_name: kind.last_name ?? "", date_of_birth: kind.date_of_birth ?? "", description: kind.description ?? "", color_code: kind.color_code ?? "" }} extra={(w, setW) => (<div>
           <p className="text-xs font-semibold">{t(N + "eigen.kleurVan", { naam: w.name || kind.name })}</p>
           <div className="mt-1 flex gap-2" role="group" aria-label={t(N + "eigen.kleurKiezen", { naam: w.name || kind.name })}>
@@ -357,10 +383,10 @@ function PriveNotitie({ kindId, notitie }) {
         </div>
       </div>
       <textarea aria-label={t(N + "eigen.notitieTitel")} rows={3} value={tekst} onChange={(e) => setTekst(e.target.value)} placeholder={t(N + "eigen.notitiePlaceholder")} className={`${veld} mt-3`}/>
-      {gewijzigd ? <div className="mt-2 flex gap-2">
-        <Button disabled={bezig} onClick={async () => { setBezig(true); const ok = await bewaarNotitie(kindId, tekst); setBezig(false); if (ok)
-            bevestig(t(N + "eigen.notitieOpgeslagen")); }} className="min-h-11 bg-brand text-primary-foreground shadow-none">{t("common.opslaan")}</Button>
-        <Button variant="ghost" onClick={() => setTekst(notitie)}>{t("common.annuleren")}</Button>
+      {gewijzigd ? <div className="mt-3 flex gap-2">
+        <button type="button" onClick={() => setTekst(notitie)} className={knopAnnuleer}>{t("common.annuleren")}</button>
+        <button type="button" disabled={bezig} onClick={async () => { setBezig(true); const ok = await bewaarNotitie(kindId, tekst); setBezig(false); if (ok)
+            bevestig(t(N + "eigen.notitieOpgeslagen")); }} className={knopOpslaan}>{bezig ? <Loader2 className="size-4 animate-spin" aria-hidden="true"/> : null}{t("common.opslaan")}</button>
       </div> : null}
     </section>);
 }

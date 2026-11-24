@@ -34,7 +34,7 @@ export function AuthKader({ terug, terugLabel, midden, children }) {
 /** Formulier dat de hoogte vult: velden boven, knoppen onderaan. */
 export function AuthFormulier({ onSubmit, children, onderaan }) {
     return (<form noValidate className="flex flex-1 flex-col" onSubmit={(e) => { e.preventDefault(); onSubmit?.(); }}>
-      <div className="flex-1 pt-6">{children}</div>
+      <div className="flex-1 pb-8 pt-6">{children}</div>
       <div className="space-y-2.5 pt-4">{onderaan}</div>
     </form>);
 }
@@ -104,10 +104,15 @@ export function WachtwoordEisen({ wachtwoord }) {
         })}
     </ul>);
 }
-/** Volledige laadweergave (sessie controleren). */
+/** Volledige laadweergave (sessie controleren, gezin ophalen, doorsturen): zelfde beeld als het opstartscherm in index.html. */
 export function Laden() {
     const { t } = useTranslation();
-    return (<div className="app-canvas grid min-h-[100dvh] place-items-center font-body text-ink-soft" role="status">
-      <span className="flex items-center gap-2 text-sm font-semibold"><Loader2 className="size-5 animate-spin" aria-hidden="true"/>{t("common.laden")}</span>
+    return (<div className="app-canvas fixed inset-0 grid place-items-center font-body" role="status" aria-live="polite">
+      <div className="flex flex-col items-center gap-[18px] motion-safe:animate-in motion-safe:fade-in">
+        <img src="/favicon.png" alt="" width={64} height={64} className="size-16 rounded-[20px] bg-[#E9EFE3] p-1 shadow-[0_6px_18px_rgba(63,87,71,.2)]"/>
+        <span className="font-display text-xl font-black tracking-tight text-[#2F4A3A] dark:text-ink">{t("common.appNaam")}</span>
+        <span aria-hidden="true" className="size-[26px] animate-spin rounded-full border-[3px] border-[rgba(63,87,71,.18)] border-t-[#4F6B58] motion-reduce:[animation-duration:2.4s]"/>
+        <span className="text-sm font-semibold text-ink-soft">{t("common.laden")}</span>
+      </div>
     </div>);
 }

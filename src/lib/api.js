@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import i18n from "@/i18n";
 import { supabase } from "@/lib/supabase";
 /**
@@ -70,15 +71,36 @@ async function roepAan(functie, body, token) {
     }
     return { status: 0, data: { success: false, code: error.name === "FunctionsFetchError" ? "NETWORK" : "SERVER", message: error.message } };
 }
-export async function api(functie, actie, velden = {}) {
+/**
+ * Lopende server-aanroepen, voor de laadbalk bovenin de app. Achtergrond-verversingen (badge,
+ * peilen van berichten) geven `{ stil: true }` mee en tellen niet mee.
+ */
+let lopend = 0;
+const lopendLuisteraars = new Set();
+const meldLopend = () => lopendLuisteraars.forEach((l) => l());
+export function useLopendeAanroepen() {
+    return useSyncExternalStore((l) => { lopendLuisteraars.add(l); return () => lopendLuisteraars.delete(l); }, () => lopend, () => 0);
+}
+export async function api(functie, actie, velden = {}, opties = {}) {
     const token = leesToken();
     const body = { action: actie, lang: i18n.resolvedLanguage === "en" ? "en" : "nl", ...velden };
+    const tel = !opties.stil;
     let res;
+    if (tel) {
+        lopend++;
+        meldLopend();
+    }
     try {
         res = await roepAan(functie, body, token);
     }
     catch (e) {
         throw new ApiFout("NETWORK", e?.message);
+    }
+    finally {
+        if (tel) {
+            lopend--;
+            meldLopend();
+        }
     }
     const data = res?.data;
     if (data && data.success !== false && res.status < 400)

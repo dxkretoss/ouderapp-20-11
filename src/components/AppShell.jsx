@@ -98,17 +98,20 @@ export function AppShell({ children, breed = false }) {
         {children}
       </div>
 
-      <nav className="fixed bottom-0 left-1/2 z-20 w-full max-w-md -translate-x-1/2 px-3.5" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}>
-        <div className="flex items-center justify-between rounded-[26px] border border-white/85 bg-[rgba(251,248,242,.92)] px-2 py-1.5 shadow-[0_8px_24px_rgba(60,50,40,.12)] backdrop-blur-md">
-          {navItems.map((item) => (<Link key={item.to} to={item.to} onClick={wisTerug} className={`flex flex-col items-center gap-0.5 rounded-[20px] px-3 py-1.5 transition-colors ${isActive(item.to) ? "bg-[#DCE3D3] text-ink" : "text-ink-soft"}`}>
-              <span className="relative">
-                <AppIcon functie={item.icoon} vorm="kaal" maat="lg" actief={isActive(item.to)}/>
-                {item.to === "/berichten" && ongelezen > 0 ? (<span aria-label={t("components.AppShell.ongelezen", { count: ongelezen })} className="absolute -right-2 -top-1 grid min-w-4 place-items-center rounded-full bg-brand px-1 text-[11px] font-bold text-primary-foreground">{ongelezen}</span>) : null}
+      <nav aria-label={t("components.AppShell.navLabel")} className="fixed bottom-0 left-1/2 z-20 w-full max-w-md -translate-x-1/2 px-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}>
+        <div className="grid grid-cols-5 rounded-[28px] border border-white/70 bg-[color-mix(in_oklab,var(--card)_84%,transparent)] px-1.5 pb-2 pt-2 shadow-[0_14px_34px_-12px_rgba(47,74,58,.38),0_2px_8px_rgba(60,50,40,.06)] backdrop-blur-xl backdrop-saturate-150 dark:border-white/10">
+          {navItems.map((item) => {
+            const actief = isActive(item.to);
+            return (<Link key={item.to} to={item.to} onClick={wisTerug} aria-current={actief ? "page" : undefined} className="group flex flex-col items-center gap-1 rounded-2xl py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
+              <span className={`relative grid h-8 w-14 place-items-center rounded-full transition-all duration-300 ease-out ${actief ? "scale-100 bg-[#DCE6D6] dark:bg-[color-mix(in_oklab,var(--brand)_28%,transparent)]" : "scale-95 group-hover:bg-[color-mix(in_oklab,var(--foreground)_5%,transparent)] group-active:scale-90"}`}>
+                <AppIcon functie={item.icoon} vorm="kaal" maat="lg" actief={actief}/>
+                {item.to === "/berichten" && ongelezen > 0 ? (<span aria-label={t("components.AppShell.ongelezen", { count: ongelezen })} className="absolute -right-1 -top-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand px-1 text-[10.5px] font-black leading-none text-primary-foreground ring-2 ring-[var(--card)]">{ongelezen > 9 ? "9+" : ongelezen}</span>) : null}
               </span>
-              <span className={`text-[11px] ${isActive(item.to) ? "font-semibold" : "font-medium"}`}>
+              <span className={`text-[11px] leading-none tracking-[0.01em] transition-colors ${actief ? "font-extrabold text-[#2F4A3A] dark:text-ink" : "font-semibold text-ink-soft"}`}>
                 {t(`components.AppShell.nav.${item.id}`)}
               </span>
-            </Link>))}
+            </Link>);
+        })}
         </div>
       </nav>
     </div>);

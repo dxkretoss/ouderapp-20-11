@@ -138,7 +138,8 @@ export function laadGesprekken() {
     bezig = (async () => {
         try {
             await zetOudeOnderwerpenOver();
-            const r = await api("manage-messages", "list");
+            // Na de eerste lading is verversen achtergrondwerk: geen laadbalk.
+            const r = await api("manage-messages", "list", {}, { stil: state.status === "klaar" });
             const gesprekken = sorteer((r.conversations ?? []).map(gesprekUit));
             zet({ status: "klaar", gesprekken, coOuders: r.co_parents ?? [], ongelezen: telOngelezen(gesprekken), laatsteLading: Date.now(), gebruikerId: mijnId() });
         }
@@ -164,7 +165,7 @@ export function laadBerichten(id) {
         const echt = (huidig ?? []).filter((b) => !b.wacht && !b.mislukt);
         const since = huidig ? echt.at(-1)?.at : undefined;
         try {
-            const r = await api("manage-messages", "messages", { conversation_id: id, ...(since ? { since } : {}) });
+            const r = await api("manage-messages", "messages", { conversation_id: id, ...(since ? { since } : {}) }, { stil: !!since });
             const nieuw = (r.messages ?? []).map(berichtUit);
             const nu = state.berichten[id] ?? [];
             const bekend = new Set(nu.map((b) => b.id));

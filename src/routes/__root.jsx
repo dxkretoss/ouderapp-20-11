@@ -11,7 +11,7 @@ import { SpoedScherm } from "../components/SpoedScherm";
 import { OPENBARE_PADEN } from "@/lib/sessie-store";
 import { useAuth } from "@/lib/auth-store";
 import { useStart } from "@/lib/start-store";
-import { Laden } from "@/components/AuthKader";
+import { AppLaden, Laadbalk } from "@/components/Laden";
 function NotFoundComponent() {
     const { t } = useTranslation();
     return (<div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -145,7 +145,8 @@ function RootComponent() {
     return (<QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Fragment key={taal.resolvedLanguage}>
-        {naarWelkom ? null : laden ? <Laden /> : <Outlet />}
+        <Laadbalk />
+        {naarWelkom || laden ? <AppLaden /> : <Outlet />}
         {sessie === "uit" ? null : <AppSlot />}
         {sessie === "uit" ? null : <SpoedScherm />}
       </Fragment>

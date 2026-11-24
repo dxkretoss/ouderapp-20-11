@@ -107,7 +107,7 @@ function Welkom() {
 
         {stap === "naam" ? (<form className="flex flex-1 flex-col" onSubmit={(e) => { e.preventDefault(); if (naam.trim())
             setStap("foto"); }}>
-            <div className="flex-1 pt-6">
+            <div className="flex-1 pb-8 pt-6">
               <h1 className="lora text-[30px] leading-tight">{t("routes.welkom.fijn")}</h1>
               <label className="mt-6 block text-sm font-semibold text-ink-soft">{t("routes.welkom.naamVraag")}
                 <input autoFocus value={naam} onChange={(e) => setNaam(e.target.value)} placeholder={t("routes.welkom.voornaam")} autoComplete="given-name" enterKeyHint="next" className="mt-2 h-14 w-full rounded-2xl border border-border bg-white/80 px-4 text-base text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"/>
@@ -117,7 +117,7 @@ function Welkom() {
           </form>) : null}
 
         {stap === "foto" ? (<div className="flex flex-1 flex-col">
-            <div className="flex-1 pt-6">
+            <div className="flex-1 pb-8 pt-6">
               <h1 className="lora text-[30px] leading-tight">{g?.name ? t("routes.welkom.foto.titelNaam", { naam: g.name }) : t("routes.welkom.foto.titel")}</h1>
               <p className="mt-2 text-sm text-ink-soft">{t("routes.welkom.foto.uitleg")}</p>
               <div className="mt-6"><BeeldKiezer beeld={beeld} naam={g?.name || naam} onKies={(b) => { if (!b && !beeld)
@@ -129,7 +129,7 @@ function Welkom() {
           </div>) : null}
 
         {stap === "gebruik" ? (<div className="flex flex-1 flex-col">
-            <div className="flex-1 pt-6">
+            <div className="flex-1 pb-8 pt-6">
               <h1 className="lora text-[30px] leading-tight">{t("routes.welkom.gebruik.titel")}</h1>
               <div className="mt-6 space-y-2.5" role="radiogroup">
                 {[["samen", "samen", "samenUitleg"], ["zelf", "zelf", "zelfUitleg"]].map(([id, titel, uitleg]) => (<button key={id} type="button" role="radio" aria-checked={gebruik === id} onClick={() => setGebruik(id)} className={`flex w-full items-start gap-3 rounded-[20px] border p-4 text-left transition ${gebruik === id ? "border-2 border-brand bg-white" : "border-border bg-white/60"}`}>

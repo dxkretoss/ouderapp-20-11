@@ -12,19 +12,32 @@
       href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&family=Nunito:wght@600;700;800;900&family=Lora:ital,wght@1,500&display=swap"
     />
     <script>
+      // Thema vóór de eerste paint (zelfde sleutel als voorkeuren-store), zodat donker niet licht flitst.
       try {
-        const v = localStorage.getItem("ouderapp_voorkeuren");
-        if (v) {
-          const { thema } = JSON.parse(v);
-          if (thema === "donker" || (!thema && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-            document.documentElement.classList.add("dark");
-          }
+        var v = JSON.parse(localStorage.getItem("onzeapp-voorkeuren") || "{}");
+        var t = v.thema || "licht";
+        if (t === "donker" || (t === "automatisch" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.classList.add("dark");
         }
       } catch (e) {}
     </script>
+    <style>
+      /* Opstart (vóór React): dezelfde telefoonkolom + draaier als de app-laadweergave; React vervangt het vanzelf. */
+      body { margin: 0; background: linear-gradient(170deg, #DCE6D2 0%, #F3EDE3 45%, #EADBC7 100%) fixed; }
+      .dark body { background: #1d1b19; }
+      #opstart { min-height: 100dvh; display: grid; place-items: center; max-width: 28rem; margin: 0 auto; }
+      @media (min-width: 30rem) {
+        #opstart { border-inline: 1px solid rgba(47, 74, 58, .16); box-shadow: 0 0 0 100vmax rgba(47, 74, 58, .05); }
+      }
+      #opstart .ring { width: 28px; height: 28px; border-radius: 50%; border: 3px solid rgba(79, 107, 88, .2); border-top-color: #4F6B58; animation: opstart-draai .8s linear infinite; }
+      @keyframes opstart-draai { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { #opstart .ring { animation-duration: 2.4s; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="opstart" role="status" aria-label="Laden / Loading"><span class="ring" aria-hidden="true"></span></div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

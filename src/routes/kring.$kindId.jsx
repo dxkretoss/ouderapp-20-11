@@ -11,6 +11,8 @@ import { BewerkPotlood } from "@/components/ui-kit";
 import { UitnodigingDelen } from "@/components/UitnodigingDelen";
 import { useStart } from "@/lib/start-store";
 import { useGezin } from "@/lib/gezin";
+import { AppIcon } from "@/components/AppIcon";
+import { isGeldigTelefoon, TelefoonInvoer, telLink, toonTelefoon } from "@/components/TelefoonInvoer";
 import { geenRechten, isActief, isOuder, laadKring, maakPersoon, niveau, onderdelen, periodeTekst, persoonLabel, rechtenSamenvatting, rolNaam, rolOpties, toggleNoodVeld, trekIn, kandidatenVoor, contactKandidaten, noodcontacten, useKring, wieNaam, wijzigPersoon, zetNoodkaart, zetWie, } from "@/lib/kring-store";
 /** Eigen kinderen (server-uuid's) uit start-store; de kring hoort altijd bij het eigen gezin. */
 const useKinderen = () => useStart().kinderen.filter((k) => !String(k.id).startsWith("tmp-"));
@@ -35,23 +37,24 @@ export const Route = createFileRoute("/kring/$kindId")({
     notFoundComponent: () => <AppShell><PageHeader titel={i18n.t("routes.kringKindId.kindNietGevonden")} terug="/kinderen"/></AppShell>,
     component: KringPagina,
 });
-const sectieKop = "text-[11px] font-bold uppercase tracking-[0.14em] text-brand";
-const knop = "rounded-md bg-brand px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40";
-const veldK = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-ink";
-const keuze = (aan) => `rounded-md border px-3 py-2 text-sm font-semibold ${aan ? "border-brand bg-brand-soft text-ink" : "border-border text-ink-soft"}`;
+const sectieKop = "px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft";
+const KAART = "rounded-[22px] border border-white/85 bg-white/60";
+const knop = "h-12 rounded-full bg-brand px-5 text-[15px] font-black text-primary-foreground shadow-[0_6px_18px_rgba(63,87,71,.22)] active:scale-[.99] disabled:opacity-40 disabled:shadow-none";
+const veldK = "mt-1.5 w-full rounded-xl border border-[#E3DACD] bg-white/85 px-3.5 py-3 text-[15px] text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15";
+const keuze = (aan) => `min-h-12 rounded-2xl border px-3 py-2.5 text-sm font-bold transition active:scale-[.99] ${aan ? "border-2 border-brand bg-[#E9EFE3] text-[#2F4A3A] shadow-[0_2px_8px_rgba(63,87,71,.12)]" : "border-[#E3DACD] bg-white/75 text-ink hover:bg-white"}`;
 function Rij({ icoon, titel, sub, extra, onClick }) {
     const inhoud = (<>
-      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-soft/70 text-brand">{icoon}</span>
+      <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[#E9EFE3] text-[#3F5747]">{icoon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold">{titel}</span>
-        <span className="block text-xs text-ink-soft">{sub}</span>
+        <span className="block truncate text-[15px] font-extrabold">{titel}</span>
+        <span className="block text-[13px] text-ink-soft">{sub}</span>
         {extra ? <span className="mt-0.5 block text-xs text-ink-soft">{extra}</span> : null}
       </span>
-      {onClick ? <ChevronRight className="size-4 text-ink-soft" strokeWidth={1.6}/> : null}
+      {onClick ? <ChevronRight className="size-4 shrink-0 text-ink-soft" strokeWidth={1.8}/> : null}
     </>);
     return onClick
-        ? <button onClick={onClick} className="flex w-full items-center gap-3 py-3 text-left">{inhoud}</button>
-        : <div className="flex items-center gap-3 py-3">{inhoud}</div>;
+        ? <button onClick={onClick} className="flex min-h-[64px] w-full items-center gap-3.5 py-3 text-left">{inhoud}</button>
+        : <div className="flex min-h-[64px] items-center gap-3.5 py-3">{inhoud}</div>;
 }
 function KringPagina() {
     const { t } = useTranslation();
@@ -81,47 +84,53 @@ function KringPagina() {
     return (<AppShell>
       <PageHeader titel={t("routes.kringKindId.lijst.titel")} subtitel={t("routes.kringKindId.lijst.subtitel", { naam: kind.naam })} terug={`/kinderen/${kindId}`}/>
 
-      <section className="mt-8">
+      <section className="mt-7">
         <h2 className={sectieKop}>{t("routes.kringKindId.lijst.ouders")}</h2>
-        <div className="mt-1 divide-y divide-border border-y border-border">
-          {ouders.map((o) => <Rij key={o.id} icoon={<UserRound className="size-4" strokeWidth={1.6}/>} titel={o.naam || o.label} sub={`${t("routes.kringKindId.lijst.ouder")} · ${o.label}`}/>)}
+        <div className={`${KAART} mt-2 divide-y divide-[#E9E1D5] px-4`}>
+          {ouders.map((o) => <Rij key={o.id} icoon={<UserRound className="size-[18px]" strokeWidth={1.8}/>} titel={o.naam || o.label} sub={`${t("routes.kringKindId.lijst.ouder")} · ${o.label}`}/>)}
         </div>
       </section>
 
       <section className="mt-7">
         <h2 className={sectieKop}>{t("routes.kringKindId.lijst.familie")}</h2>
-        <div className="mt-1 divide-y divide-border border-y border-border">
-          {leden.map((p) => (<Rij key={p.id} icoon={p.foto ? <img src={p.foto} alt="" className="size-9 rounded-full object-cover"/> : <HeartHandshake className="size-4" strokeWidth={1.6}/>} titel={persoonLabel(p)} sub={`${rolNaam(p.rol)}${p.noodcontact ? t("routes.kringKindId.noodcontactAchter") : ""}`} extra={p.uitgenodigd === false ? t("routes.kringKindId.lijst.geenApp") : p.bevestigd === false && !p.ingetrokken ? t("routes.kringKindId.lijst.uitgenodigdNogNiet") : isActief(p) ? (p.periode.type === "doorlopend" ? rechtenSamenvatting(p, kindId) : periodeTekst(p.periode)) : t("routes.kringKindId.lijst.verlopen")} onClick={String(p.id).startsWith("tmp-") ? undefined : () => setScherm({ t: "persoon", id: p.id })}/>))}
-          {leden.length === 0 ? <p className="py-3 text-sm text-ink-soft">{t("routes.kringKindId.lijst.leeg")}</p> : null}
+        <div className={`${KAART} mt-2 divide-y divide-[#E9E1D5] px-4`}>
+          {leden.map((p) => (<Rij key={p.id} icoon={p.foto ? <img src={p.foto} alt="" className="size-10 object-cover"/> : <HeartHandshake className="size-[18px]" strokeWidth={1.8}/>} titel={persoonLabel(p)} sub={`${rolNaam(p.rol)}${p.noodcontact ? t("routes.kringKindId.noodcontactAchter") : ""}`} extra={p.uitgenodigd === false ? t("routes.kringKindId.lijst.geenApp") : p.bevestigd === false && !p.ingetrokken ? t("routes.kringKindId.lijst.uitgenodigdNogNiet") : isActief(p) ? (p.periode.type === "doorlopend" ? rechtenSamenvatting(p, kindId) : periodeTekst(p.periode)) : t("routes.kringKindId.lijst.verlopen")} onClick={String(p.id).startsWith("tmp-") ? undefined : () => setScherm({ t: "persoon", id: p.id })}/>))}
+          {leden.length === 0 ? <p className="py-4 text-sm text-ink-soft">{t("routes.kringKindId.lijst.leeg")}</p> : null}
+          {magBeheren ? (<button type="button" onClick={() => setScherm({ t: "toevoegen" })} className="flex min-h-14 w-full items-center gap-3.5 py-3 text-left">
+              <AppIcon functie="toevoegen" maat="md"/>
+              <span className="flex-1 text-[15px] font-extrabold text-[#3F5747]">{t("routes.kringKindId.lijst.toevoegen")}</span>
+            </button>) : null}
         </div>
+        {noodcontacten(kindId).length ? (<p className="mt-2 px-1 text-xs text-ink-soft">{t("routes.kringKindId.lijst.noodcontact", { namen: noodcontacten(kindId).map((p) => `${persoonLabel(p)}${p.telefoon ? ` (${toonTelefoon(p.telefoon)})` : ""}`).join(", ") })}</p>) : null}
       </section>
 
       <section className="mt-7">
         <h2 className={sectieKop}>{t("routes.kringKindId.lijst.professionals")}</h2>
-        <p className="mt-2 text-[11px] text-ink-soft">{t("routes.kringKindId.lijst.professionalsUitleg")}</p>
+        <div className={`${KAART} mt-2 flex items-start gap-3.5 px-4 py-4`}>
+          <AppIcon functie="professionals" maat="md"/>
+          <p className="text-[13px] leading-relaxed text-ink-soft">{t("routes.kringKindId.lijst.professionalsUitleg")}</p>
+        </div>
       </section>
 
-      {noodcontacten(kindId).length ? (<p className="mt-3 text-xs text-ink-soft">{t("routes.kringKindId.lijst.noodcontact", { namen: noodcontacten(kindId).map((p) => `${persoonLabel(p)}${p.telefoon ? ` (${p.telefoon})` : ""}`).join(", ") })}</p>) : null}
-      {magBeheren ? <button onClick={() => setScherm({ t: "toevoegen" })} className="mt-6 flex w-full items-center justify-center gap-2 rounded-md border border-brand py-3 text-sm font-semibold text-brand">
-        <Plus className="size-4" strokeWidth={1.8}/> {t("routes.kringKindId.lijst.toevoegen")}
-      </button> : null}
-
-      <section className="mt-9">
+      <section className="mt-7">
         <h2 className={sectieKop}>{t("routes.kringKindId.lijst.wieHaalt")}</h2>
-        <p className="mt-1 text-xs text-ink-soft">{t("routes.kringKindId.lijst.wieHaaltUitleg")}</p>
-        <div className="mt-2 divide-y divide-border border-y border-border">
-          {momenten.length === 0 ? <p className="py-3 text-sm text-ink-soft">{t("routes.kringKindId.lijst.geenMomenten")}</p> : null}
+        <p className="mt-1 px-1 text-xs text-ink-soft">{t("routes.kringKindId.lijst.wieHaaltUitleg")}</p>
+        <div className={`${KAART} mt-2 divide-y divide-[#E9E1D5] px-4`}>
+          {momenten.length === 0 ? (<div className="flex items-center gap-3.5 py-4">
+              <AppIcon functie="wissel" maat="md"/>
+              <p className="text-sm text-ink-soft">{t("routes.kringKindId.lijst.geenMomenten")}</p>
+            </div>) : null}
           {momenten.map((m) => {
             const wie = kring.wie[m.id];
             const kandidaten = kandidatenVoor(m);
             const bev = kring.bevestigd[m.id];
-            return (<div key={m.id} className="py-3">
+            return (<div key={m.id} className="py-4">
                 <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-sm font-semibold">{m.dag} · {uur(m.tijd)} · {m.titel}</p>
+                  <p className="text-[15px] font-extrabold">{m.dag} · {uur(m.tijd)} · {m.titel}</p>
                   {bev && wie && !isOuder(wie) ? (<span className="flex items-center gap-1 text-[11px] font-semibold text-brand"><Check className="size-3"/>{bev === "er" ? t("routes.kringKindId.lijst.isEr") : t("routes.kringKindId.lijst.bevestigd")}</span>) : null}
                 </div>
                 <p className="text-xs text-ink-soft">{m.plek}</p>
-                <select value={wie ?? ""} onChange={(e) => zetWie(m.id, e.target.value)} aria-label={t("routes.kringKindId.lijst.wieRegelt", { titel: m.titel })} className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
+                <select value={wie ?? ""} onChange={(e) => zetWie(m.id, e.target.value)} aria-label={t("routes.kringKindId.lijst.wieRegelt", { titel: m.titel })} className="mt-2.5 h-11 w-full rounded-xl border border-[#E3DACD] bg-white/80 px-3 text-sm font-semibold outline-none focus:border-brand">
                   {gezin.ik ? <option value={gezin.ik.id}>{t("common.jij")}</option> : null}
                   {gezin.ander ? <option value={gezin.ander.id}>{t("common.deAndereOuder")}</option> : null}
                   {kandidaten.map((p) => <option key={p.id} value={p.id}>{persoonLabel(p)}</option>)}
@@ -132,18 +141,18 @@ function KringPagina() {
               </div>);
         })}
         </div>
-        <p className="mt-2 text-[11px] text-ink-soft">{t("routes.kringKindId.lijst.alleenMetToegang")}</p>
+        <p className="mt-2 px-1 text-[11px] leading-relaxed text-ink-soft">{t("routes.kringKindId.lijst.alleenMetToegang")}</p>
       </section>
 
-      {magBeheren ? <section className="mt-9">
+      {magBeheren ? <section className="mt-7">
         <h2 className={sectieKop}>{t("routes.kringKindId.lijst.noodkaart")}</h2>
-        <div className="mt-1 border-y border-border">
-          <Rij icoon={<ShieldCheck className="size-4" strokeWidth={1.6}/>} titel={t("routes.kringKindId.lijst.watOpNoodkaart")} sub={t("routes.kringKindId.lijst.onderdelenGedeeld", { count: (kring.noodkaart[kindId] ?? []).length })} onClick={() => setScherm({ t: "nood" })}/>
+        <div className={`${KAART} mt-2 px-4`}>
+          <Rij icoon={<ShieldCheck className="size-[18px]" strokeWidth={1.8}/>} titel={t("routes.kringKindId.lijst.watOpNoodkaart")} sub={t("routes.kringKindId.lijst.onderdelenGedeeld", { count: (kring.noodkaart[kindId] ?? []).length })} onClick={() => setScherm({ t: "nood" })}/>
         </div>
       </section> : null}
 
-      {leden.some((p) => p.uitgenodigd !== false && !p.ingetrokken) ? <Link to="/verzorger" className="mt-8 flex items-center gap-2 text-xs font-semibold text-brand">
-        <Users className="size-4" strokeWidth={1.6}/> {t("routes.kringKindId.lijst.bekijkKring")}
+      {leden.some((p) => p.uitgenodigd !== false && !p.ingetrokken) ? <Link to="/verzorger" className="mt-6 flex min-h-11 items-center justify-center gap-2 text-sm font-extrabold text-[#3F5747]">
+        <Users className="size-4" strokeWidth={1.8}/> <MetChevron>{t("routes.kringKindId.lijst.bekijkKring")}</MetChevron>
       </Link> : null}
     </AppShell>);
 }
@@ -201,10 +210,13 @@ function Toevoegen({ kindId, klaar, beginRol }) {
         return; const r = new FileReader(); r.onload = () => setFoto(String(r.result)); r.readAsDataURL(f); };
     return (<AppShell>
       <PageHeader titel={t("routes.kringKindId.toevoegen.titel", { naam: kind.naam })} subtitel={t("routes.kringKindId.toevoegen.subtitel")} terug={`/kring/${kindId}`}/>
-      <p className="mt-6 text-[11px] font-semibold text-ink-soft">{t("routes.kringKindId.toevoegen.stap", { stap })}</p>
+      <div className="mt-6 flex items-center gap-3" aria-label={t("routes.kringKindId.toevoegen.stap", { stap })}>
+        <div className="flex flex-1 gap-1.5" aria-hidden="true">{[1, 2, 3, 4].map((n) => <span key={n} className={`h-1.5 flex-1 rounded-full transition-colors ${n <= stap ? "bg-brand" : "bg-[#E3DACD]"}`}/>)}</div>
+        <span className="shrink-0 text-xs font-bold text-ink-soft">{t("routes.kringKindId.toevoegen.stap", { stap })}</span>
+      </div>
 
       {stap === 1 ? (<>
-          <h2 className="mt-2 font-display text-xl">{t("routes.kringKindId.toevoegen.wieToevoegen")}</h2>
+          <h2 className="mt-5 font-display text-[22px] font-bold leading-snug">{t("routes.kringKindId.toevoegen.wieToevoegen")}</h2>
           <div className="mt-4 grid grid-cols-2 gap-2">
             {[...rolOpties, "Professional"].map((r) => <button key={r} onClick={() => setRol(r)} className={keuze(rol === r)}>{rolNaam(r)}</button>)}
           </div>
@@ -213,14 +225,14 @@ function Toevoegen({ kindId, klaar, beginRol }) {
         </>) : null}
 
       {stap === 2 ? (<>
-          <h2 className="mt-2 font-display text-xl">{t("routes.kringKindId.toevoegen.wieIsHet")}</h2>
+          <h2 className="mt-5 font-display text-[22px] font-bold leading-snug">{t("routes.kringKindId.toevoegen.wieIsHet")}</h2>
           <label className="mt-4 block text-xs text-ink-soft">{t("routes.kringKindId.toevoegen.naam")}<input value={naam} onChange={(e) => setNaam(e.target.value)} className={veldK}/></label>
           <p className="mt-1 text-[11px] text-ink-soft">{t("routes.kringKindId.toevoegen.relatie", { naam: kind.naam, rol: rolNaam(rolLabel) })}</p>
           <label className="mt-3 flex items-center gap-3 text-xs text-ink-soft">
             {foto ? <img src={foto} alt="" className="size-12 rounded-full object-cover"/> : <span className="grid size-12 place-items-center rounded-full bg-brand-soft text-brand"><UserRound className="size-5" strokeWidth={1.6}/></span>}
             <span>{t("routes.kringKindId.toevoegen.foto")}<input type="file" accept="image/*" onChange={(e) => leesFoto(e.target.files?.[0])} className="mt-1 block text-xs"/></span>
           </label>
-          <label className="mt-3 block text-xs text-ink-soft">{t("routes.kringKindId.toevoegen.telefoon")}<input type="tel" value={telefoon} onChange={(e) => setTelefoon(e.target.value)} className={veldK}/></label>
+          <div className="mt-3 text-xs text-ink-soft">{t("routes.kringKindId.toevoegen.telefoon")}<TelefoonInvoer value={telefoon} ariaLabel={t("routes.kringKindId.toevoegen.telefoon")} onChange={setTelefoon}/></div>
           <label className="mt-3 block text-xs text-ink-soft">{t("routes.kringKindId.toevoegen.email")}<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={veldK}/></label>
           <label className="mt-3 block text-xs text-ink-soft">{t("routes.kringKindId.toevoegen.adres")}<input value={adres} onChange={(e) => setAdres(e.target.value)} className={veldK}/></label>
           <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={nood} onChange={() => setNood(!nood)} className="accent-[var(--brand)]"/> {t("routes.kringKindId.noodcontact")}</label>
@@ -235,15 +247,15 @@ function Toevoegen({ kindId, klaar, beginRol }) {
             <Trans i18nKey="routes.kringKindId.toevoegen.geenToegangUitleg" components={{ b: <span className="font-semibold text-ink"/> }}/>
           </div>
           <div className="mt-4 grid gap-2">
-            <button disabled={!naam.trim() || kids.length === 0 || bezig} onClick={alleenContact} className="rounded-md border border-brand py-3 text-sm font-semibold text-brand disabled:opacity-40">{t("routes.kringKindId.toevoegen.contactOpslaan")}</button>
-            <button disabled={!naam.trim() || kids.length === 0 || !(telefoon.trim() || email.trim())} onClick={() => setStap(3)} className={knop}>{t("routes.kringKindId.uitnodigen")}</button>
+            <button disabled={!naam.trim() || kids.length === 0 || bezig || !isGeldigTelefoon(telefoon)} onClick={alleenContact} className="rounded-md border border-brand py-3 text-sm font-semibold text-brand disabled:opacity-40">{t("routes.kringKindId.toevoegen.contactOpslaan")}</button>
+            <button disabled={!naam.trim() || kids.length === 0 || !(telefoon.trim() || email.trim()) || !isGeldigTelefoon(telefoon)} onClick={() => setStap(3)} className={knop}>{t("routes.kringKindId.uitnodigen")}</button>
             {naam.trim() && !(telefoon.trim() || email.trim()) ? <p className="text-[11px] text-ink-soft">{t("routes.kringKindId.toevoegen.contactNodig")}</p> : null}
             <button onClick={() => setStap(1)} className="py-2 text-sm text-ink-soft">{t("common.terug")}</button>
           </div>
         </>) : null}
 
       {stap === 3 ? (<>
-          <h2 className="mt-2 font-display text-xl">{t("routes.kringKindId.toevoegen.hoeLang", { wie: wieTitel })}</h2>
+          <h2 className="mt-5 font-display text-[22px] font-bold leading-snug">{t("routes.kringKindId.toevoegen.hoeLang", { wie: wieTitel })}</h2>
           <PeriodeKeuze periode={periode} onChange={setPeriode}/>
           {periode.type !== "doorlopend" ? (<div className="mt-6 border-t border-border pt-4">
               <p className="font-display text-lg">{t("routes.kringKindId.toevoegen.tijdelijk")}</p>
@@ -273,11 +285,11 @@ function Toevoegen({ kindId, klaar, beginRol }) {
         </>) : null}
 
       {verstuurd ? (<>
-          <h2 className="mt-2 font-display text-xl">{t("routes.kringKindId.toevoegen.uitnodigingVersturen")}</h2>
+          <h2 className="mt-5 font-display text-[22px] font-bold leading-snug">{t("routes.kringKindId.toevoegen.uitnodigingVersturen")}</h2>
           <UitnodigingDelen p={verstuurd}/>
           <button onClick={klaar} className={`mt-6 w-full ${knop}`}>{t("common.klaar")}</button>
         </>) : stap === 4 ? (<>
-          <h2 className="mt-2 font-display text-xl">{t("routes.kringKindId.toevoegen.watMag", { wie: wieTitel })}</h2>
+          <h2 className="mt-5 font-display text-[22px] font-bold leading-snug">{t("routes.kringKindId.toevoegen.watMag", { wie: wieTitel })}</h2>
           <p className="mt-1 text-xs text-ink-soft">{t("routes.kringKindId.toevoegen.standaardGeen")}</p>
           {rolLabel === "Stiefouder / bonusouder" ? <p className="mt-2 rounded-md bg-brand-soft/60 px-3 py-2 text-xs">{t("routes.kringKindId.toevoegen.bonusouder", { wie: wieTitel })}</p> : null}
           {kids.map((k) => (<RechtenEditor key={k} kindNaam={kindNaam(kinderen, k)} rechten={rechten[k] ?? geenRechten()} onChange={(o, n) => zetRecht(k, o, n)}/>))}
@@ -360,7 +372,7 @@ function PersoonDetail({ p, kindId, terug }) {
         {p.foto ? <img src={p.foto} alt="" className="ml-auto size-14 rounded-full object-cover"/> : null}
       </div>
       <div className="mt-5 divide-y divide-border border-y border-border text-sm">
-        {p.telefoon || (!p.email && p.contact) ? <a href={`tel:${p.telefoon ?? p.contact}`} className="flex justify-between py-2.5"><span className="text-ink-soft">{t("routes.kringKindId.persoon.telefoon")}</span><span>{p.telefoon ?? p.contact}</span></a> : null}
+        {p.telefoon || (!p.email && p.contact) ? <a href={telLink(p.telefoon ?? p.contact)} className="flex justify-between py-2.5"><span className="text-ink-soft">{t("routes.kringKindId.persoon.telefoon")}</span><span>{toonTelefoon(p.telefoon ?? p.contact)}</span></a> : null}
         {p.email ? <a href={`mailto:${p.email}`} className="flex justify-between py-2.5"><span className="text-ink-soft">{t("routes.kringKindId.persoon.email")}</span><span>{p.email}</span></a> : null}
         {p.adres ? <div className="flex justify-between py-2.5"><span className="text-ink-soft">{t("routes.kringKindId.persoon.adres")}</span><span className="text-right">{p.adres}</span></div> : null}
         <button disabled={!magBeheren || p.ingetrokken} onClick={() => wijzigPersoon(p.id, { noodcontact: !p.noodcontact })} className="flex w-full justify-between py-2.5"><span className="text-ink-soft">{t("routes.kringKindId.noodcontact")}</span><span className="font-semibold text-brand">{p.noodcontact ? t("common.ja") : t("common.nee")}</span></button>
@@ -436,18 +448,21 @@ function NoodkaartInstellen({ kindId, terug }) {
           <p className="mt-1 text-sm text-ink-soft">{t("routes.kringKindId.nood.uitleg")}</p>
         </div>
       </div>
-      <div className="mt-6 divide-y divide-border border-y border-border">
-        {noodVelden.map((v) => (<button key={v.id} onClick={() => toggleNoodVeld(kindId, v.id)} className="flex w-full items-center justify-between py-3 text-left text-sm">
-            {v.label}
-            <span className={`relative h-6 w-10 rounded-full ${aan.includes(v.id) ? "bg-brand" : "bg-muted"}`}>
-              <span className={`absolute top-0.5 size-5 rounded-full bg-background transition-all ${aan.includes(v.id) ? "left-[18px]" : "left-0.5"}`}/>
-            </span>
-          </button>))}
+      <div className={`${KAART} mt-6 divide-y divide-[#E9E1D5] px-4`}>
+        {noodVelden.map((v) => {
+            const op = aan.includes(v.id);
+            return (<button key={v.id} type="button" role="switch" aria-checked={op} onClick={() => toggleNoodVeld(kindId, v.id)} className="flex min-h-14 w-full items-center justify-between gap-3 py-3 text-left">
+              <span className="text-[15px] font-bold">{v.label}</span>
+              <span className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-200 ${op ? "border-brand bg-brand" : "border-[#D5CBBC] bg-[#E6DED2]"}`}>
+                <span className={`absolute top-[3px] size-[20px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.25)] transition-all duration-200 ${op ? "left-[23px]" : "left-[3px]"}`}/>
+              </span>
+            </button>);
+        })}
       </div>
       {aan.includes("extra") ? <label className="mt-4 block text-xs text-ink-soft">{t("routes.kringKindId.nood.extraLabel")}
           <textarea rows={2} value={extra} onChange={(e) => setExtra(e.target.value)} onBlur={() => { if (extra !== (kring.noodExtra[kindId] ?? ""))
             zetNoodkaart(kindId, aan, extra.trim()); }} placeholder={t("routes.kringKindId.nood.extraPlaceholder")} className={veldK}/>
         </label> : null}
-      <p className="mt-4 text-[11px] text-ink-soft">{t("routes.kringKindId.nood.alleenMetRecht")}</p>
+      <p className="mt-3 px-1 text-xs leading-relaxed text-ink-soft">{t("routes.kringKindId.nood.alleenMetRecht")}</p>
     </AppShell>);
 }

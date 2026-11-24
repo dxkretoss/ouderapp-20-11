@@ -8,6 +8,7 @@ import { useStart } from "@/lib/start-store";
 import { useGezin } from "@/lib/gezin";
 import { ProfielBeeld } from "@/components/ProfielBeeld";
 import { verkleinFoto } from "@/lib/praktisch-sync";
+import { Link } from "@tanstack/react-router";
 import { momentLabel, mijlpaalLabel, mijlpalen, reacties, reageer, voegMomentjeToe, } from "@/lib/momentjes-store";
 /** Reactie-id (uit momentjes-store) → lucide-icoon. "tekst" = eigen korte reactie, "duim" = lege eigen reactie. */
 const REACTIE_ICOON = { leuk: Heart, lief: HandHeart, trots: PartyPopper, watGoed: ThumbsUp, tekst: MessageCircle, duim: ThumbsUp };
@@ -73,7 +74,9 @@ export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
         return () => { weg = true; };
     }, [alsKring]);
     const kinderen = alsKring ? kringKids : st.kinderen;
-    const anderNaam = g.ander?.naam || t("common.deAndereOuder");
+    const anderNaam = g.ander?.naam || t("components.Momentjes.deel.andereOuder");
+    // Zonder gekoppelde ouder kan een momentje niet met "de andere ouder" gedeeld worden: alleen jij en/of de kring.
+    const metAnder = g.gekoppeld;
     const kindKeuze = kinderen;
     const [kindId, setKindId] = useState(startKind ?? kindKeuze[0]?.id ?? kinderen[0]?.id ?? "");
     const [bezig, setBezig] = useState(false);
@@ -87,7 +90,9 @@ export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
     const [tekst, setTekst] = useState("");
     const [moment, setMoment] = useState("geen");
     const [mijlpaal, setMijlpaal] = useState();
-    const [prive, setPrive] = useState(false);
+    const [priveKeuze, setPrive] = useState(!metAnder);
+    // Zonder gekoppelde ouder en zonder gekozen kringleden blijft het altijd privé.
+    const prive = priveKeuze || (!metAnder && !kringIds.length);
     if (!open)
         return null;
     const deel = async () => {
@@ -105,7 +110,7 @@ export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
         setFoto(undefined);
         setMoment("geen");
         setMijlpaal(undefined);
-        setPrive(false);
+        setPrive(!metAnder);
         setKringIds([]);
         onSluit();
     };
@@ -140,22 +145,29 @@ export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
             <p className="mt-4 text-xs text-ink-soft">{t("components.Momentjes.deel.wieZien")}</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               <button onClick={() => { setPrive(true); setKringIds([]); }} className={chip(prive)}>{t("components.Momentjes.deel.alleenMij")}</button>
-              <button onClick={() => setPrive(false)} className={chip(!prive)}>{anderNaam}</button>
+              {metAnder ? <button onClick={() => setPrive(false)} className={chip(!prive)}>{anderNaam}</button> : null}
               {kringVoorKind.length ? (<button onClick={() => { setPrive(false); setKringIds(kringIds.length === kringVoorKind.length ? [] : kringVoorKind.map((p) => p.id)); }} className={chip(!prive && kringIds.length === kringVoorKind.length)}>
                   {t("components.Momentjes.deel.kringRond", { naam: kinderen.find((k) => k.id === kindId)?.naam })}
                 </button>) : null}
             </div>
-            {!prive && kringVoorKind.length ? (<div className="mt-2 flex flex-wrap gap-1.5">
+            {!metAnder ? (<div className="mt-2.5 flex items-start gap-2.5 rounded-2xl border border-[#E3DACD] bg-white/70 px-3.5 py-3">
+                <AppIcon functie="samen" maat="sm"/>
+                <div className="min-w-0 text-xs leading-relaxed text-ink-soft">
+                  {t("components.Momentjes.deel.nietGekoppeld")}{" "}
+                  <Link to="/verbonden-personen" onClick={onSluit} className="font-extrabold text-[#3F5747] underline-offset-2 hover:underline">{t("components.Momentjes.deel.uitnodigen")}</Link>
+                </div>
+              </div>) : null}
+            {(metAnder ? !prive : true) && kringVoorKind.length ? (<div className="mt-2 flex flex-wrap gap-1.5">
                 {kringVoorKind.map((p) => {
                     const aan = kringIds.includes(p.id);
-                    return (<button key={p.id} onClick={() => setKringIds(aan ? kringIds.filter((x) => x !== p.id) : [...kringIds, p.id])} className={chip(aan)}>
+                    return (<button key={p.id} onClick={() => { setPrive(false); setKringIds(aan ? kringIds.filter((x) => x !== p.id) : [...kringIds, p.id]); }} className={chip(aan)}>
                       <span className="inline-flex items-center gap-1">{aan ? <Vinkje className="size-3.5"/> : null}{persoonLabel(p)}</span>
                     </button>);
                 })}
               </div>) : null}
           </>)}
         <button disabled={(!tekst.trim() && !foto) || !kindId || bezig} onClick={deel} className="mt-4 w-full rounded-md bg-brand py-3 font-semibold text-primary-foreground disabled:opacity-40">
-          {alsKring ? t("components.Momentjes.deel.delen") : prive ? t("components.Momentjes.deel.bewaren") : kringIds.length ? t("components.Momentjes.deel.delenMetPlus", { naam: anderNaam, n: kringIds.length }) : t("components.Momentjes.deel.delenMet", { naam: anderNaam })}
+          {alsKring ? t("components.Momentjes.deel.delen") : prive ? t("components.Momentjes.deel.bewaren") : !metAnder ? t("components.Momentjes.deel.delenKring") : kringIds.length ? t("components.Momentjes.deel.delenMetPlus", { naam: anderNaam, n: kringIds.length }) : t("components.Momentjes.deel.delenMet", { naam: anderNaam })}
         </button>
       </div>
     </div>);

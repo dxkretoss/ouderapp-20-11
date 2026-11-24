@@ -5,6 +5,16 @@ import { requireUser } from "../_shared/session.ts";
 import { assertChildAccess, childIdsFor } from "../_shared/access.ts";
 import { buildChild, buildChildren } from "../_shared/children.ts";
 import { removeFolder, removeStored, uploadImage } from "../_shared/storage.ts";
+
+/** A birth date may not lie in the future (one day of slack for time zones: the server runs in UTC). */
+function birthDate(v: unknown): string | null | undefined {
+  const d = optDate(v, "date_of_birth");
+  if (d) {
+    const tomorrow = new Date(Date.now() + 24 * 3600_000).toISOString().slice(0, 10);
+    if (d > tomorrow) throw err.validation("date_of_birth cannot be in the future");
+  }
+  return d;
+}
 import { isPlainObject, jsonSize, optDate, optText, parseJsonText, reqText, requireUuid } from "../_shared/util.ts";
 
 const AVATAR_PRESET_RE = /^avatar:[A-Za-z0-9_-]{1,40}$/;
@@ -71,7 +81,7 @@ Deno.serve(serveActions("manage-children", {
       // the column defaults to 'gezamenlijk'; custody only exists once a parent filled it in (save-custody)
       custody: null,
     };
-    const dob = optDate(body.date_of_birth, "date_of_birth");
+    const dob = birthDate(body.date_of_birth);
     if (dob !== undefined) row.date_of_birth = dob;
     const color = optColor(body.color_code);
     if (color !== undefined && color !== null) row.color_code = color;
@@ -131,7 +141,7 @@ Deno.serve(serveActions("manage-children", {
       const v = optText(u[field], field, max);
       if (v !== undefined) patch[field] = v;
     }
-    const dob = optDate(u.date_of_birth, "date_of_birth");
+    const dob = birthDate(u.date_of_birth);
     if (dob !== undefined) patch.date_of_birth = dob;
     const color = optColor(u.color_code);
     if (color !== undefined) patch.color_code = color;

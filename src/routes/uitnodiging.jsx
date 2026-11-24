@@ -8,6 +8,7 @@ import { MetChevron } from "@/components/Tekens";
 import { CoOuderUitnodiging } from "@/components/CoOuderUitnodiging";
 import { api, foutTekst } from "@/lib/api";
 import { auth, bewaarUitnodiging, useAuth, wisUitnodiging } from "@/lib/auth-store";
+import { InhoudLaden } from "@/components/Laden";
 import { geenRechten, rechtenSamenvatting, rolNaam } from "@/lib/kring-store";
 export const Route = createFileRoute("/uitnodiging")({
     validateSearch: z.object({ t: z.string().optional(), token: z.string().optional() }),
@@ -88,7 +89,7 @@ function KringUitnodiging({ sleutel }) {
     if (fout)
         return (<Kader><h1 className="lora text-[30px] leading-tight">{t("routes.uitnodiging.ongeldig.titel")}</h1><p className="mt-2 text-sm text-ink-soft">{fout === "NETWORK" || fout === "SERVER" ? foutTekst(fout) : t("routes.uitnodiging.ongeldig.tekst")}</p></Kader>);
     if (!u)
-        return <Kader><p className="flex items-center gap-2 text-sm font-semibold text-ink-soft" role="status"><Loader2 className="size-5 animate-spin" aria-hidden="true"/>{t("common.laden")}</p></Kader>;
+        return <Kader><InhoudLaden hoogte="min-h-[60dvh]"/></Kader>;
     const kids = u.children ?? [];
     // Alleen voor de samenvatting: wat er na bevestigen zichtbaar wordt (de server beslist).
     const p = { uitgenodigd: true, bevestigd: true, ingetrokken: false, periode: { type: "doorlopend" }, rechten: Object.fromEntries(kids.map((k) => [k.id, { ...geenRechten(), ...(u.permissions?.[k.id] ?? {}) }])) };

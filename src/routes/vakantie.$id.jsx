@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { useVakanties, vakantieLijst, vakantiesGeladen, stelVerdelingVoor, accepteerVakantie, trekVakantieIn, wijsVakantieAf, vraagMeerTijdVakantie } from "@/lib/vakantie-store";
+import { InhoudLaden } from "@/components/Laden";
 import { Chevron } from "@/components/Tekens";
 export const Route = createFileRoute("/vakantie/$id")({
     // De lijst komt van de server; bij een directe link is die er misschien nog niet — de pagina wacht daar zelf op.
@@ -42,7 +43,7 @@ function VakantiePagina() {
     const [wijzig, setWijzig] = useState(false);
     useBevestigPopup(melding);
     if (!v)
-        return vakantiesGeladen() ? <NietGevonden /> : <AppShell><p className="mt-6 text-sm text-ink-soft">{t("common.laden")}</p></AppShell>;
+        return vakantiesGeladen() ? <NietGevonden /> : <AppShell><InhoudLaden hoogte="min-h-[70dvh]"/></AppShell>;
     const status = v.status === "ingetrokken" ? t("routes.vakantieId.status.ingetrokken") : v.status === "afgesproken" ? t("routes.vakantieId.status.afgesproken") : v.status === "voorstel" ? (v.van === "Sanne" ? t("routes.vakantieId.status.verstuurd") : t("routes.vakantieId.status.vanAnder")) : t("routes.vakantieId.nietGeregeld");
     return (<AppShell>
       <PageHeader titel={v.naam} subtitel={v.periode} terug="/planning"/>

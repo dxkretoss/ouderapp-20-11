@@ -32,6 +32,8 @@ import { kindLabel } from "@/components/KostenTabs";
 import { meeLijst, useTaken } from "@/lib/taken-store";
 import { categorieMeta } from "@/lib/demo-data";
 import { mijnKringen, toggleMee, useKring } from "@/lib/kring-store";
+import { useAuth } from "@/lib/auth-store";
+import { PaginaSkelet } from "@/components/Laden";
 export const Route = createFileRoute("/")({
     head: () => ({
         meta: [
@@ -49,27 +51,36 @@ export const Route = createFileRoute("/")({
     component: HomePagina,
 });
 /** Eén Home. Bij een eigen gezin vallen voorbeeldbronnen weg en groeien de onderdelen mee met wat echt bekend is. */
+/** Uitkomst van de kringcontrole per account, zodat Home niet bij elk bezoek opnieuw wacht. */
+let verzorgerCache = { id: null, waarde: undefined };
 function HomePagina() {
     const st = useStart();
     const nav = useNavigate();
+    const mijnId = useAuth().gebruiker?.id ?? null;
     // Alleen kringlid (geen eigen kinderen, geen gekoppelde ouder) met actieve kringtoegang: meteen naar de kringweergave.
     const misschienVerzorger = !st.kinderen.length && !st.coOuders?.length;
-    const [verzorger, setVerzorger] = useState(misschienVerzorger ? undefined : false);
+    const bekend = verzorgerCache.id === mijnId ? verzorgerCache.waarde : undefined;
+    const [verzorger, setVerzorger] = useState(misschienVerzorger ? bekend : false);
     useEffect(() => {
         if (!misschienVerzorger) {
             setVerzorger(false);
             return;
         }
+        if (verzorgerCache.id === mijnId && verzorgerCache.waarde !== undefined) {
+            setVerzorger(verzorgerCache.waarde);
+            return;
+        }
         let weg = false;
-        mijnKringen().then((v) => { if (!weg)
-            setVerzorger(v.length > 0); }).catch(() => { if (!weg)
-            setVerzorger(false); });
+        const klaar = (w) => { verzorgerCache = { id: mijnId, waarde: w }; if (!weg)
+            setVerzorger(w); };
+        mijnKringen().then((v) => klaar(v.length > 0)).catch(() => klaar(false));
         return () => { weg = true; };
-    }, [misschienVerzorger]);
+    }, [misschienVerzorger, mijnId]);
     useEffect(() => { if (verzorger)
         nav({ to: "/verzorger", replace: true }); }, [verzorger, nav]);
+    // Nog aan het controleren (of onderweg naar de kringweergave): app-skelet met onderbalk, nooit een leeg scherm.
     if (verzorger !== false)
-        return null;
+        return <AppShell><PaginaSkelet /></AppShell>;
     return <Dashboard />;
 }
 const toevoegOpties = [

@@ -4515,7 +4515,14 @@
       "beheren": "Beheren",
       "kindToevoegen": "Kind toevoegen",
       "familieToevoegen": "Familielid of betrokkene toevoegen",
-      "leeftijdSchool": "{{leeftijd}} jaar · {{school}}"
+      "leeftijdSchool": "{{leeftijd}} jaar · {{school}}",
+      "kinderenKop": "Kinderen",
+      "profielAanvullen": "Profiel aanvullen",
+      "leegTitel": "Nog geen kind toegevoegd",
+      "leegTekst": "Voeg je kind toe. Daarna komen planning, afspraken en praktische informatie vanzelf op de juiste plek.",
+      "betrokkenenKop": "Familie en betrokkenen",
+      "betrokkenenLeeg": "Opa, oma, oppas of een andere vaste verzorger? Voeg ze toe en kies per kind wat ze mogen zien.",
+      "alleVerbonden": "Alle verbonden personen"
     },
     "momentjes": {
       "meta": {
@@ -5884,7 +5891,8 @@
         "berichten": "Berichten",
         "kosten": "Kosten",
         "menu": "Menu"
-      }
+      },
+      "navLabel": "Hoofdmenu"
     },
     "NuAfstemmen": {
       "kop": "Nu afstemmen · {{kinderen}}",
@@ -6363,7 +6371,11 @@
         "delen": "Delen",
         "bewaren": "Bewaren",
         "delenMetPlus": "Delen met {{naam}} + {{n}}",
-        "delenMet": "Delen met {{naam}}"
+        "delenMet": "Delen met {{naam}}",
+        "andereOuder": "De andere ouder",
+        "nietGekoppeld": "Er is nog geen andere ouder gekoppeld, dus dit momentje blijft voor jou (of de kring die je kiest).",
+        "uitnodigen": "De andere ouder uitnodigen",
+        "delenKring": "Delen met de kring"
       }
     },
     "Afmelden": {
@@ -6458,6 +6470,10 @@
       "sinds": "Gekoppeld sinds {{datum}}",
       "eerstKind": "Voeg eerst een kind toe; daarna kun je de andere ouder uitnodigen.",
       "nogEen": "Nog iemand uitnodigen"
+    },
+    "TelefoonInvoer": {
+      "ongeldig": "Dit nummer klopt niet voor het gekozen land.",
+      "ongeldigVoorbeeld": "Dit nummer klopt niet voor het gekozen land. Voorbeeld: {{voorbeeld}}"
     }
   },
   "lib": {

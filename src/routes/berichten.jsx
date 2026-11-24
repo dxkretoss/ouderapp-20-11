@@ -33,6 +33,7 @@ import { CommunicatieSuggestie } from "@/components/CommunicatieSuggestie";
 import { voegChatAfspraakToe } from "@/lib/chat-afspraken";
 import { agendaVanBericht, herkenPraktisch, mogelijkeOnveiligheid, mogelijkVerwijt } from "@/lib/communicatie-suggesties";
 import { Trans, useTranslation } from "react-i18next";
+import { InhoudLaden } from "@/components/Laden";
 import i18n from "@/i18n";
 export const Route = createFileRoute("/berichten")({
     validateSearch: z.object({ concept: z.string().optional(), gesprek: z.string().optional() }),
@@ -146,7 +147,7 @@ function BerichtenPagina() {
               <AppIcon functie="berichten" maat="sm"/>
               <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{o.onderwerp}</p><p className="truncate text-xs text-ink-soft">{t("routes.berichten.voorbereid")}</p></div>
             </button>))}
-          {verbonden && bs.status === "laden" && !lijst.length ? <p className="py-6 text-center text-sm text-ink-soft">{t("common.laden")}</p> : null}
+          {verbonden && bs.status === "laden" && !lijst.length ? <InhoudLaden hoogte="min-h-[45dvh]"/> : null}
           {verbonden && bs.status !== "laden" && !zoekActief && !lijst.length && !voorbereid.length ? (<section className="rounded-lg border border-border bg-card p-4">
               <p className="font-display text-lg font-bold">{t("routes.berichten.leeg.titel")}</p>
               <p className="mt-1 text-sm text-ink-soft">{t("routes.berichten.leeg.tekst")}</p>

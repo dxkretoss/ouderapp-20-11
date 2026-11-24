@@ -143,6 +143,8 @@ const ouderAantal = (db, kid, zonder) => { const c = db.children.find((x) => x.i
 const AVATAR = /^avatar:[A-Za-z0-9_-]{1,40}$/;
 const KLEUR = /^#[0-9a-fA-F]{6}$/;
 const DATUM = /^\d{4}-\d{2}-\d{2}$/;
+// Zoals manage-children: een geboortedatum mag niet in de toekomst liggen (1 dag speling voor tijdzones).
+const toekomst = (d) => d > new Date(Date.now() + 864e5).toISOString().slice(0, 10);
 const isObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 const SECTIES = ["basis", "personen", "school", "gezondheid", "praktisch"];
 const TEKSTVELDEN = ["last_name", "description", "school", "daycare", "doctor", "medical_notes", "allergies", "dietary_notes", "clothes_size", "shoe_size"];
@@ -307,7 +309,7 @@ const handlers = {
             const p = gebruikerVoor(db, token);
             if (typeof b.name !== "string" || !b.name.trim())
                 throw new Fout(400, "VALIDATION", "name");
-            if (b.date_of_birth && !DATUM.test(b.date_of_birth))
+            if (b.date_of_birth && (!DATUM.test(b.date_of_birth) || toekomst(b.date_of_birth)))
                 throw new Fout(400, "VALIDATION", "date_of_birth");
             if (b.color_code && !KLEUR.test(b.color_code))
                 throw new Fout(400, "VALIDATION", "color_code");
@@ -340,7 +342,7 @@ const handlers = {
                     patch[k] = u[k]?.trim() || null;
                 }
             if (u.date_of_birth !== undefined) {
-                if (u.date_of_birth && !DATUM.test(u.date_of_birth))
+                if (u.date_of_birth && (!DATUM.test(u.date_of_birth) || toekomst(u.date_of_birth)))
                     throw new Fout(400, "VALIDATION", "date_of_birth");
                 patch.date_of_birth = u.date_of_birth || null;
             }

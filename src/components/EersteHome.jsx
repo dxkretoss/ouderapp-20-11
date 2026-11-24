@@ -15,6 +15,7 @@ import { agendaZorgOp } from "@/lib/agenda-zorg";
 import { iso, plusDagen } from "@/lib/agenda-datum";
 import { useZorg } from "@/lib/zorg-store";
 import { useVakanties } from "@/lib/vakantie-store";
+import { inToekomst, vandaagIso } from "@/lib/datum-vandaag";
 import { useWisselMomenten, volgendeVan } from "@/lib/overdracht-store";
 
 const knop = "w-full rounded-xl bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40";
@@ -97,7 +98,7 @@ export function KindSheet({ open, onClose, start: begin = "kind" }) {
         <div className="space-y-3 px-4 pb-6">
           {fase === "kind" ? (<>
             <label className="block text-xs text-ink-soft">{t("components.EersteHome.kind.voornaam")}<input autoFocus value={naam} onChange={(e) => setNaam(e.target.value)} className={veld}/></label>
-            <label className="block text-xs text-ink-soft">{t("components.EersteHome.kind.geboortedatum")}<input type="date" value={geb} onChange={(e) => setGeb(e.target.value)} className={veld}/></label>
+            <label className="block text-xs text-ink-soft">{t("components.EersteHome.kind.geboortedatum")}<input type="date" max={vandaagIso()} value={geb} onChange={(e) => setGeb(inToekomst(e.target.value) ? vandaagIso() : e.target.value)} className={veld}/></label>
             <div className="pt-1"><p className="mb-2 text-xs text-ink-soft">{t("components.EersteHome.kind.foto")}</p><BeeldKiezer beeld={beeld} naam={naam} onKies={setBeeld} overslaanTekst={t("components.EersteHome.kind.geenAfbeelding")}/></div>
             <button disabled={!naam.trim()} className={knop} onClick={opslaanKind}>{t("common.opslaan")}</button>
           </>) : fase === "vervolg" ? (<>
