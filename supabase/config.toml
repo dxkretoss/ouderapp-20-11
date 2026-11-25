@@ -87,3 +87,12 @@ verify_jwt = false
 
 [functions.manage-agenda]
 verify_jwt = false
+
+[functions.manage-personal]
+verify_jwt = false
+
+[functions.manage-pickups]
+verify_jwt = false
+
+[functions.handover-reminders]
+verify_jwt = false

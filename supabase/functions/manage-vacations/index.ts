@@ -7,8 +7,11 @@ import { check, err, HttpError, ok, serveActions } from "../_shared/respond.ts";
 import { requireUser } from "../_shared/session.ts";
 import { requireUuid } from "../_shared/util.ts";
 import {
-  assertResponder, audit, canSee, childIdsFromBody, coParentsFor, familyScope, optDateStr, optTime, reqDateStr, Scope, str, toAbs, toRel, today,
+  assertOnePair, assertResponder, audit, canSee, childIdsFromBody, coParentsFor, familyScope, optDateStr, optTime, reqDateStr, Scope, str, toAbs, toRel, today,
 } from "../_shared/agenda-family.ts";
+
+/** Shared holiday periods concern the children of one co-parent only. */
+const onePair = (s: Scope, ids: string[]) => { assertOnePair(s, ids); return ids; };
 
 type Row = Record<string, any>;
 const COLS = "id, created_by, title, period, start_date, end_date, status, proposed_by, details, child_ids, fields, confirmed, history, reply_by, response, more_time, created_at, updated_at";
@@ -30,7 +33,7 @@ function fieldsIn(s: Scope, v: unknown): Row {
   if (f.verdeling !== undefined && (!Array.isArray(f.verdeling) || f.verdeling.length > 20)) throw err.validation("verdeling must be a list");
   return {
     naam: str(f.naam, "naam", 120, true), periode: str(f.periode, "periode", 120) ?? `${van} – ${tot}`, vanDatum: van, totDatum: tot,
-    kinderen: childIdsFromBody(s, f.kinderen, { required: true }), ouder: toAbs(f.ouder ?? "open", s.me),
+    kinderen: onePair(s, childIdsFromBody(s, f.kinderen, { required: true })), ouder: toAbs(f.ouder ?? "open", s.me),
     details: str(f.details, "details", 2000) ?? "", soort: SOORT.includes(f.soort) ? f.soort : "vakantie",
     herhaal: HERHAAL.includes(f.herhaal) ? f.herhaal : "eenmalig", verdeling: (f.verdeling ?? []).map(deel),
     buitenland: f.buitenland === true, bestemming: str(f.bestemming, "bestemming", 200) ?? "", annuleren: f.annuleren === true,

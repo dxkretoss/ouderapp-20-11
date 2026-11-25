@@ -8,6 +8,7 @@ import { buildChildren } from "../_shared/children.ts";
 import { resolveAvatar, resolveAvatars } from "../_shared/storage.ts";
 import { isInviteExpired, maskEmail, OPEN_INVITE_STATUSES, toApiInvitation } from "../_shared/invitations.ts";
 import { isUuid, requireUuid } from "../_shared/util.ts";
+import { dropAccess, seedBaseline } from "../_shared/parent-permissions.ts";
 
 async function loadByToken(token: unknown): Promise<Record<string, any>> {
   if (typeof token !== "string" || token.length < 16 || token.length > 200) throw err.validation("token is required");
@@ -50,6 +51,31 @@ async function inviterChildIds(inv: Record<string, any>): Promise<string[]> {
   return inviteChildIds(inv).filter((id) => allowed.has(id));
 }
 
+/**
+ * In-app notification for the parent who sent the invitation (best-effort, never fails the action).
+ * Declining needs no account, so the actor can be null; the text uses the invited e-mail address.
+ */
+async function tellInviter(inv: Record<string, any>, key: string, actorId: string | null, category: "wijziging" | "info") {
+  try {
+    const { error } = await db().from("notifications").insert({
+      user_id: inv.from_parent_id,
+      actor_id: actorId,
+      type: "invitation",
+      category,
+      title: key,
+      message: "",
+      link: "/verbonden-personen",
+      entity_type: "invitation",
+      entity_id: inv.id,
+      child_ids: [],
+      metadata: { params: { email: String(inv.to_email ?? "").slice(0, 200) }, audit_id: null },
+    });
+    if (error) throw error;
+  } catch (e) {
+    console.warn("[accept-invitation] notify inviter failed:", (e as Error)?.message ?? e);
+  }
+}
+
 Deno.serve(serveActions("accept-invitation", {
   // ---------------------------------------------------------------- public
   async inspect(_req, body) {
@@ -57,6 +83,18 @@ Deno.serve(serveActions("accept-invitation", {
     if (inv.status === "sent" || inv.status === "pending") {
       check(await db().from("invitations").update({ status: "viewed" }).eq("id", inv.id), "mark viewed");
       inv.status = "viewed";
+    }
+    // Closed invitations (expired, cancelled, used, declined) reveal no names or children.
+    if (!OPEN_INVITE_STATUSES.includes(inv.status)) {
+      return ok({
+        invitation: {
+          status: inv.status,
+          expires_at: inv.expires_at,
+          to_email_masked: maskEmail(inv.to_email),
+          from_parent: { name: "", avatar: null },
+          children: [],
+        },
+      });
     }
     const from = check(
       await db().from("profiles").select("name, avatar_url").eq("id", inv.from_parent_id).maybeSingle(),
@@ -75,6 +113,9 @@ Deno.serve(serveActions("accept-invitation", {
         status: inv.status,
         expires_at: inv.expires_at,
         to_email_masked: maskEmail(inv.to_email),
+        // Open invitation only: the link was e-mailed to this address, so whoever holds it may see it.
+        // The app pre-fills (and locks) the registration e-mail with it, so accepting can't mismatch.
+        to_email: String(inv.to_email ?? "").trim().toLowerCase(),
         from_parent: { name: from?.name ?? "", avatar: avatars[0] },
         children: kids.map((k, i) => ({ id: k.id, name: k.name, color_code: k.color_code, avatar: avatars[i + 1] })),
       },
@@ -86,6 +127,8 @@ Deno.serve(serveActions("accept-invitation", {
     if (inv.status === "declined" || inv.status === "rejected") return ok({});
     assertOpen(inv);
     check(await db().from("invitations").update({ status: "declined" }).eq("id", inv.id), "decline invitation");
+    // The inviting parent is told (and the invitation stays visible as "Afgewezen" in their list).
+    await tellInviter(inv, "uitnodigingAfgewezen", null, "wijziging");
     return ok({});
   },
 
@@ -93,13 +136,30 @@ Deno.serve(serveActions("accept-invitation", {
   async accept(req, body) {
     const me = await requireUser(req);
     const inv = await loadByToken(body.token);
-    assertOpen(inv);
+    // Idempotent for the person who accepted it: a retry (e.g. after a failed follow-up step in the app)
+    // finishes the same work again instead of answering INVITE_USED.
+    const retry = inv.status === "accepted" && inv.to_parent_id === me.id;
+    if (!retry) assertOpen(inv);
     if (inv.from_parent_id === me.id) throw new HttpError(400, "INVITE_OWN", "You cannot accept your own invitation");
     if (String(inv.to_email).trim().toLowerCase() !== me.email.trim().toLowerCase()) {
       throw new HttpError(403, "INVITE_EMAIL_MISMATCH", "This invitation was sent to another e-mail address");
     }
 
     const childIds = await inviterChildIds(inv);
+    if (retry) {
+      // A retry only finishes missing steps while the invitee is STILL linked to every invited child. After
+      // leaving a child (or after a disconnect) an old accepted invitation can never re-link the child or
+      // reset the agreed access rights: that needs a new invitation.
+      const linked = childIds.length
+        ? ((check(
+          await db().from("child_parents").select("child_id").eq("parent_id", me.id).in("child_id", childIds),
+          "retry links",
+        ) ?? []) as Array<{ child_id: string }>).map((r) => r.child_id)
+        : [];
+      if (childIds.some((id) => !linked.includes(id))) throw new HttpError(409, "INVITE_USED", "Invitation was already used");
+      const conn = await findConnection(inv.from_parent_id, me.id);
+      if (conn && !ACTIVE_CONNECTION.includes(conn.status)) throw new HttpError(409, "INVITE_USED", "Invitation was already used");
+    }
     // check limits first, then link
     const created = childIds.length
       ? ((check(
@@ -120,6 +180,8 @@ Deno.serve(serveActions("accept-invitation", {
         ),
         "link children",
       );
+      // per-child access: the baseline (same rights as before) for exactly the invited children
+      await seedBaseline(created.map((c) => c.id), [me.id, inv.from_parent_id]);
     }
 
     // undirected connection: update the existing pair or create one
@@ -155,17 +217,20 @@ Deno.serve(serveActions("accept-invitation", {
       }
     }
 
-    check(
-      await db()
-        .from("invitations")
-        .update({ status: "accepted", accepted_at: now, to_parent_id: me.id })
-        .eq("id", inv.id),
-      "mark accepted",
-    );
+    if (!retry) {
+      check(
+        await db()
+          .from("invitations")
+          .update({ status: "accepted", accepted_at: now, to_parent_id: me.id })
+          .eq("id", inv.id),
+        "mark accepted",
+      );
+    }
     check(
       await db().from("profiles").update({ usage_mode: "together" }).in("id", [inv.from_parent_id, me.id]),
       "usage mode together",
     );
+    if (!retry) await tellInviter(inv, "uitnodigingGeaccepteerd", me.id, "info");
 
     const coParent = check(
       await db().from("profiles").select("id, name, avatar_url").eq("id", inv.from_parent_id).single(),
@@ -184,7 +249,7 @@ Deno.serve(serveActions("accept-invitation", {
     const rows = (check(
       await db()
         .from("invitations")
-        .select("id, to_email, status, child_ids, created_at, expires_at, accepted_at")
+        .select("id, to_email, status, child_ids, created_at, expires_at, accepted_at, email_status, email_sent_at")
         .eq("from_parent_id", me.id)
         .order("created_at", { ascending: false }),
       "list invitations",
@@ -272,9 +337,11 @@ Deno.serve(serveActions("accept-invitation", {
     const theirKids = ((check(theirsCreated, "their children") ?? []) as Array<{ id: string }>).map((c) => c.id);
     if (myKids.length) {
       check(await db().from("child_parents").delete().eq("parent_id", other).in("child_id", myKids), "unlink co-parent");
+      await dropAccess(myKids, other);
     }
     if (theirKids.length) {
       check(await db().from("child_parents").delete().eq("parent_id", me.id).in("child_id", theirKids), "unlink me");
+      await dropAccess(theirKids, me.id);
     }
 
     for (const uid of [me.id, other]) {

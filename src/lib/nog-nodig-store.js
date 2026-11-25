@@ -12,6 +12,8 @@ import { kindTekst } from "@/lib/kosten-store";
 let ruw = [];
 let ik = null;
 let geladenVoor = null;
+/** Eerste keer laden mislukt (nog geen gegevens): het scherm toont dan een foutmelding met opnieuw proberen. */
+let laadFout = false;
 let bezig = null;
 let laatste = 0;
 const luisteraars = new Set();
@@ -46,8 +48,10 @@ export async function laadNogNodig() {
                 return;
             ruw = r.items ?? [];
             ik = voor;
+            laadFout = false;
         }
         catch (e) {
+            laadFout = !ik;
             fout(e);
         }
         finally {
@@ -81,6 +85,9 @@ function lijst() {
         ...(i.buyer_id ? { koper: i.buyer_id === ik ? "ik" : "ander" } : {}),
         ...(i.deadline ? { deadline: i.deadline } : {}),
         gedeeld: !!i.other_parent_id,
+        anderId: i.other_parent_id ?? null,
+        vanMij: !i.user_id || i.user_id === ik,
+        ...(i.notes ? { notitie: i.notes } : {}),
     }));
     sleutel = [ruw, kinderen];
     return cache;
@@ -105,13 +112,16 @@ async function wijzig(id, patch, actie, velden) {
     }
 }
 export const nogNodig = {
-    /** Nieuw item: tekst, soort ("Nodig"|"Boodschap"), kindIds, al gekocht? Geeft (async) het id of null. */
-    voegToe: async (tekst, wie, kindIds = [], klaar = false, budgetId) => {
-        const tijdelijk = { id: `tmp-${Date.now()}`, title: tekst, category: wie, child_ids: kindIds, is_purchased: klaar, budget_id: budgetId ?? null, other_parent_id: null };
+    /**
+     * Nieuw item: tekst, soort ("Nodig"|"Boodschap"), kindIds, al gekocht?, budgetId, delen { gedeeld, anderId }.
+     * Zonder `delen` geldt de serverstandaard. Geeft (async) het id of null.
+     */
+    voegToe: async (tekst, wie, kindIds = [], klaar = false, budgetId, delen) => {
+        const tijdelijk = { id: `tmp-${Date.now()}`, user_id: ik, title: tekst, category: wie, child_ids: kindIds, is_purchased: klaar, budget_id: budgetId ?? null, other_parent_id: null };
         ruw = [tijdelijk, ...ruw];
         meld();
         try {
-            const r = await api("manage-still-needed", "create", { title: tekst, category: wie, child_ids: kindIds, is_purchased: klaar, budget_id: budgetId ?? null });
+            const r = await api("manage-still-needed", "create", { title: tekst, category: wie, child_ids: kindIds, is_purchased: klaar, budget_id: budgetId ?? null, ...(delen ? { shared: !!delen.gedeeld, ...(delen.gedeeld && delen.anderId ? { other_parent_id: delen.anderId } : {}) } : {}) });
             ruw = ruw.map((x) => (x.id === tijdelijk.id ? r.item : x));
             meld();
             return r.item.id;
@@ -127,6 +137,20 @@ export const nogNodig = {
     koppelBudget: (id, budgetId) => wijzig(id, { budget_id: budgetId }, "link_budget", { budget_id: budgetId }),
     /** Alleen "ik koop het" of ongedaan maken; de andere ouder aanwijzen kan niet. */
     zetKoper: (id, koper) => wijzig(id, { buyer_id: koper === "ik" ? ik : null }, "set_buyer", { buyer: koper === "ik" ? "me" : null }),
+    /**
+     * Wijzigen: { tekst, wie (soort), kindIds, deadline, gedeeld, anderId }. Kinderen en delen alleen door wie het
+     * toevoegde. Geeft (async) true bij succes.
+     */
+    wijzig: (id, w) => {
+        const velden = {};
+        const patch = {};
+        if (w.tekst !== undefined) { velden.title = w.tekst; patch.title = w.tekst; }
+        if (w.wie !== undefined) { velden.category = w.wie; patch.category = w.wie; }
+        if (w.deadline !== undefined) { velden.deadline = w.deadline || null; patch.deadline = w.deadline || null; }
+        if (w.kindIds !== undefined) { velden.child_ids = w.kindIds; patch.child_ids = w.kindIds; }
+        if (typeof w.gedeeld === "boolean") { velden.shared = w.gedeeld; if (w.gedeeld && w.anderId) velden.other_parent_id = w.anderId; }
+        return wijzig(id, patch, "update", velden);
+    },
     verwijder: async (id) => {
         const oud = ruw.find((x) => x.id === id);
         if (!oud)
@@ -150,5 +174,5 @@ export const koppelNogNodigBudget = (id, budgetId) => nogNodig.koppelBudget(id, 
 export function useNogNodig() {
     useStart();
     const l = useSyncExternalStore((f) => { luisteraars.add(f); zorg(); return () => luisteraars.delete(f); }, lijst, lijst);
-    return { lijst: l, geladen: geladenVoor !== null, ...nogNodig };
+    return { lijst: l, geladen: geladenVoor !== null, fout: laadFout, ...nogNodig };
 }

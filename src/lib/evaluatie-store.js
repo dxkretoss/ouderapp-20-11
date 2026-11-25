@@ -4,7 +4,7 @@ import { meldFout, serverBron } from "@/lib/praktisch-sync";
 /**
  * Evaluatiemomenten — bron: manage-agreements (evaluation-list / evaluation-save, tabel evaluations).
  * De inhoud is alleen voor de ouder zelf; delen gebeurt alleen via een bericht dat de ouder zelf verstuurt.
- * Model: { id, datum (YYYY-MM-DD), goed, anders, werkt, nodig, zelf }, nieuwste eerst.
+ * Model: { id, datum (YYYY-MM-DD), goed, anders, werkt, nodig, zelf, loslaten }, nieuwste eerst.
  */
 let lijst = [];
 const listeners = new Set();
@@ -17,6 +17,8 @@ const sync = serverBron({
     },
     wis: () => zet([]),
 });
+/** Laadstatus voor de schermen (useStatus / ververs). */
+export const evaluatieBron = sync;
 /** Huidige lijst (van de server; leeg zolang er niets is geladen). */
 export function leesEvaluaties() {
     sync.zorg();
@@ -26,10 +28,10 @@ export function useEvaluaties() {
     sync.zorg();
     return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => lijst, () => lijst);
 }
-/** Eén evaluatie bewaren (alleen voor jezelf). */
+/** Eén evaluatie bewaren (alleen voor jezelf). Geeft (async) true bij succes. */
 export async function bewaarEvaluatie(e) {
     try {
-        const r = await api("manage-agreements", "evaluation-save", { answers: { goed: e.goed ?? "", anders: e.anders ?? "", werkt: e.werkt ?? "", nodig: e.nodig ?? "", zelf: e.zelf ?? "" } });
+        const r = await api("manage-agreements", "evaluation-save", { answers: { goed: e.goed ?? "", anders: e.anders ?? "", werkt: e.werkt ?? "", nodig: e.nodig ?? "", zelf: e.zelf ?? "", loslaten: e.loslaten ?? "" } });
         zet([vanServer(r.evaluation), ...lijst]);
         return true;
     }

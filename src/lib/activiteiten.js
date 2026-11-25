@@ -64,7 +64,7 @@ function uitMomentje(m, i, ik, anderNaam) {
     return { id: `act-moment-${m.id}`, categorie: "info", icoon: "momentjes", verzoek: false, volgorde: Number.isNaN(moment) ? 1e9 - i : moment, tijd: Number.isNaN(moment) ? m.wanneer.split(" · ")[0] ?? "" : tijdTekst(m.aangemaakt),
         titel: i18n.t(`${NS}.momentGedeeld`), uitleg: m.tekst.replace(/\p{Extended_Pictographic}/gu, "").trim(), naar: "/momentjes", ...(anderNaam ? { door: anderNaam } : {}) };
 }
-const ICOON_MELDING = { task: "taken", agreement: "afspraak", decision: "beslissing", moment: "momentjes", document: "documenten", belonging: "doos", cost: "kosten", budget: "kosten", care: "zorgregeling", vacation: "agenda", attendance: "agenda", proposal: "samen" };
+const ICOON_MELDING = { task: "taken", agreement: "afspraak", decision: "beslissing", moment: "momentjes", document: "documenten", belonging: "doos", cost: "kosten", budget: "kosten", care: "zorgregeling", vacation: "agenda", attendance: "agenda", proposal: "samen", invitation: "link" };
 /** Servermelding (de andere ouder deed iets) → activiteit. Tekst uit lib.meldingen.<key>; parameters zijn korte, niet-gevoelige waarden. */
 function uitMelding(n) {
     const params = { ...(n.params ?? {}), naam: n.actor_name || i18n.t("common.deAndereOuder") };

@@ -58,22 +58,32 @@ export function standaardPct(a) {
     return a.wijze === "alleen" ? null : a.wijze === "50" ? 50 : a.wijze === "eigen" ? a.pctIk : 50;
 }
 /**
- * Eigen gezin. Phase 1: naam/beeld/gebruik (profiel), kinderen, regeling, gezag, uitgenodigd en
- * de voorkeuren (voortgangVerborgen, afspraakToegevoegd) komen van de server (manage-profile,
- * manage-children, accept-invitation); deze store is daarvan de lokale spiegel (cache in
- * localStorage, per gebruiker). Kosten en de kostenafspraak staan op de server (kosten-store / manage-expenses).
- * Wijzigingen zijn optimistisch: meteen zichtbaar, bij een serverfout teruggedraaid met een melding.
+ * Eigen gezin. Naam/beeld/gebruik (profiel), kinderen, regeling, gezag, uitgenodigd en de voorkeuren
+ * (voortgangVerborgen, afspraakToegevoegd) komen van de server (manage-profile, manage-children,
+ * accept-invitation); deze store is daarvan de spiegel in het geheugen. Op dit apparaat blijft alleen een
+ * kleine cache met niet-gevoelige basisgegevens staan (welk account, de namen/kleuren van de kinderen en de
+ * regeling) zodat het eerste scherm niet leeg is; profielsecties (gezondheid, noodkaart, contacten) worden
+ * nooit in localStorage bewaard. Wijzigingen zijn optimistisch: meteen zichtbaar, bij een serverfout
+ * teruggedraaid met een melding.
  */
-const SLEUTEL = "onzeapp-eigen-start";
+const SLEUTEL = "onzeapp-eigen-start-v2";
+const OUDE_SLEUTEL = "onzeapp-eigen-start";
 const leeg = { gezag: null, eigen: false, naam: "", gebruik: "samen", kinderen: [], regeling: null, uitgenodigd: false, afspraakToegevoegd: false, voortgangVerborgen: false, onderwerpen: [], uitnodigingen: [], coOuders: [], gebruikerId: null, geladenVoor: null };
 let state = leeg;
 let geladen = false;
 const luisteraars = new Set();
+/** Alleen niet-gevoelige basis: geen profielsecties, geen foto-URL's, geen uitnodigingen. */
+const cacheVorm = (s) => ({
+    gebruikerId: s.gebruikerId, eigen: s.eigen, naam: s.naam, gebruik: s.gebruik, regeling: s.regeling,
+    kinderen: (s.kinderen ?? []).filter((k) => !String(k.id).startsWith("tmp-")).map((k) => ({ id: k.id, naam: k.naam, kleur: k.kleur, samen: !!k.samen, regeling: k.regeling ?? null })),
+});
 function laad() {
     if (geladen || typeof window === "undefined")
         return;
     geladen = true;
     try {
+        // De oude cache bevatte het hele gezin (ook gezondheid en noodkaart): weghalen.
+        localStorage.removeItem(OUDE_SLEUTEL);
         const r = localStorage.getItem(SLEUTEL);
         if (r)
             state = { ...leeg, ...JSON.parse(r) };
@@ -84,10 +94,18 @@ function laad() {
 function zet(p) {
     state = { ...state, ...p };
     try {
-        localStorage.setItem(SLEUTEL, JSON.stringify(state));
+        localStorage.setItem(SLEUTEL, JSON.stringify(cacheVorm(state)));
     }
     catch { /* geen opslag */ }
     luisteraars.forEach((l) => l());
+}
+/** Uitloggen / ander account: de lokale cache hoort niet meer bij deze gebruiker. */
+export function wisStartCache() {
+    try {
+        localStorage.removeItem(SLEUTEL);
+        localStorage.removeItem(OUDE_SLEUTEL);
+    }
+    catch { /* geen opslag */ }
 }
 /** Huidige start-state zonder hook (voor andere stores). */
 export function startState() {
@@ -101,11 +119,22 @@ export function useStart() {
 const OPEN_UITNODIGING = ["sent", "pending", "viewed"];
 export const gebruikNaarServer = (g) => (g === "zelf" || g === "alleen" ? "solo" : "together");
 export const gebruikVanServer = (u) => (u === "solo" ? "zelf" : "samen");
-/** Server-kind → vorm die de app al gebruikt ({ id, naam, geboortedatum, kleur, beeld, schoolRegio }). */
+/** Server-kind → vorm die de app al gebruikt ({ id, naam, geboortedatum, kleur, beeld, schoolRegio, ... }). */
 export function kindVanServer(c, i = 0) {
-    return { id: c.id, naam: c.name, geboortedatum: c.date_of_birth || undefined, kleur: c.color_code || standaardKindKleur(i), beeld: c.avatar || undefined, schoolRegio: c.profile?.school?.regio || undefined, profiel: c.profile ?? {}, kanBewerken: c.can_edit !== false, ouders: c.linked_parents ?? [] };
+    const mijnId = authState().gebruiker?.id;
+    const cs = c.care_schedule;
+    return {
+        id: c.id, naam: c.name, geboortedatum: c.date_of_birth || undefined, kleur: c.color_code || standaardKindKleur(i), beeld: c.avatar || undefined,
+        schoolRegio: c.profile?.school?.regio || undefined, profiel: c.profile ?? {}, kanBewerken: c.can_edit !== false, ouders: c.linked_parents ?? [],
+        /** Solo of Samen per kind: Samen = een gekoppelde andere ouder hoort bij dit kind. */
+        samen: !!c.samen, andereOuder: c.andere_ouder ? { id: c.andere_ouder.id, naam: c.andere_ouder.name ?? "", beeld: c.andere_ouder.avatar ?? null } : null,
+        /** De vaste verdeling van dit kind (per kind op de server) en of de andere ouder die bevestigde. */
+        regeling: cs ? regelingVanServer([c], mijnId) : null,
+        regelingStatus: cs && !cs.later ? { status: cs.bevestiging?.status ?? null, doorMij: !!cs.ikId && cs.ikId === mijnId, opmerking: cs.bevestiging?.opmerking ?? "" } : null,
+        toegang: c.my_access ?? null, verborgen: c.hidden_sections ?? [],
+    };
 }
-/** Regeling en gezag staan per kind op de server; het eigen gezin toont één gezamenlijke waarde. */
+/** Regeling en gezag staan per kind op de server; het eigen gezin toont één gezamenlijke waarde (het eerste kind met een regeling). */
 /**
  * "ik"/"ander" in de dagen zijn vanuit wie de regeling opsloeg (`ikId`). Voor de andere ouder wordt
  * dat omgedraaid, zodat "bij jou" voor beide ouders klopt.
@@ -116,10 +145,18 @@ export function regelingVanServer(kinderen, mijnId) {
         return null;
     if (cs.later)
         return "later";
-    const { ikId, ...r } = cs;
+    const { ikId, bevestiging: _b, opgeslagen: _o, ...r } = cs;
     const omdraaien = ikId && mijnId && ikId !== mijnId && Array.isArray(r.dagen);
     return { ...r, patroon: r.patroon ?? r.patroonId, ...(omdraaien ? { dagen: r.dagen.map((d) => (d === "ik" ? "ander" : d === "ander" ? "ik" : d)) } : {}) };
 }
+/** De regeling van één kind; zonder eigen regeling die van het gezin (zoals vóór regelingen per kind). */
+export function regelingVoorKind(kindId, s = startState()) {
+    const k = s.kinderen.find((x) => x.id === kindId);
+    return k?.regeling ?? s.regeling ?? null;
+}
+/** Tijdelijk kind-id (tmp-…) → het echte server-id, zodra het kind is opgeslagen. */
+const vervangenIds = new Map();
+export const echteKindId = (id) => vervangenIds.get(id) ?? null;
 /** custody_meta.ingevuldDoor is het profiel-id van wie het invulde; de app toont een naam. */
 export function gezagVanServer(kinderen, mij) {
     const c = kinderen.find((x) => x.custody);
@@ -148,6 +185,12 @@ function volgAccount(a) {
     const g = a.gebruiker;
     if (!g || (a.status !== "aan" && a.status !== "onboarding")) {
         hydratieVoor = null;
+        // Uitgelogd: geen gezinsgegevens in het geheugen of op dit apparaat laten staan.
+        if (a.status === "uit" && (state.gebruikerId || state.kinderen.length)) {
+            state = leeg;
+            wisStartCache();
+            luisteraars.forEach((l) => l());
+        }
         return;
     }
     // Ander account dan de cache op dit apparaat: lokale gezinsdata hoort daar niet bij.
@@ -229,6 +272,7 @@ export const start = {
                 child = { ...child, care_schedule: concept };
                 auth.updateProfile({ preferences: { regelingConcept: null } }).catch(() => { });
             }
+            vervangenIds.set(tijdelijk.id, child.id);
             zet({ kinderen: state.kinderen.map((k, i) => (k.id === tijdelijk.id ? kindVanServer(child, i) : k)) });
             return child.id;
         }
@@ -251,14 +295,69 @@ export const start = {
         return optimistisch(kindPatch(id, () => ({ schoolRegio })), async () => vervangKind((await api("manage-children", "update", { child_id: id, updates: { profile: { school: { ...(profiel.school ?? {}), regio: schoolRegio } } } })).child));
     },
     zetGezag: (situatie) => optimistisch({ gezag: { situatie, ingevuldDoor: state.naam || i18n.t(`${NS}.jij`), bevestigdDoorAnder: false } }, () => api("manage-children", "save-custody", { custody: situatie })),
-    regeling: (r) => optimistisch({ regeling: r }, () => {
-        if (!r)
-            return Promise.resolve();
-        // Nog geen kind op de server: bewaar de keuze als profielvoorkeur tot het eerste kind er is.
-        if (!state.kinderen.some((k) => !String(k.id).startsWith("tmp-")))
-            return auth.updateProfile({ preferences: { regelingConcept: regelingNaarServer(r) } });
-        return api("manage-children", "save-schedule", { schedule: regelingNaarServer(r) });
-    }),
+    /**
+     * Vaste verdeling opslaan: voor één kind (`kindId`) of, zonder kindId, voor alle kinderen die je mag bewerken.
+     * Met een gekoppelde andere ouder vraagt de server die om bevestiging ("Klopt / Klopt niet").
+     */
+    regeling: (r, kindId) => {
+        const voor = (k) => !kindId || k.id === kindId;
+        const patch = { kinderen: state.kinderen.map((k) => (voor(k) ? { ...k, regeling: r, regelingStatus: r && r !== "later" && k.samen ? { status: "open", doorMij: true, opmerking: "" } : null } : k)) };
+        const eerste = state.kinderen.find((k) => k.regeling && k.regeling !== "later") ?? null;
+        if (!kindId || !eerste || eerste.id === kindId)
+            patch.regeling = r;
+        return optimistisch(patch, async () => {
+            if (!r)
+                return;
+            // Nog geen kind op de server: bewaar de keuze als profielvoorkeur tot het eerste kind er is.
+            if (!state.kinderen.some((k) => !String(k.id).startsWith("tmp-")))
+                return auth.updateProfile({ preferences: { regelingConcept: regelingNaarServer(r) } });
+            await api("manage-children", "save-schedule", { schedule: regelingNaarServer(r), ...(kindId ? { child_id: kindId } : {}) });
+            start.hydrateer();
+        });
+    },
+    /** De andere ouder over de vaste verdeling van een kind: klopt (true) of klopt niet (false, met opmerking). */
+    bevestigRegeling: async (kindId, klopt, opmerking = "") => {
+        const vorig = state.kinderen;
+        zet(kindPatch(kindId, (k) => ({ regelingStatus: { ...(k.regelingStatus ?? {}), status: klopt ? "klopt" : "klopt_niet", opmerking } })));
+        try {
+            const { child } = await api("manage-children", "confirm-schedule", { child_id: kindId, klopt, ...(opmerking ? { opmerking } : {}) });
+            vervangKind(child);
+            return true;
+        }
+        catch (e) {
+            zet({ kinderen: vorig });
+            meldFout(e);
+            return false;
+        }
+    },
+    /**
+     * Kind verwijderen. Alleen jouw kind (geen andere ouder): het kind wordt verwijderd. Gedeeld met de
+     * andere ouder: alleen jouw koppeling verdwijnt, de andere ouder houdt het kind. Geeft "deleted" |
+     * "unlinked" terug, of undefined bij een fout (de lijst wordt dan teruggezet).
+     */
+    verwijderKind: async (kindId) => {
+        const vorig = state.kinderen;
+        zet({ kinderen: state.kinderen.filter((k) => k.id !== kindId) });
+        try {
+            const r = await api("manage-children", "delete", { child_id: kindId });
+            start.herlaadGekoppeld();
+            return r.mode ?? "deleted";
+        }
+        catch (e) {
+            zet({ kinderen: vorig });
+            meldFout(e);
+            return undefined;
+        }
+    },
+    /** Na koppelen of ontkoppelen: gezin én agenda, vakanties en overdracht opnieuw van de server. */
+    herlaadGekoppeld: async () => {
+        await start.hydrateer();
+        try {
+            const m = await import("@/lib/agenda-store");
+            await m.herlaadAlles();
+        }
+        catch { /* de agenda laadt bij het volgende scherm opnieuw */ }
+    },
     zetGebruik: (gebruik) => optimistisch({ gebruik }, () => auth.updateProfile({ usage_mode: gebruikNaarServer(gebruik) })),
     /** Voortgangsvlaggen gaan naar de profielvoorkeuren; `uitgenodigd` volgt uit echte uitnodigingen en wordt hier genegeerd. */
     markeer: (p) => {
@@ -281,6 +380,13 @@ export const start = {
     uitnodigen: async (email, kindIds) => {
         const r = await api("send-invitation", "send", { to_email: email.trim().toLowerCase(), child_ids: kindIds, redirect_origin: typeof window !== "undefined" ? window.location.origin : undefined });
         const uitnodigingen = [r.invitation, ...state.uitnodigingen.filter((u) => u.id !== r.invitation.id)];
+        zet({ uitnodigingen, uitgenodigd: isUitgenodigd(uitnodigingen, state.coOuders) });
+        return r;
+    },
+    /** "Opnieuw versturen": e-mail van een openstaande uitnodiging opnieuw sturen (nieuwe geldigheid). Gooit ApiFout. */
+    opnieuwUitnodigen: async (id) => {
+        const r = await api("send-invitation", "resend", { invitation_id: id, redirect_origin: typeof window !== "undefined" ? window.location.origin : undefined });
+        const uitnodigingen = state.uitnodigingen.map((u) => (u.id === r.invitation.id ? r.invitation : u));
         zet({ uitnodigingen, uitgenodigd: isUitgenodigd(uitnodigingen, state.coOuders) });
         return r;
     },

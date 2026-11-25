@@ -2,10 +2,20 @@ import i18n, { taalLocale, tLijst } from "@/i18n";
 import { useSyncExternalStore } from "react";
 import { categorieMeta } from "@/lib/demo-data";
 import { kringState } from "@/lib/kring-store";
-import { meeLijst, takenState } from "@/lib/taken-store";
-import { leg, alleRegels } from "@/lib/audit-store";
+import { takenState } from "@/lib/taken-store";
+import { itemsVoor } from "@/lib/overdracht-store";
+/** De gedeelde paklijst van een wissel (server: manage-handover), dezelfde als op Overdracht. */
+const lijstVan = (m) => itemsVoor(overdrachtState(), m.id);
+const meeNamen = (m) => lijstVan(m).map((i) => i.naam);
+const nogInpakken = (m) => lijstVan(m).filter((i) => !i.ingepakt).map((i) => i.naam);
+import { alleRegels } from "@/lib/audit-store";
 import { gezinState, isIk } from "@/lib/gezin";
 import { nuLijst } from "@/lib/nu-afstemmen-store";
+import { authState, opAuth } from "@/lib/auth-store";
+import { zetVoorkeur } from "@/lib/voorkeuren-store";
+import { overdrachtState, useOverdracht } from "@/lib/overdracht-store";
+import { aanwezigVoor, startAfstemming, useAanwezigheid } from "@/lib/aanwezigheid-store";
+import { agendaState } from "@/lib/agenda-store";
 /**
  * Slimme laag ("Even vooruitkijken", Deze week, Morgen, Wat moet mee?, conflictcontrole, Sinds je laatste bezoek).
  * Leest en combineert bestaande stores — één bron per gegeven, nooit kopieën. Signalen zijn losse regels;
@@ -13,9 +23,14 @@ import { nuLijst } from "@/lib/nu-afstemmen-store";
  * Persoonlijke hulp: een suggestie aan de ene ouder wordt niet met de andere ouder gedeeld.
  * Het voorbeeldgezin bestaat niet meer: er zijn geen vaste voorbeeldafspraken of een voorbeeld-zorgweek;
  * agenda-afspraken komen als `extra` mee vanuit de agenda (agenda-store).
+ * Bronnen: vaste spullen (routines) uit manage-handover (overdracht-store), wie er gaat uit de afstemming per
+ * afspraak (aanwezigheid-store). Persoonlijke keuzes (weggedrukt, later herinneren, niet meer tonen, laatste
+ * bezoek, gekoppelde afstemvraag) zijn voorkeuren van je account (profiles.preferences.app), niet van dit apparaat.
  */
 const afspraken = [];
-export const DEMO_VANDAAG = "2025-03-12"; // woensdag, gelijk aan de rest van de demo
+const lokaalIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+/** Vandaag (lokale datum). De oude naam blijft voor bestaande aanroepers; het is geen demodag meer. */
+const vandaagIso = () => lokaalIso(new Date());
 // Dagnamen zijn interne id's (routines, vergelijkingen); voor weergave gaat alles via dagTekst().
 const dagNamen = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"];
 const NS = "lib.slimmeHulp";
@@ -25,7 +40,7 @@ const hoofdletter = (s) => s.replace(/^./, (c) => c.toUpperCase());
 const isoVanDag = (dag) => `2025-03-${String(dag).padStart(2, "0")}`;
 const weekdag = (iso) => dagNamen[new Date(`${iso}T00:00`).getDay()];
 /** Dag-id van een agenda-afspraak, taalonafhankelijk afgeleid van de numerieke dag (gelijk aan de dag in de agenda). */
-const dagVan = (a) => { const iso = isoVanDag(a.dag); return iso === DEMO_VANDAAG ? "vandaag" : weekdag(iso); };
+const dagVan = (a) => { const iso = isoVanDag(a.dag); return iso === vandaagIso() ? "vandaag" : weekdag(iso); };
 const minuten = (t) => { const m = /^(\d{1,2}):(\d{2})/.exec(t); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
 const kindPast = (a, b) => {
     if (!a.trim() || !b.trim())
@@ -35,61 +50,116 @@ const kindPast = (a, b) => {
     const namen = (x) => x.toLowerCase().split(/\s*(?:&|,|\ben\b|\band\b)\s*/).map((n) => n.trim()).filter(Boolean);
     return namen(a).some((n) => namen(b).includes(n));
 };
-let state = {
-    routines: [],
-    wieGaat: {},
-    afstem: {},
-    later: {},
-    nietMeer: [],
-    routineNietNodig: [],
-};
-const SLEUTEL = "onzeapp-slimme-hulp";
-let geladen = false;
-function laad() {
-    if (geladen || typeof window === "undefined")
-        return;
-    geladen = true;
-    try {
-        const v = JSON.parse(localStorage.getItem(SLEUTEL) ?? "{}");
-        if (Array.isArray(v.nietMeer))
-            state = { ...state, nietMeer: v.nietMeer };
-        if (Array.isArray(v.routines))
-            state = { ...state, routines: v.routines };
-        if (Array.isArray(v.routineNietNodig))
-            state = { ...state, routineNietNodig: v.routineNietNodig };
-        if (v.later && typeof v.later === "object" && !Array.isArray(v.later)) {
-            state = { ...state, later: Object.fromEntries(Object.entries(v.later).filter(([, tijd]) => typeof tijd === "number" && Number.isFinite(tijd))) };
-        }
-    }
-    catch { /* standaard */ }
-}
+/* ---------- persoonlijke keuzes: voorkeuren van het account ---------- */
+// Klein houden: alle voorkeuren samen mogen hooguit 16 KB zijn (manage-profile).
+const MAX_LIJST = 20;
+const leegKeuzes = () => ({ later: {}, nietMeer: [], routineNietNodig: [], afstem: {}, laatsteBezoek: null });
+let keuzes = leegKeuzes();
+let keuzesVoor = undefined;
 const listeners = new Set();
-const zet = (p) => {
-    state = { ...state, ...p };
-    try {
-        localStorage.setItem(SLEUTEL, JSON.stringify({ later: state.later, nietMeer: state.nietMeer, routines: state.routines, routineNietNodig: state.routineNietNodig }));
-    }
-    catch { /* privémodus */ }
-    listeners.forEach((l) => l());
-};
-export function useSlimmeHulp() {
-    return useSyncExternalStore((l) => { laad(); listeners.add(l); return () => listeners.delete(l); }, () => { laad(); return state; }, () => state);
+const meld = () => { versie++; listeners.forEach((l) => l()); };
+let versie = 0;
+/** Neemt de keuzes over uit het profiel (bij inloggen of een ander account); eigen wijzigingen houden we zelf bij. */
+function volgAccount() {
+    const g = authState().gebruiker;
+    const id = g?.id ?? null;
+    if (id === keuzesVoor)
+        return;
+    keuzesVoor = id;
+    const app = g?.preferences?.app ?? {};
+    const later = app.slimLater && typeof app.slimLater === "object" && !Array.isArray(app.slimLater)
+        ? Object.fromEntries(Object.entries(app.slimLater).filter(([, tijd]) => typeof tijd === "number" && Number.isFinite(tijd) && tijd > Date.now()))
+        : {};
+    keuzes = {
+        later,
+        nietMeer: Array.isArray(app.slimNietMeer) ? app.slimNietMeer.filter((x) => typeof x === "string") : [],
+        routineNietNodig: Array.isArray(app.slimRoutineNietNodig) ? app.slimRoutineNietNodig.filter((x) => typeof x === "string") : [],
+        afstem: app.slimAfstem && typeof app.slimAfstem === "object" && !Array.isArray(app.slimAfstem) ? app.slimAfstem : {},
+        laatsteBezoek: typeof app.laatsteBezoek === "string" ? app.laatsteBezoek : null,
+    };
+    if (id)
+        zetOudeKeuzesOver();
+    meld();
 }
-export const voegRoutineToe = (r) => zet({ routines: [...state.routines, { ...r, id: `r${Date.now()}` }] });
-export const verwijderRoutine = (id) => zet({ routines: state.routines.filter((r) => r.id !== id) });
+/** Oude, alleen-lokale keuzes (vóór de serveropslag): één keer overnemen en van dit apparaat wissen. */
+function zetOudeKeuzesOver() {
+    try {
+        const v = JSON.parse(localStorage.getItem("onzeapp-slimme-hulp") ?? "null");
+        const bezoek = localStorage.getItem("onzeapp-laatste-bezoek");
+        if (v && typeof v === "object") {
+            if (Array.isArray(v.nietMeer) && !keuzes.nietMeer.length)
+                bewaar({ nietMeer: v.nietMeer.filter((x) => typeof x === "string") });
+            if (Array.isArray(v.routineNietNodig) && !keuzes.routineNietNodig.length)
+                bewaar({ routineNietNodig: v.routineNietNodig.filter((x) => typeof x === "string") });
+        }
+        if (bezoek && !keuzes.laatsteBezoek)
+            bewaar({ laatsteBezoek: bezoek });
+        localStorage.removeItem("onzeapp-slimme-hulp");
+        localStorage.removeItem("onzeapp-laatste-bezoek");
+    }
+    catch { /* geen opslag */ }
+}
+let gekoppeld = false;
+function laad() {
+    if (gekoppeld || typeof window === "undefined")
+        return;
+    gekoppeld = true;
+    opAuth(volgAccount);
+    volgAccount();
+}
+const VOORKEUR = { later: "slimLater", nietMeer: "slimNietMeer", routineNietNodig: "slimRoutineNietNodig", afstem: "slimAfstem", laatsteBezoek: "laatsteBezoek" };
+/** Wijzigt keuzes lokaal en schrijft ze naar de accountvoorkeuren (voorkeuren-store bundelt en bewaart). */
+function bewaar(p) {
+    keuzes = { ...keuzes, ...p };
+    for (const [k, v] of Object.entries(p))
+        if (VOORKEUR[k])
+            zetVoorkeur(VOORKEUR[k], v);
+    meld();
+}
+/** Routines (vaste spullen per kind en dag) komen uit manage-handover; hier alleen gelezen. */
+const routines = () => overdrachtState().routines ?? [];
+/** Gaat de ingelogde ouder (volgens de afstemming bij die afspraak) zelf? */
+const ikGaZelf = (afspraakId) => { const a = afspraakId ? aanwezigVoor(afspraakId) : null; return !!a && a.wieGaat === "sanne" && a.fase !== "open"; };
+let snapshot = null;
+let snapshotVersie = -1;
+let snapshotRoutines = null;
+/** Vorm zoals de schermen al kenden: { routines, later, nietMeer, routineNietNodig, afstem }. */
+function huidig() {
+    const r = routines();
+    if (!snapshot || snapshotVersie !== versie || snapshotRoutines !== r) {
+        snapshot = { ...keuzes, routines: r };
+        snapshotVersie = versie;
+        snapshotRoutines = r;
+    }
+    return snapshot;
+}
+export function useSlimmeHulp() {
+    // Meeluisteren met de bronnen, zodat schermen bijwerken als routines of afstemmingen veranderen.
+    useOverdracht();
+    useAanwezigheid();
+    return useSyncExternalStore((l) => { laad(); listeners.add(l); return () => listeners.delete(l); }, () => { laad(); return huidig(); }, () => huidig());
+}
 /** Patroonvoorstel bewust afgewezen: wordt onthouden, zodat de app het niet opnieuw vraagt. */
-export const routineNietNodig = (sleutel) => zet({ routineNietNodig: [...new Set([...state.routineNietNodig, sleutel])] });
+export const routineNietNodig = (sleutel) => { laad(); bewaar({ routineNietNodig: [...new Set([...keuzes.routineNietNodig, String(sleutel)])].slice(-MAX_LIJST) }); };
 export const laterHerinneren = (id, tot) => {
+    laad();
     if (!Number.isFinite(tot) || tot <= Date.now())
         return;
-    zet({ later: { ...state.later, [id]: tot } });
+    // Verlopen herinneringen opruimen, zodat de voorkeur klein blijft.
+    const nog = Object.entries(keuzes.later).filter(([, t]) => t > Date.now()).slice(-(MAX_LIJST - 1));
+    bewaar({ later: { ...Object.fromEntries(nog), [id]: tot } });
 };
-export const nietMeerTonen = (t) => zet({ nietMeer: [...new Set([...state.nietMeer, t])] });
-export const zetWeerAan = () => zet({ nietMeer: [], later: {}, routineNietNodig: [] });
-export function ikGa(afspraakId, titel) {
-    // Geen serverfunctie voor "ik ga mee": via log-audit (actor = sessie); het profiel-id wordt in de weergave een naam.
-    leg("afspraak", afspraakId, titel, "UPDATED", { veld: i18n.t(`${NS}.audit.wieGaatMee`), oud: i18n.t(`${NS}.audit.nogNietBepaald`), nieuw: gezinState().ik?.id ?? "" });
-    zet({ wieGaat: { ...state.wieGaat, [afspraakId]: "sanne" } });
+export const nietMeerTonen = (t) => { laad(); bewaar({ nietMeer: [...new Set([...keuzes.nietMeer, String(t)])].slice(-MAX_LIJST) }); };
+export const zetWeerAan = () => { laad(); bewaar({ nietMeer: [], later: {}, routineNietNodig: [] }); };
+/**
+ * "Ik ga": bij een gedeelde afspraak wordt dat een afstemvoorstel aan de andere ouder (manage-agenda,
+ * aanwezigheid). Een privé-afspraak hoeft niet afgestemd te worden: dan gebeurt er niets.
+ */
+export function ikGa(afspraakId, _titel) {
+    const a = agendaState().events.find((x) => x.id === afspraakId);
+    if (!a || a.gedeeld === false || !/^[0-9a-f-]{36}$/i.test(String(afspraakId)))
+        return;
+    startAfstemming(afspraakId, "een", "sanne", { wieGaat: "sanne" });
 }
 /** Plek van een spul: profiel-id van jou of de andere ouder, anders vrije tekst. */
 const plekNaam = (p) => (isIk(p) || p === "sanne" ? i18n.t(`${NS}.plek.sanne`) : p && (p === gezinState().ander?.id || p === "joris") ? i18n.t(`${NS}.plek.joris`) : p && !/^[0-9a-f-]{36}$/i.test(p) ? p : i18n.t(`${NS}.plek.anders`));
@@ -99,8 +169,7 @@ const regelOverdracht = () => {
     const w = kringState().momenten.find((m) => m.soort === "wissel");
     if (!w)
         return [];
-    const klaar = kringState().meeKlaar[w.id] ?? [];
-    const open = meeLijst(w).filter((x) => !klaar.includes(x));
+    const open = nogInpakken(w);
     const extra = mogelijkMee(w).length;
     if (!open.length && !extra)
         return [];
@@ -133,7 +202,7 @@ const regelSpullen = ({ vandaag }) => {
     return uit;
 };
 const regelWieGaat = ({ vandaag }) => afspraken
-    .filter((a) => (a.categorie === "medisch" || a.categorie === "school") && isoVanDag(a.dag) > vandaag && a.dag - Number(vandaag.slice(8)) <= 7 && !state.wieGaat[a.id])
+    .filter((a) => (a.categorie === "medisch" || a.categorie === "school") && isoVanDag(a.dag) > vandaag && a.dag - Number(vandaag.slice(8)) <= 7 && !aanwezigVoor(a.id))
     .slice(0, 1)
     .map((a) => ({
     id: `wie-${a.id}`, type: "unassigned_task", prioriteit: 2,
@@ -154,16 +223,16 @@ const regelDeadline = ({ vandaag }) => takenState().taken
 void regelOverdracht;
 const regels = [regelSpullen, regelDeadline, regelWieGaat];
 /** Hooguit 3, gesorteerd op prioriteit; weggedrukte en uitgezette soorten komen niet terug. Geen zichtbare score. */
-export function suggesties(vandaag = DEMO_VANDAAG) {
+export function suggesties(vandaag = vandaagIso()) {
     laad();
     return regels.flatMap((r) => r({ vandaag }))
-        .filter((s) => (state.later[s.id] ?? 0) <= Date.now() && !state.nietMeer.includes(s.type))
+        .filter((s) => (keuzes.later[s.id] ?? 0) <= Date.now() && !keuzes.nietMeer.includes(s.type))
         .sort((a, b) => a.prioriteit - b.prioriteit)
         .slice(0, 3);
 }
 /* ---------- Wat moet mee? (alleen uit routines en bevestigde activiteiten — nooit verzonnen) ---------- */
 export function mogelijkMee(m) {
-    const al = meeLijst(m);
+    const al = meeNamen(m);
     const k = kringState();
     const volgende = k.momenten.filter((x) => x.id !== m.id && x.datum > m.datum && x.kindIds.some((id) => m.kindIds.includes(id)));
     const totWissel = volgende.find((x) => x.soort === "wissel")?.datum ?? "9999";
@@ -172,17 +241,17 @@ export function mogelijkMee(m) {
     const lok = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     for (let d = new Date(`${m.datum}T00:00`); lok(d) <= (totWissel === "9999" ? m.datum : totWissel); d.setDate(d.getDate() + 1))
         dagen.add(dagNamen[d.getDay()]);
-    const uitRoutine = state.routines.filter((r) => m.kindIds.includes(r.kind) && dagen.has(r.dag)).map((r) => ({ item: r.item, reden: r.reden }));
+    const uitRoutine = routines().filter((r) => m.kindIds.includes(r.kind) && (r.dag === "elke" || dagen.has(r.dag))).map((r) => ({ item: r.item, reden: r.reden }));
     const gezien = new Set(al.map((x) => x.toLowerCase()));
     return [...uitActiviteit, ...uitRoutine].filter((x) => { const k2 = x.item.toLowerCase(); if (gezien.has(k2))
         return false; gezien.add(k2); return true; });
 }
-export function weekOverzicht(vandaag = DEMO_VANDAAG) {
+export function weekOverzicht(vandaag = vandaagIso()) {
     laad();
     const start = new Date(`${vandaag}T00:00`);
     start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
     const wissel = kringState().momenten.find((m) => m.soort === "wissel");
-    const meeOpen = wissel ? meeLijst(wissel).filter((x) => !(kringState().meeKlaar[wissel.id] ?? []).includes(x)).length : 0;
+    const meeOpen = wissel ? nogInpakken(wissel).length : 0;
     return Array.from({ length: 7 }, (_, i) => {
         const d = new Date(start);
         d.setDate(start.getDate() + i);
@@ -196,18 +265,18 @@ export function weekOverzicht(vandaag = DEMO_VANDAAG) {
             dag: a.categorie === "wissel" ? undefined : iso,
         }));
         regels.sort((x, y) => (x.tijd ?? "").localeCompare(y.tijd ?? ""));
-        for (const r of state.routines.filter((x) => x.dag === dagNaam))
+        for (const r of routines().filter((x) => x.dag === dagNaam))
             regels.push({ tekst: r.reden, sub: i18n.t(`${NS}.week.itemMee`, { item: r.item }), naar: "/overdracht" });
         return { iso, label: hoofdletter(dagTekst(dagNaam)), regels };
     });
 }
-export const morgenOverzicht = (vandaag = DEMO_VANDAAG) => {
+export const morgenOverzicht = (vandaag = vandaagIso()) => {
     const d = new Date(`${vandaag}T00:00`);
     d.setDate(d.getDate() + 1);
     const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     return weekOverzicht(vandaag).find((x) => x.iso === iso) ?? { iso, label: dagTekst(dagNamen[d.getDay()]), regels: [] };
 };
-export const nogTeRegelenDezeWeek = () => regels.flatMap((r) => r({ vandaag: DEMO_VANDAAG })).filter((s) => s.prioriteit <= 2).length;
+export const nogTeRegelenDezeWeek = () => regels.flatMap((r) => r({ vandaag: vandaagIso() })).filter((s) => s.prioriteit <= 2).length;
 export function overlappendeAfspraken(p, bestaand, ignore) {
     const start = minuten(p.tijd), eind = minuten(p.eindtijd ?? "");
     if (start === null)
@@ -263,7 +332,7 @@ export function controleerPrive(p, extra = []) {
     for (const a of kindAfspraken) {
         if (a.datum !== p.datum || !binnen(a.tijd))
             continue;
-        const ingepland = a.id ? state.wieGaat[a.id] === "sanne" : false;
+        const ingepland = ikGaZelf(a.id);
         if (!ingepland && !bijMij)
             continue; // kind bij de ander en geen taak: geen melding
         const t = a.titel.split(" · ")[0].toLowerCase();
@@ -273,12 +342,25 @@ export function controleerPrive(p, extra = []) {
 }
 /** Eén afspraak, één verzoek: het verzoek wordt gekoppeld, niet erbij gezet. */
 export const koppelAfstem = (afspraakId, verzoekId) => {
-    state = { ...state, afstem: { ...state.afstem, [afspraakId]: verzoekId } };
-    listeners.forEach((l) => l());
+    laad();
+    if (!afspraakId || !verzoekId)
+        return;
+    // Alleen echte ids bewaren (een tijdelijke afspraak- of verzoek-id bestaat na verversen niet meer).
+    const echt = (x) => /^[0-9a-f-]{36}$/i.test(String(x));
+    const nog = Object.entries(keuzes.afstem).filter(([a, v]) => a !== afspraakId && echt(a) && echt(v)).slice(-(MAX_LIJST - 1));
+    const nieuw = Object.fromEntries(nog);
+    if (echt(afspraakId) && echt(verzoekId))
+        nieuw[afspraakId] = verzoekId;
+    else
+        tijdelijkAfstem.set(afspraakId, verzoekId);
+    bewaar({ afstem: nieuw });
 };
+/** Koppelingen met een tijdelijke id (alleen tot de server de echte id geeft). */
+const tijdelijkAfstem = new Map();
 /** "Afgestemd ✓" alleen als de andere ouder positief antwoordde; geen reactie = geen akkoord. */
 export function afstemStatus(afspraakId) {
-    const id = state.afstem[afspraakId];
+    laad();
+    const id = keuzes.afstem[afspraakId] ?? tijdelijkAfstem.get(afspraakId);
     if (!id)
         return "geen";
     const n = nuLijst().find((x) => x.id === id);
@@ -289,18 +371,16 @@ export function afstemStatus(afspraakId) {
     return /(is goed|akkoord|^ja|haal op|pak op|that's fine|that time works|fine|agreed|^yes|i'll pick|pick (him|her|them|\w+) up)/i.test(n.antwoord ?? "") ? "akkoord" : "geen";
 }
 /* ---------- Sinds je laatste bezoek: gebundeld, alleen praktisch relevante wijzigingen ---------- */
-const BEZOEK = "onzeapp-laatste-bezoek";
 export function sindsLaatsteBezoek() {
     if (typeof window === "undefined")
         return null;
-    let vorige = null;
-    try {
-        vorige = localStorage.getItem(BEZOEK);
-        localStorage.setItem(BEZOEK, new Date().toISOString());
-    }
-    catch {
+    laad();
+    if (!keuzesVoor)
         return null;
-    }
+    const vorige = keuzes.laatsteBezoek;
+    // Hooguit elke 10 minuten opslaan (voorkeur van het account), anders bij elk bezoek aan Home een aanroep.
+    if (!vorige || Date.now() - new Date(vorige).getTime() > 10 * 60_000)
+        bewaar({ laatsteBezoek: new Date().toISOString() });
     if (!vorige)
         return null;
     // Alleen als je de app een tijdje (≥ 1 uur) niet hebt geopend

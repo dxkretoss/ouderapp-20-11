@@ -7,7 +7,10 @@ import { bevestig } from "@/lib/feedback";
 import { KindPil } from "@/components/KostenTabs";
 import { MetVinkje } from "@/components/Tekens";
 import { useStart } from "@/lib/start-store";
-import { bevestigOntvangen, haalItemWeg, itemsVoor, useOverdracht, voegItemsToe, vulVasteSpullenAan, zetIngepakt } from "@/lib/overdracht-store";
+import { bevestigOntvangen, haalItemWeg, itemsVoor, leesAfspraakRef, urenTot, useOverdracht, voegItemsToe, vulAfspraakSpullenAan, vulVasteSpullenAan, zetIngepakt } from "@/lib/overdracht-store";
+import { useAgenda } from "@/lib/agenda-store";
+import { tLijst } from "@/i18n";
+import { dt } from "@/lib/agenda-datum";
 /** Opties en getypte spullen blijven zoals ze zijn opgeslagen; bekende opties krijgen een vertaald label. */
 const OPTIE_SLEUTEL = { Zwemspullen: "zwemspullen", Gymtas: "gymtas", Medicijnen: "medicijnen", Voetbalspullen: "voetbalspullen", Sportkleding: "sportkleding", Schooltas: "schooltas", Knuffel: "knuffel", Pyjama: "pyjama", Jas: "jas", Oplader: "oplader", Tablet: "tablet", Huiswerk: "huiswerk" };
 const optieLabel = (t, n) => (OPTIE_SLEUTEL[n] ? t(`components.SlimmeMeeLijst.optie.${OPTIE_SLEUTEL[n]}`) : n);
@@ -24,8 +27,12 @@ export function SlimmeMeeLijst({ moment: m, daarna }) {
     const [toevoegen, setToevoegen] = useState(false);
     const [ingepaktOpen, setIngepaktOpen] = useState(false);
     const [controle, setControle] = useState(false);
+    const agenda = useAgenda();
     useEffect(() => { if (m)
-        vulVasteSpullenAan(m); }, [m?.id, od.geladen, od.routines.length]);
+        vulVasteSpullenAan(m, daarna); }, [m?.id, daarna?.id, od.geladen, od.routines.length]);
+    // "Neem mee" van gedeelde afspraken tussen deze wissel en de volgende (zodra de agenda geladen is).
+    useEffect(() => { if (m)
+        vulAfspraakSpullenAan(m, daarna); }, [m?.id, daarna?.id, od.geladen, agenda.geladen, agenda.events.length]);
     if (!m)
         return null;
     const lijst = itemsVoor(od, m.id);
@@ -33,11 +40,25 @@ export function SlimmeMeeLijst({ moment: m, daarna }) {
     const ingepakt = lijst.filter((x) => x.ingepakt);
     const pct = lijst.length ? Math.round((ingepakt.length / lijst.length) * 100) : 0;
     const naam = (id) => st.kinderen.find((k) => k.id === id)?.naam ?? "";
-    const bron = (i) => i.bron === "vast" ? t("components.SlimmeMeeLijst.bron.vast") : i.bron === "verzoek" ? (i.door === "ik" ? t("components.SlimmeMeeLijst.bron.jouwVerzoek") : t("components.SlimmeMeeLijst.bron.verzoek")) : i.bron === "niet_meegekomen" ? t("components.SlimmeMeeLijst.bron.nietMeegekomen") : i.bron === "afspraak" ? i.bronRef ?? "" : "";
+    // Afspraak-items: "Zwemles za 10:00" uit de agenda (bron_ref = afspraak:<id>:<datum>); oudere items hebben het label zelf.
+    const afspraakLabel = (ref) => {
+        const r = leesAfspraakRef(ref);
+        if (!r)
+            return ref ?? "";
+        const a = agenda.events.find((e) => e.id === r.id);
+        if (!a)
+            return t("components.SlimmeMeeLijst.bron.afspraak");
+        const dag = tLijst("common.dagenKort")[(dt(r.datum).getDay() + 6) % 7] ?? "";
+        return [a.titel, dag, a.tijd ? uur(a.tijd) : ""].filter(Boolean).join(" ");
+    };
+    const bron = (i) => i.bron === "vast" ? t("components.SlimmeMeeLijst.bron.vast") : i.bron === "verzoek" ? (i.door === "ik" ? t("components.SlimmeMeeLijst.bron.jouwVerzoek") : t("components.SlimmeMeeLijst.bron.verzoek")) : i.bron === "niet_meegekomen" ? t("components.SlimmeMeeLijst.bron.nietMeegekomen") : i.bron === "afspraak" ? afspraakLabel(i.bronRef) : "";
+    // "Is alles meegekomen?" alleen voor de ouder naar wie de kinderen gaan, en pas na het wisselmoment.
+    const naWissel = urenTot(m.datum, m.tijd) < 0;
+    const magNalopen = !!m.naarMij && naWissel && lijst.length > 0;
     // De ouder naar wie de kinderen gaan, vraagt; de ouder die inpakt, voegt toe.
     const voegToe = (namen) => voegItemsToe(m.id, namen, m.kindIds, m.naarMij ? "verzoek" : "toegevoegd");
     const opties = od.opties.filter((o) => !lijst.some((i) => i.naam.toLowerCase() === o.toLowerCase())).slice(0, 18);
-    if (controle)
+    if (controle && magNalopen)
         return <AllesMeegekomen moment={m} daarna={daarna} items={lijst} onKlaar={() => setControle(false)}/>;
     return (<section className="mt-4" aria-label={t("components.SlimmeMeeLijst.meeMetWissel")}>
       <div className="rounded-[26px] px-5 py-4" style={{ background: "rgba(220,230,210,.75)" }}>
@@ -88,7 +109,7 @@ export function SlimmeMeeLijst({ moment: m, daarna }) {
         </div>) : (<button onClick={() => setToevoegen(true)} className="mt-5 flex h-[54px] w-full items-center justify-center gap-2 rounded-full bg-brand text-base font-black text-primary-foreground"><Plus className="size-5" aria-hidden/>{t("components.SlimmeMeeLijst.ietsToevoegen")}</button>)}
       <div className="mt-3 flex items-center justify-between px-1 text-[15px] font-black text-brand">
         <Link to="/agenda" search={{ zorgActie: "wijziging", dag: m.datum }}>{t("components.SlimmeMeeLijst.verschuiven")}</Link>
-        {lijst.length ? <button onClick={() => setControle(true)}>{t("components.SlimmeMeeLijst.allesMeegekomen")}</button> : null}
+        {magNalopen ? <button onClick={() => setControle(true)}>{t("components.SlimmeMeeLijst.allesMeegekomen")}</button> : null}
       </div>
       {/school|opvang|nursery|childcare/i.test(m.plek ?? "") ? <p className="mt-3 rounded-2xl bg-[#E9EFE3] px-3.5 py-2.5 text-[13.5px] text-[#2F4A3A]"><Trans i18nKey="components.SlimmeMeeLijst.viaSchool" components={{ b: <b/> }}/></p> : null}
       <p className="mt-2 px-1 text-[12px] text-ink-soft">{t("components.SlimmeMeeLijst.standaard")}</p>
@@ -100,8 +121,15 @@ function AllesMeegekomen({ moment, daarna, items, onKlaar }) {
     const [niet, setNiet] = useState(() => items.filter((i) => i.ontvangen === false).map((i) => i.id));
     const wissel = (id) => setNiet((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
     const namen = items.filter((i) => niet.includes(i.id)).map((i) => optieLabel(t, i.naam));
-    const bevestigen = () => {
-        bevestigOntvangen(moment.id, Object.fromEntries(items.map((i) => [i.id, !niet.includes(i.id)])), daarna?.id);
+    const [bezig, setBezig] = useState(false);
+    const bevestigen = async () => {
+        // Alleen echte (opgeslagen) items; een item dat nog onderweg is, telt mee bij een volgende keer.
+        const echt = items.filter((i) => !String(i.id).startsWith("tmp-"));
+        setBezig(true);
+        const r = await bevestigOntvangen(moment.id, Object.fromEntries(echt.map((i) => [i.id, !niet.includes(i.id)])), daarna?.id);
+        setBezig(false);
+        if (!r)
+            return;
         bevestig(niet.length ? t("components.SlimmeMeeLijst.weerOpLijst", { count: niet.length, items: namen.join(", ") }) : t("components.SlimmeMeeLijst.fijnAlles"));
         onKlaar();
     };
@@ -120,7 +148,7 @@ function AllesMeegekomen({ moment, daarna, items, onKlaar }) {
         })}
       </ul>
       {niet.length ? <p className="mt-3 rounded-2xl bg-[rgba(220,230,210,.85)] px-4 py-3 text-[15px] text-[#2F4A3A]">{t("components.SlimmeMeeLijst.komtWeer", { count: niet.length, items: namen.join(", ") })}</p> : null}
-      <button onClick={bevestigen} className="mt-5 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground">{t("components.SlimmeMeeLijst.bevestigen")}</button>
+      <button onClick={bevestigen} disabled={bezig} className="mt-5 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground disabled:opacity-50">{t("components.SlimmeMeeLijst.bevestigen")}</button>
       <button onClick={onKlaar} className="mt-2 w-full py-2 text-sm font-bold text-ink-soft">{t("components.SlimmeMeeLijst.terugLijst")}</button>
     </section>);
 }

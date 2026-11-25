@@ -6,7 +6,11 @@ import { AppShell, Card, PageHeader } from "@/components/AppShell";
 import { useGezagState } from "@/lib/gezag-store";
 import { useStart } from "@/lib/start-store";
 import { useGezin } from "@/lib/gezin";
-import { neemBesluitVoor, reageerOpBesluit, useBesluiten } from "@/lib/afspraken-store";
+import { laadWeergave } from "@/components/Laden";
+import { afsprakenBron } from "@/lib/afspraken-store";
+import { neemBesluitVoor, reageerOpBesluit, trekBesluitIn, useBesluiten } from "@/lib/afspraken-store";
+import { VoorstelIntrekken } from "@/components/VoorstelIntrekken";
+import { bevestig } from "@/lib/feedback";
 import { useTranslation } from "react-i18next";
 import i18n, { taalLocale } from "@/i18n";
 import { MetVinkje } from "@/components/Tekens";
@@ -35,6 +39,8 @@ const wanneerTekst = (iso) => new Date(iso).toLocaleString(taalLocale(), { day: 
  * andere ouder antwoordt (eenmalig, definitief); anders een mening vragen of ter informatie delen. Het logboek groeit alleen.
  */
 function status(b, ik, t) {
+    if (b.status === "withdrawn")
+        return { t: t(N + "ingetrokken"), c: "bg-bg-muted" };
     if (b.decision_mode !== "goedkeuring")
         return { t: b.decision_mode === "informatie" ? t(N + "terInformatie") : t(N + "graagMening"), c: "bg-bg-muted" };
     const r = Object.values(b.responses ?? {});
@@ -49,6 +55,7 @@ function Beslissingen() {
     const { gezag } = useGezagState();
     const st = useStart();
     const g = useGezin();
+    const laadStatus = afsprakenBron.useStatus();
     const lijst = [...useBesluiten()].sort((a, b) => b.created_at.localeCompare(a.created_at));
     const [titel, setTitel] = useState("");
     const zoek = Route.useSearch();
@@ -60,26 +67,30 @@ function Beslissingen() {
     const [openLog, setOpenLog] = useState(null);
     const [bezig, setBezig] = useState(false);
     const ik = g.ik?.id;
-    const anderNaam = g.ander?.naam || t("common.deAndereOuder");
-    const naamVan = (id) => (id === ik ? g.ik?.naam || t("common.jij") : anderNaam);
-    const samen = gezag[kind] === "gezamenlijk";
+    // De andere ouder van het gekozen kind (per kind kan dat een andere ouder zijn).
+    const anderNaam = (kind && g.anderVoor([kind])?.naam) || t("common.deAndereOuder");
+    const naamVan = (id) => (id === ik ? g.ik?.naam || t("common.jij") : g.coOuders.find((c) => c.id === id)?.naam || t("common.deAndereOuder"));
+    const kindSamen = !!kind && g.isSamen(kind);
+    const samen = gezag[kind] === "gezamenlijk" && kindSamen;
     const voorstellen = async () => {
         if (!titel.trim() || !kind || bezig)
             return;
         setBezig(true);
         const b = await neemBesluitVoor({ titel: titel.trim(), soort, kindId: kind, modus: samen ? "goedkeuring" : mening });
         setBezig(false);
-        if (b)
+        if (b) {
             setTitel("");
+            bevestig(!kindSamen ? t(N + "melding.vastgelegd") : samen ? t(N + "melding.voorgesteld") : t(N + "melding.gedeeld"));
+        }
     };
-    const logTekst = (h) => (h.type === "voorstel" ? t(N + "log.voorstelGedaan") : h.type === "gedeeld" ? t(N + "log.gedeeld") : h.type === "akkoord" ? t("common.akkoord") : h.type === "niet" ? t("common.nietAkkoord") : h.type);
+    const logTekst = (h) => (h.type === "voorstel" ? t(N + "log.voorstelGedaan") : h.type === "gedeeld" ? t(N + "log.gedeeld") : h.type === "akkoord" ? t("common.akkoord") : h.type === "niet" ? t("common.nietAkkoord") : h.type === "ingetrokken" ? t(N + "ingetrokken") : h.type);
     const reactie = (b, id) => b.responses?.[id];
     return (<AppShell>
       <PageHeader titel={t(N + "titel")} subtitel={t(N + "subtitel")}/>
 
       <Card className="mt-5 space-y-3">
         <p className="text-sm font-semibold">{t(N + "nieuw")}</p>
-        <input value={titel} onChange={(e) => setTitel(e.target.value)} placeholder={t(N + "placeholderEigen")} className="w-full rounded-md border border-white/70 bg-white/80 p-3 text-sm"/>
+        <input value={titel} maxLength={200} onChange={(e) => setTitel(e.target.value)} placeholder={t(N + "placeholderEigen")} className="w-full rounded-md border border-white/70 bg-white/80 p-3 text-sm"/>
         <div className="flex gap-2">
           <select value={soort} onChange={(e) => setSoort(e.target.value)} className="flex-1 rounded-md border border-white/70 bg-white/80 p-2.5 text-sm">{soorten.map((x) => <option key={x} value={x}>{soortNaam(x, t)}</option>)}</select>
           <select value={kind} onChange={(e) => setKind(e.target.value)} className="flex-1 rounded-md border border-white/70 bg-white/80 p-2.5 text-sm">{st.kinderen.map((k) => <option key={k.id} value={k.id}>{k.naam}</option>)}</select>
@@ -87,16 +98,19 @@ function Beslissingen() {
         {samen ? (<p className="text-xs text-ink-soft">{t(N + "pasAlsAllebei")}</p>) : (<div className="flex gap-2">
             {["mening", "informatie"].map((m) => (<button key={m} onClick={() => setMening(m)} className={`flex-1 rounded-full border px-3 py-2 text-xs font-semibold ${mening === m ? "border-brand bg-white" : "border-border bg-surface text-ink-soft"}`}>{m === "mening" ? t(N + "graagMening") : t(N + "terInformatie")}</button>))}
           </div>)}
-        {!g.gekoppeld ? <p className="text-xs text-ink-soft">{t(N + "nogNietGekoppeld")}</p> : null}
-        <button onClick={voorstellen} disabled={!titel.trim() || !kind || bezig} className="w-full rounded-full bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{samen ? t(N + "voorstellenAan", { naam: anderNaam }) : t(N + "delenMet", { naam: anderNaam })}</button>
+        {!kindSamen ? <p className="text-xs text-ink-soft">{t(N + "alleenVoorJezelf")}</p> : null}
+        <button onClick={voorstellen} disabled={!titel.trim() || !kind || bezig} className="w-full rounded-full bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{!kindSamen ? t(N + "vastleggen") : samen ? t(N + "voorstellenAan", { naam: anderNaam }) : t(N + "delenMet", { naam: anderNaam })}</button>
       </Card>
 
       <div className="mt-5 space-y-3">
         {lijst.map((b) => {
             const stt = status(b, ik, t);
             const k = st.kinderen.find((x) => b.child_ids?.includes(x.id));
-            const ander = g.ander?.id;
-            const magReageren = b.decision_mode === "goedkeuring" && b.created_by !== ik && !reactie(b, ik);
+            // De andere ouder van DEZE beslissing (het paar), niet "de" andere ouder van het gezin.
+            const ander = b.created_by === ik ? b.other_parent_id : b.created_by;
+            const open = b.decision_mode === "goedkeuring" && b.status === "pending";
+            const magReageren = open && b.created_by !== ik && !reactie(b, ik);
+            const magIntrekken = open && b.created_by === ik && !Object.keys(b.responses ?? {}).some((id) => id !== ik);
             const log = b.history ?? [];
             return (<Card key={b.id} id={`item-${b.id}`} className="zoekdoel space-y-2">
               <div className="flex items-center justify-between gap-2">
@@ -107,9 +121,13 @@ function Beslissingen() {
               {b.decision_mode === "goedkeuring" && (<div className="flex flex-wrap gap-4 text-xs text-ink-soft">
                   {[ik, b.created_by === ik ? ander : b.created_by].filter(Boolean).map((id) => (<span key={id} className="inline-flex items-center gap-1">{naamVan(id)}: {reactie(b, id) === "akkoord" ? <MetVinkje>{t(N + "vinkAkkoord")}</MetVinkje> : reactie(b, id) === "niet" ? t(N + "audit.nietAkkoord") : "…"}</span>))}
                 </div>)}
+              {magIntrekken ? <VoorstelIntrekken onBevestig={async () => { if (await trekBesluitIn(b.id))
+                    bevestig(t(N + "melding.ingetrokken")); }}/> : null}
               {magReageren ? (<div className="flex gap-2">
-                  <button onClick={() => reageerOpBesluit(b.id, "akkoord")} className="min-h-10 rounded-full bg-brand px-4 text-xs font-semibold text-primary-foreground">{t("common.akkoord")}</button>
-                  <button onClick={() => reageerOpBesluit(b.id, "niet")} className="min-h-10 rounded-full bg-white px-4 text-xs font-semibold">{t("common.nietAkkoord")}</button>
+                  <button onClick={async () => { if (await reageerOpBesluit(b.id, "akkoord"))
+                    bevestig(t(N + "melding.beantwoord")); }} className="min-h-10 rounded-full bg-brand px-4 text-xs font-semibold text-primary-foreground">{t("common.akkoord")}</button>
+                  <button onClick={async () => { if (await reageerOpBesluit(b.id, "niet"))
+                    bevestig(t(N + "melding.beantwoord")); }} className="min-h-10 rounded-full bg-white px-4 text-xs font-semibold">{t("common.nietAkkoord")}</button>
                 </div>) : null}
               <button onClick={() => setOpenLog(openLog === b.id ? null : b.id)} className="text-xs font-semibold text-brand">{openLog === b.id ? t(N + "verbergLogboek") : t(N + "logboek", { n: log.length })}</button>
               {openLog === b.id && (<ol className="space-y-1 border-l-2 border-brand-soft pl-3 text-xs">
@@ -117,7 +135,7 @@ function Beslissingen() {
                 </ol>)}
             </Card>);
         })}
-        {!lijst.length ? <p className="py-4 text-center text-sm text-ink-soft">{t(N + "leeg")}</p> : null}
+        {!lijst.length ? (laadWeergave(laadStatus, afsprakenBron.ververs) ?? <p className="py-4 text-center text-sm text-ink-soft">{t(N + "leeg")}</p>) : null}
       </div>
       <p className="mt-4 text-xs text-ink-soft">{t(N + "voetnoot")}</p>
     </AppShell>);

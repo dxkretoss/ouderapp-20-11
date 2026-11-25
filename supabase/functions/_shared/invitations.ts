@@ -15,6 +15,9 @@ export function toApiInvitation(r: Record<string, any>) {
     created_at: r.created_at,
     expires_at: r.expires_at,
     accepted_at: r.accepted_at ?? null,
+    // e-mail delivery: "sent" | "failed" | null (unknown for older invitations)
+    email_status: r.email_status ?? null,
+    email_sent_at: r.email_sent_at ?? null,
   };
 }
 

@@ -18,6 +18,8 @@ const sync = serverBron({
     },
     wis: () => { wachtend.clear(); zet({ meldingen: [], gelezen: [], geladen: false }); },
 });
+/** Laadstatus voor de schermen (useStatus / ververs). */
+export const meldingenBron = sync;
 export function useMeldingen() {
     sync.zorg();
     return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => state, () => state);

@@ -5,7 +5,10 @@ import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { AppShell, BackButton, Card } from "@/components/AppShell";
 import { DeelMomentje, MomentjeKaart } from "@/components/Momentjes";
-import { setHerinnering, setProfessionals, useMomentjes } from "@/lib/momentjes-store";
+import { laadWeergave } from "@/components/Laden";
+import { momentjesBron } from "@/lib/momentjes-store";
+import { useMomentjes } from "@/lib/momentjes-store";
+import { useVoorkeuren, zetVoorkeur } from "@/lib/voorkeuren-store";
 import { ProfielBeeld } from "@/components/ProfielBeeld";
 import { AppIcon } from "@/components/AppIcon";
 import { useStart } from "@/lib/start-store";
@@ -38,7 +41,11 @@ function Schakel({ aan, onClick, label, uitleg }) {
 }
 function MomentjesPagina() {
     const { t } = useTranslation();
-    const { lijst, herinnering, professionals } = useMomentjes();
+    const { lijst } = useMomentjes();
+    // De herinnering is een voorkeur van de ouder (op de server, voor elk apparaat gelijk).
+    const vk = useVoorkeuren();
+    const herinnering = vk.momentjesHerinnering !== false;
+    const laadStatus = momentjesBron.useStatus();
     const st = useStart();
     const kinderen = st.kinderen;
     const nav = useNavigate();
@@ -65,7 +72,7 @@ function MomentjesPagina() {
       <div className="mt-3 space-y-3">
         {zichtbaar.map((m) => <MomentjeKaart key={m.id} m={m}/>)}
         {zichtbaar.length === 0 && lijst.length ? <p className="py-6 text-center text-sm text-ink-soft">{t("routes.momentjes.leeg")}</p> : null}
-        {!lijst.length ? (<div className="mt-6 flex flex-col items-center text-center">
+        {!lijst.length ? (laadWeergave(laadStatus, momentjesBron.ververs) ?? <div className="mt-6 flex flex-col items-center text-center">
             <p className="font-display text-lg font-bold">{t("routes.momentjes.eigen.rustig")}</p>
             <p className="mt-1 max-w-xs text-sm text-ink-soft">{t("routes.momentjes.eigen.leegUitleg")}</p>
             {kinderen.length ? <button onClick={() => setOpen(true)} className="mt-5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-primary-foreground">{t("routes.momentjes.eigen.eerste")}</button> : null}
@@ -74,8 +81,7 @@ function MomentjesPagina() {
       </div>
       <h2 className="mt-6 px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft">{t("routes.momentjes.privacyKop")}</h2>
       <Card className="mt-2 divide-y divide-border rounded-[22px] border-white/85 bg-white/60 py-1">
-        <Schakel aan={herinnering} onClick={() => setHerinnering(!herinnering)} label={t("routes.momentjes.herinnering.label")} uitleg={<Trans i18nKey="routes.momentjes.herinnering.uitleg" components={{ hart: <AppIcon functie="momentjes" maat="sm" vorm="kaal" className="align-middle"/> }}/>}/>
-        <Schakel aan={professionals} onClick={() => setProfessionals(!professionals)} label={t("routes.momentjes.professionals.label")} uitleg={t("routes.momentjes.professionals.uitleg")}/>
+        <Schakel aan={herinnering} onClick={() => zetVoorkeur("momentjesHerinnering", !herinnering)} label={t("routes.momentjes.herinnering.label")} uitleg={<Trans i18nKey="routes.momentjes.herinnering.uitleg" components={{ hart: <AppIcon functie="momentjes" maat="sm" vorm="kaal" className="align-middle"/> }}/>}/>
       </Card>
       <p className="mt-3 text-xs text-ink-soft">
         {t("routes.momentjes.vrijwillig")}

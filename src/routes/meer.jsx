@@ -12,7 +12,7 @@ import { AppIcon } from "@/components/AppIcon";
 import { Chevron } from "@/components/Tekens";
 import { ProfielBeeld } from "@/components/ProfielBeeld";
 import { AfmeldenRij } from "@/components/Afmelden";
-import { leesEvaluaties, evaluatieNodig } from "@/lib/evaluatie-store";
+import { evaluatieNodig, useEvaluaties } from "@/lib/evaluatie-store";
 export const Route = createFileRoute("/meer")({
     validateSearch: z.object({ hulp: z.boolean().optional() }),
     head: () => ({
@@ -127,20 +127,11 @@ function Meer() {
     const gezinItems = gezin.map((i) => i.to === "/kinderen" && profielen.length === 1 ? { ...i, titel: t("routes.meer.kind") } : i);
     const alle = [...dagelijks, ...gezinItems, ...ondersteuning, ...account];
     const [zoek, setZoek] = useState("");
-    const [evaluatieTekst, setEvaluatieTekst] = useState(() => t("routes.meer.items.evaluatie.tekst"));
-    useEffect(() => {
-        const l = leesEvaluaties();
-        if (!l.length) {
-            setEvaluatieTekst(t("routes.meer.items.evaluatie.tekst"));
-            return;
-        }
-        if (evaluatieNodig(l)) {
-            setEvaluatieTekst(t("routes.meer.evaluatieKlaar"));
-            return;
-        }
-        const volgende = new Date(new Date(l[0].datum).getTime() + 182 * 864e5);
-        setEvaluatieTekst(t("routes.meer.evaluatieVolgende", { datum: volgende.toLocaleDateString(taalLocale(), { month: "long", year: "numeric" }) }));
-    }, []);
+    // Evaluaties komen van de server en verversen mee (niet één keer bij openen).
+    const evaluaties = useEvaluaties();
+    const evaluatieTekst = !evaluaties.length ? t("routes.meer.items.evaluatie.tekst")
+        : evaluatieNodig(evaluaties) ? t("routes.meer.evaluatieKlaar")
+            : t("routes.meer.evaluatieVolgende", { datum: new Date(new Date(evaluaties[0].datum).getTime() + 182 * 864e5).toLocaleDateString(taalLocale(), { month: "long", year: "numeric" }) });
     const [recent, setRecent] = useState([]);
     useEffect(() => setRecent(leesRecent().filter((r) => r.to !== "/samen-regelen").map((r) => r.to === "/zorgregeling" || r.to === "/planning" ? { ...r, to: "/agenda" } : r.to === "/rondleiding" || r.to === "/welkom" ? { ...r, to: "/meer?hulp=true" } : r)), []);
     // Scrollpositie bewaren bij terugkeer naar Meer.
@@ -213,9 +204,9 @@ function Meer() {
         </>}
       </section>
       <AfmeldenRij className="mt-6"/>
-      <Sheet open={personenOpen} onOpenChange={setPersonenOpen}><SheetContent side="bottom" className="left-1/2 max-h-[90vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8"><SheetHeader className="pr-8 text-left"><SheetTitle>{t("routes.meer.personen.titel")}</SheetTitle><SheetDescription>{t("routes.meer.personen.uitleg")}</SheetDescription></SheetHeader><div className="mt-3 divide-y divide-border">{profielen.map((k) => <Button asChild key={k.id} variant="ghost" className="min-h-11 w-full justify-between"><Link to={eigen ? "/kinderen/$kindId" : "/kring/$kindId"} params={{ kindId: k.id }}>{k.naam}<Chevron className="size-4 text-ink-soft"/></Link></Button>)}</div></SheetContent></Sheet>
+      <Sheet open={personenOpen} onOpenChange={setPersonenOpen}><SheetContent side="bottom" className="left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8"><SheetHeader className="pr-8 text-left"><SheetTitle>{t("routes.meer.personen.titel")}</SheetTitle><SheetDescription>{t("routes.meer.personen.uitleg")}</SheetDescription></SheetHeader><div className="mt-3 divide-y divide-border">{profielen.map((k) => <Button asChild key={k.id} variant="ghost" className="min-h-11 w-full justify-between"><Link to={eigen ? "/kinderen/$kindId" : "/kring/$kindId"} params={{ kindId: k.id }}>{k.naam}<Chevron className="size-4 text-ink-soft"/></Link></Button>)}</div></SheetContent></Sheet>
       <Sheet open={hulpOpen} onOpenChange={(o) => { setHulpOpen(o); setIntroBevestigen(false); }}>
-        <SheetContent side="bottom" className="left-1/2 max-h-[90vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-[28px] bg-background px-5 pb-8">
+        <SheetContent side="bottom" className="left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-[28px] bg-background px-5 pb-8">
           <SheetHeader className="pr-10 text-left">
             <SheetTitle className="lora text-[28px] font-normal leading-tight">{t("routes.meer.items.hulp.titel")}</SheetTitle>
             <SheetDescription className="text-[15px] text-ink-soft">{t("routes.meer.hulp.uitleg")}</SheetDescription>

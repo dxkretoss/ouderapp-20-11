@@ -6,16 +6,16 @@ import { db } from "../_shared/db.ts";
 import { check, err, ok, serveActions } from "../_shared/respond.ts";
 import { requireUser } from "../_shared/session.ts";
 import { optDate, optText, reqText, requireUuid } from "../_shared/util.ts";
-import { assertChildren, caregiverAccess, canSee, Family, familyFor, familyMembers, otherParents } from "../_shared/practical-scope.ts";
+import { addressFor, assertChildren, caregiverAccess, canSee, Family, familyFor, familyMembers } from "../_shared/practical-scope.ts";
 import { logAudit, notify } from "../_shared/practical-audit.ts";
 
 const RECURRENCE = ["eenmalig", "wekelijks", "maandelijks", "jaarlijks", "aangepast"];
 const CONTACT = ["nog-te-regelen", "contact-opgenomen", "wacht-op-reactie", "afgerond", "niet-mogelijk"];
 const ITEM_TYPES = ["mee", "vast", "dubbel", "terug"];
 const TASK_COLS =
-  "id, user_id, title, child_ids, assignee_id, requested_to, requested_by, deadline, recurrence, recurrence_text, reminder_days, is_completed, completed_at, completed_by, contact_status, source, created_at, updated_at, deleted_at";
+  "id, user_id, title, child_ids, assignee_id, requested_to, requested_by, deadline, recurrence, recurrence_text, reminder_days, is_completed, completed_at, completed_by, contact_status, source, other_parent_id, created_at, updated_at, deleted_at";
 const BELONGING_COLS =
-  "id, created_by, child_id, name, item_type, location_parent_id, location_text, responsible_id, is_done, created_at, updated_at, deleted_at";
+  "id, created_by, child_id, name, item_type, location_parent_id, location_text, responsible_id, is_done, other_parent_id, created_at, updated_at, deleted_at";
 
 type Row = Record<string, any>;
 
@@ -37,6 +37,8 @@ function taskOut(r: Row) {
     completed_by: r.completed_by ?? null,
     contact_status: r.contact_status ?? null,
     source: r.source ?? {},
+    other_parent_id: r.other_parent_id ?? null,
+    is_shared: !!r.other_parent_id,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -53,6 +55,7 @@ function belongingOut(r: Row) {
     location_text: r.location_text ?? null,
     responsible_id: r.responsible_id ?? null,
     is_done: !!r.is_done,
+    other_parent_id: r.other_parent_id ?? null,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -61,7 +64,7 @@ function belongingOut(r: Row) {
 async function loadTask(f: Family, id: unknown): Promise<Row> {
   const taskId = requireUuid(id, "task_id");
   const row = check(await db().from("tasks").select(TASK_COLS).eq("id", taskId).maybeSingle(), "load task") as Row | null;
-  if (!row || row.deleted_at || !canSee(f, row.user_id, row.child_ids)) throw err.notFound("Task not found");
+  if (!row || row.deleted_at || !canSee(f, row.user_id, row.child_ids, false, row.other_parent_id ?? null)) throw err.notFound("Task not found");
   return row;
 }
 
@@ -72,11 +75,10 @@ async function saveTask(id: string, patch: Row): Promise<Row> {
   ) as Row;
 }
 
-/** The other parent for a task: a co-parent who shares its children (or any co-parent for family-wide tasks). */
-function otherFor(f: Family, childIds: string[]): string {
-  const o = otherParents(f, childIds);
-  if (!o.length) throw err.validation("NO_CO_PARENT: invite the other parent first");
-  return o[0];
+/** The other parent a task is shared with (its pair); asking someone else is impossible. */
+function otherFor(row: Row): string {
+  if (!row.other_parent_id) throw err.validation("NO_CO_PARENT: invite the other parent first");
+  return row.other_parent_id;
 }
 
 function optSource(v: unknown) {
@@ -90,13 +92,33 @@ function optSource(v: unknown) {
   return out;
 }
 
-const audit = (me: string, row: Row, action: "CREATED" | "UPDATED", changes?: Array<{ veld: string; oud?: string | null; nieuw?: string | null }>, meta?: Row) =>
-  logAudit({ actorId: me, section: "taak", entityId: row.id, label: row.title, action, changes, childIds: row.child_ids ?? [], meta });
+const audit = (me: string, row: Row, action: "CREATED" | "UPDATED" | "DELETED", changes?: Array<{ veld: string; oud?: string | null; nieuw?: string | null }>, meta?: Row) =>
+  logAudit({ actorId: me, section: "taak", entityId: row.id, label: row.title, action, changes, childIds: row.child_ids ?? [], familyIds: [row.user_id, row.other_parent_id], meta });
 
-async function loadBelonging(f: Family, id: unknown): Promise<Row> {
+/** A soft-deleted task of the caller (only the creator can bring it back). Same not-found as any other miss. */
+async function loadDeletedTask(me: string, id: unknown): Promise<Row> {
+  const taskId = requireUuid(id, "task_id");
+  const row = check(await db().from("tasks").select(TASK_COLS).eq("id", taskId).maybeSingle(), "load deleted task") as Row | null;
+  if (!row || !row.deleted_at || row.user_id !== me) throw err.notFound("Task not found");
+  return row;
+}
+
+function readRecurrence(v: unknown): string {
+  const r = v ?? "eenmalig";
+  if (typeof r !== "string" || !RECURRENCE.includes(r)) throw err.validation("recurrence is invalid");
+  return r;
+}
+
+function readReminder(v: unknown): number {
+  const n = v === undefined || v === null ? 0 : Number(v);
+  if (!Number.isInteger(n) || n < 0 || n > 60) throw err.validation("reminder_days is invalid");
+  return n;
+}
+
+async function loadBelonging(f: Family, id: unknown, deleted = false): Promise<Row> {
   const bId = requireUuid(id, "belonging_id");
   const row = check(await db().from("belongings").select(BELONGING_COLS).eq("id", bId).maybeSingle(), "load belonging") as Row | null;
-  if (!row || row.deleted_at || !canSee(f, row.created_by, [row.child_id]) || !f.childIds.includes(row.child_id)) {
+  if (!row || !!row.deleted_at !== deleted || !canSee(f, row.created_by, [row.child_id], false, row.other_parent_id ?? null) || !f.childIds.includes(row.child_id)) {
     throw err.notFound("Belonging not found");
   }
   return row;
@@ -135,14 +157,15 @@ Deno.serve(serveActions("manage-tasks", {
     const cgTaskKids = cg.view("taken").filter((k) => !f.childIds.includes(k));
     const cgItemKids = cg.view("spullen").filter((k) => !f.childIds.includes(k));
     const [ct, cb] = await Promise.all([
-      cgTaskKids.length ? db().from("tasks").select(TASK_COLS).overlaps("child_ids", cgTaskKids).is("deleted_at", null).limit(500) : Promise.resolve({ data: [], error: null }),
-      cgItemKids.length ? db().from("belongings").select(BELONGING_COLS).in("child_id", cgItemKids).is("deleted_at", null).limit(500) : Promise.resolve({ data: [], error: null }),
+      // Only SHARED items (other_parent_id set): private ("Alleen jij") items never reach the circle.
+      cgTaskKids.length ? db().from("tasks").select(TASK_COLS).overlaps("child_ids", cgTaskKids).not("other_parent_id", "is", null).is("deleted_at", null).limit(500) : Promise.resolve({ data: [], error: null }),
+      cgItemKids.length ? db().from("belongings").select(BELONGING_COLS).in("child_id", cgItemKids).not("other_parent_id", "is", null).is("deleted_at", null).limit(500) : Promise.resolve({ data: [], error: null }),
     ]);
-    const circleTasks = ((check(ct, "caregiver tasks") ?? []) as Row[]).filter((r) => (r.child_ids ?? []).length && r.child_ids.every((k: string) => cgTaskKids.includes(k)));
-    const circleItems = (check(cb, "caregiver belongings") ?? []) as Row[];
+    const circleTasks = ((check(ct, "caregiver tasks") ?? []) as Row[]).filter((r) => !!r.other_parent_id && (r.child_ids ?? []).length && r.child_ids.every((k: string) => cgTaskKids.includes(k)));
+    const circleItems = ((check(cb, "caregiver belongings") ?? []) as Row[]).filter((r) => !!r.other_parent_id);
     return ok({
-      tasks: [...t.filter((r) => canSee(f, r.user_id, r.child_ids)), ...circleTasks].map(taskOut),
-      belongings: [...b.filter((r) => canSee(f, r.created_by, [r.child_id])), ...circleItems].map(belongingOut),
+      tasks: [...t.filter((r) => canSee(f, r.user_id, r.child_ids, false, r.other_parent_id ?? null)), ...circleTasks].map(taskOut),
+      belongings: [...b.filter((r) => canSee(f, r.created_by, [r.child_id], false, r.other_parent_id ?? null)), ...circleItems].map(belongingOut),
     });
   },
 
@@ -159,20 +182,24 @@ Deno.serve(serveActions("manage-tasks", {
           .eq("source->>bericht_id", source.bericht_id).eq("source->>gesprek_id", source.gesprek_id).limit(1),
         "dedupe task",
       ) as Row[] | null;
-      if (dup?.length && canSee(f, dup[0].user_id, dup[0].child_ids)) return ok({ task: taskOut(dup[0]), duplicate: true });
+      if (dup?.length && canSee(f, dup[0].user_id, dup[0].child_ids, false, dup[0].other_parent_id ?? null)) return ok({ task: taskOut(dup[0]), duplicate: true });
     }
     const assign = body.assign ?? "me";
     if (!["me", "other", "none"].includes(assign)) throw err.validation("assign must be me, other or none");
-    const recurrence = body.recurrence ?? "eenmalig";
-    if (!RECURRENCE.includes(recurrence)) throw err.validation("recurrence is invalid");
-    const reminder = body.reminder_days === undefined || body.reminder_days === null ? 0 : Number(body.reminder_days);
-    if (!Number.isInteger(reminder) || reminder < 0 || reminder > 60) throw err.validation("reminder_days is invalid");
+    // A task asked of the other parent is always shared with that parent.
+    if (assign === "other" && body.shared === false) throw err.validation("A task asked of the other parent must be shared");
+    const recurrence = readRecurrence(body.recurrence);
+    const reminder = readReminder(body.reminder_days);
     const contact = body.contact_status ?? null;
     if (contact !== null && !CONTACT.includes(contact)) throw err.validation("contact_status is invalid");
-    const other = assign === "other" ? otherFor(f, childIds) : null;
+    // Shared with the other parent of these children (all of them), unless shared: false ("Alleen jij").
+    const pair = addressFor(f, childIds, body.shared === false, body.other_parent_id);
+    if (assign === "other" && !pair) throw err.validation("NO_CO_PARENT: invite the other parent first");
+    const other = assign === "other" ? pair : null;
     const row = check(
       await db().from("tasks").insert({
         user_id: me.id,
+        other_parent_id: pair,
         title,
         child_id: childIds.length === 1 ? childIds[0] : null,
         child_ids: childIds,
@@ -253,7 +280,7 @@ Deno.serve(serveActions("manage-tasks", {
     const row = await loadTask(f, body.task_id);
     if (row.is_completed) throw err.validation("Task is already done");
     if (row.requested_to) throw err.validation("A request is already open");
-    const other = otherFor(f, row.child_ids ?? []);
+    const other = otherFor(row);
     if (row.assignee_id === other) throw err.validation("Task already belongs to the other parent");
     const upd = await saveTask(row.id, { requested_to: other, requested_by: me.id, transfer_to: other });
     const auditId = await audit(me.id, upd, "UPDATED", [{ veld: "gevraagdAan", oud: null, nieuw: other }], { type: "Taak gevraagd" });
@@ -291,6 +318,101 @@ Deno.serve(serveActions("manage-tasks", {
     return ok({ task: taskOut(upd) });
   },
 
+  /**
+   * Edit (creator only): title, children, deadline, recurrence, reminder and "Alleen jij" / "Gedeeld".
+   * Sharing goes to the other parent of the children (or the chosen co-parent without children).
+   * While the task is asked of / owned by the other parent it must stay shared with that parent.
+   */
+  async update(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadTask(f, body.task_id);
+    if (row.user_id !== me.id) throw err.forbidden("Only the parent who created the task can change it");
+    const patch: Row = {};
+    const changes: Array<{ veld: string; oud: string | null; nieuw: string | null }> = [];
+    if (body.title !== undefined) {
+      const title = reqText(body.title, "title", 300);
+      if (title !== row.title) { patch.title = title; changes.push({ veld: "titel", oud: row.title, nieuw: title }); }
+    }
+    let childIds: string[] = row.child_ids ?? [];
+    if (body.child_ids !== undefined) {
+      childIds = assertChildren(f, body.child_ids);
+      const same = childIds.length === (row.child_ids ?? []).length && childIds.every((c) => (row.child_ids ?? []).includes(c));
+      if (!same) {
+        Object.assign(patch, { child_ids: childIds, child_id: childIds.length === 1 ? childIds[0] : null });
+        // Counts only (no ids in the history); a swap of one child for another still registers as a change.
+        const oud = String((row.child_ids ?? []).length);
+        changes.push({ veld: "kinderen", oud: oud === String(childIds.length) ? null : oud, nieuw: String(childIds.length) });
+      }
+    }
+    if (body.deadline !== undefined) {
+      const deadline = optDate(body.deadline, "deadline") ?? null;
+      if (deadline !== (row.deadline ?? null)) { patch.deadline = deadline; changes.push({ veld: "deadline", oud: row.deadline ?? null, nieuw: deadline }); }
+    }
+    if (body.recurrence !== undefined) {
+      const recurrence = readRecurrence(body.recurrence);
+      const text = recurrence === "aangepast" ? optText(body.recurrence_text, "recurrence_text", 120) ?? null : null;
+      if (recurrence !== (row.recurrence || "eenmalig") || text !== (row.recurrence_text ?? null)) {
+        Object.assign(patch, { recurrence, recurrence_text: text });
+        changes.push({ veld: "herhaling", oud: row.recurrence || "eenmalig", nieuw: recurrence });
+      }
+    }
+    if (body.reminder_days !== undefined) {
+      const reminder = readReminder(body.reminder_days);
+      if (reminder !== (row.reminder_days || 0)) { patch.reminder_days = reminder; changes.push({ veld: "herinnering", oud: String(row.reminder_days || 0), nieuw: String(reminder) }); }
+    }
+    // Who the task is shared with follows from (new) children + the sharing choice.
+    const wantShared = typeof body.shared === "boolean" ? body.shared : !!row.other_parent_id;
+    if (typeof body.shared === "boolean" || patch.child_ids) {
+      // Without children the task stays with its current co-parent unless another one is chosen.
+      const requested = body.other_parent_id ?? (childIds.length ? undefined : row.other_parent_id ?? undefined);
+      const pair = addressFor(f, childIds, !wantShared, requested);
+      const bound = row.requested_to || (row.assignee_id && row.assignee_id !== me.id ? row.assignee_id : null);
+      if (bound && pair !== bound) throw err.validation("A task asked of or taken by the other parent must stay shared with that parent");
+      if (pair !== (row.other_parent_id ?? null)) {
+        patch.other_parent_id = pair;
+        changes.push({ veld: "zichtbaar", oud: row.other_parent_id ? "gedeeld" : "alleen-jij", nieuw: pair ? "gedeeld" : "alleen-jij" });
+      }
+    }
+    if (!changes.length) return ok({ task: taskOut(row) });
+    const upd = await saveTask(row.id, patch);
+    const auditId = await audit(me.id, upd, "UPDATED", changes);
+    // Only the parent it is (still) shared with hears about it; a task that just became private notifies nobody.
+    if (upd.other_parent_id && upd.other_parent_id === row.other_parent_id) {
+      await notify({ to: upd.other_parent_id, actorId: me.id, type: "task", category: "wijziging", key: "taakGewijzigd", params: { titel: upd.title }, link: "/taken", entityType: "task", entityId: row.id, childIds: upd.child_ids ?? [], auditId });
+    } else if (upd.other_parent_id) {
+      await notify({ to: upd.other_parent_id, actorId: me.id, type: "task", category: "info", key: "taakGedeeld", params: { titel: upd.title }, link: "/taken", entityType: "task", entityId: row.id, childIds: upd.child_ids ?? [], auditId });
+    }
+    return ok({ task: taskOut(upd) });
+  },
+
+  /** Soft delete by the creator; an open request is withdrawn with it. `restore` undoes it. */
+  async delete(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadTask(f, body.task_id);
+    if (row.user_id !== me.id) throw err.forbidden("Only the parent who created the task can remove it");
+    const upd = await saveTask(row.id, { deleted_at: new Date().toISOString(), requested_to: null, requested_by: null, transfer_to: null });
+    const auditId = await audit(me.id, upd, "DELETED");
+    if (row.other_parent_id) {
+      await notify({ to: row.other_parent_id, actorId: me.id, type: "task", category: "info", key: "taakVerwijderd", params: { titel: row.title }, link: "/taken", entityType: "task", entityId: row.id, childIds: row.child_ids ?? [], auditId });
+    }
+    return ok({});
+  },
+
+  async restore(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadDeletedTask(me.id, body.task_id);
+    // The pair may have changed meanwhile (co-parent disconnected): re-check who it can be shared with.
+    let pair: string | null = row.other_parent_id ?? null;
+    if (pair && !f.coParents.includes(pair)) pair = null;
+    const childIds = (row.child_ids ?? []).filter((c: string) => f.childIds.includes(c));
+    const upd = await saveTask(row.id, { deleted_at: null, other_parent_id: pair, child_ids: childIds, child_id: childIds.length === 1 ? childIds[0] : null });
+    await audit(me.id, upd, "UPDATED", [{ veld: "verwijderd", oud: "ja", nieuw: "nee" }]);
+    return ok({ task: taskOut(upd) });
+  },
+
   // ---------------- belongings ----------------
   async "belonging-create"(req, body) {
     const me = await requireUser(req);
@@ -302,10 +424,10 @@ Deno.serve(serveActions("manage-tasks", {
     if (!ITEM_TYPES.includes(type)) throw err.validation("item_type is invalid");
     const loc = optLocation(f, body.location) ?? { location_parent_id: null, location_text: null };
     const row = check(
-      await db().from("belongings").insert({ created_by: me.id, child_id: childId, name, item_type: type, ...loc }).select(BELONGING_COLS).single(),
+      await db().from("belongings").insert({ created_by: me.id, child_id: childId, name, item_type: type, ...loc, other_parent_id: addressFor(f, [childId], body.shared === false, body.other_parent_id) }).select(BELONGING_COLS).single(),
       "create belonging",
     ) as Row;
-    await logAudit({ actorId: me.id, section: "spul", entityId: row.id, label: name, action: "CREATED", childIds: [childId], meta: { type: "Spul" } });
+    await logAudit({ actorId: me.id, section: "spul", entityId: row.id, label: name, action: "CREATED", childIds: [childId], familyIds: [me.id, row.other_parent_id], meta: { type: "Spul" } });
     return ok({ belonging: belongingOut(row) });
   },
 
@@ -336,9 +458,40 @@ Deno.serve(serveActions("manage-tasks", {
       patch.is_done = !!body.is_done;
       changes.push({ veld: "terug", oud: row.is_done ? "ja" : "nee", nieuw: body.is_done ? "ja" : "nee" });
     }
+    // "Alleen jij" <-> "Gedeeld": only the creator decides; shared goes to the other parent of the child.
+    if (typeof body.shared === "boolean") {
+      if (row.created_by !== me.id) throw err.forbidden("Only the parent who added it can change who sees it");
+      const pair = addressFor(f, [row.child_id], !body.shared);
+      if (pair !== (row.other_parent_id ?? null)) {
+        patch.other_parent_id = pair;
+        changes.push({ veld: "zichtbaar", oud: row.other_parent_id ? "gedeeld" : "alleen-jij", nieuw: pair ? "gedeeld" : "alleen-jij" });
+      }
+    }
     if (!changes.length) return ok({ belonging: belongingOut(row) });
-    const upd = check(await db().from("belongings").update(patch).eq("id", row.id).select(BELONGING_COLS).single(), "update belonging") as Row;
-    await logAudit({ actorId: me.id, section: "spul", entityId: row.id, label: upd.name, action: "UPDATED", changes, childIds: [row.child_id], meta: { type: "Spul" } });
+    const upd = check(await db().from("belongings").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", row.id).select(BELONGING_COLS).single(), "update belonging") as Row;
+    await logAudit({ actorId: me.id, section: "spul", entityId: row.id, label: upd.name, action: "UPDATED", changes, childIds: [row.child_id], familyIds: [row.created_by, upd.other_parent_id ?? row.other_parent_id], meta: { type: "Spul" } });
+    return ok({ belonging: belongingOut(upd) });
+  },
+
+  /** Soft delete: the creator, or the other parent of a shared item (both use the same list). */
+  async "belonging-delete"(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadBelonging(f, body.belonging_id);
+    if (row.created_by !== me.id && row.other_parent_id !== me.id) throw err.notFound("Belonging not found");
+    check(await db().from("belongings").update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", row.id), "delete belonging");
+    await logAudit({ actorId: me.id, section: "spul", entityId: row.id, label: row.name, action: "DELETED", childIds: [row.child_id], familyIds: [row.created_by, row.other_parent_id], meta: { type: "Spul" } });
+    return ok({});
+  },
+
+  /** Undo of belonging-delete (same people who could delete it). */
+  async "belonging-restore"(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadBelonging(f, body.belonging_id, true);
+    if (row.created_by !== me.id && row.other_parent_id !== me.id) throw err.notFound("Belonging not found");
+    const upd = check(await db().from("belongings").update({ deleted_at: null, updated_at: new Date().toISOString() }).eq("id", row.id).select(BELONGING_COLS).single(), "restore belonging") as Row;
+    await logAudit({ actorId: me.id, section: "spul", entityId: row.id, label: row.name, action: "UPDATED", changes: [{ veld: "verwijderd", oud: "ja", nieuw: "nee" }], childIds: [row.child_id], familyIds: [row.created_by, row.other_parent_id], meta: { type: "Spul" } });
     return ok({ belonging: belongingOut(upd) });
   },
 }));

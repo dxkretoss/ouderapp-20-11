@@ -1,9 +1,9 @@
 import i18n from "@/i18n";
 import { useTranslation } from "react-i18next";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
-import { auth, leesUitnodiging, VERIFIEER_SLEUTEL } from "@/lib/auth-store";
+import { auth, leesUitnodiging, uitnodigingEmail, VERIFIEER_SLEUTEL } from "@/lib/auth-store";
 import { foutTekst } from "@/lib/api";
 import { AuthFormulier, AuthKader, geldigEmail, HoofdKnop, Melding, Titel, Veld, WachtwoordEisen, WachtwoordVeld, wachtwoordSterk, tekstKnop } from "@/components/AuthKader";
 const N = "routes.registreren.";
@@ -27,6 +27,18 @@ function Registreren() {
     const [bezig, setBezig] = useState(false);
     const [fout, setFout] = useState(null);
     const uitnodiging = !!leesUitnodiging();
+    // Via een uitnodiging: het e-mailadres staat vast (de uitnodiging is naar dat adres gestuurd).
+    const [vastEmail, setVastEmail] = useState(null);
+    useEffect(() => {
+        if (!uitnodiging)
+            return;
+        let weg = false;
+        uitnodigingEmail().then((adres) => { if (!weg && adres) {
+            setVastEmail(adres);
+            setEmail(adres);
+        } });
+        return () => { weg = true; };
+    }, [uitnodiging]);
     const fouten = {
         naam: !naam.trim() ? t(N + "fout.naam") : null,
         email: !email.trim() ? t(N + "fout.emailLeeg") : !geldigEmail(email) ? t(N + "fout.emailOngeldig") : fout === "EMAIL_TAKEN" ? foutTekst("EMAIL_TAKEN") : null,
@@ -62,8 +74,9 @@ function Registreren() {
         <Titel uitleg={t(N + "uitleg")}>{t(N + "titel")}</Titel>
         {uitnodiging ? <Melding soort="info">{t(N + "uitnodiging")}</Melding> : null}
         <Veld label={t(N + "naam")} value={naam} onChange={(e) => setNaam(e.target.value)} placeholder={t(N + "naamPlaceholder")} autoComplete="given-name" autoFocus fout={toon("naam")}/>
-        <Veld label={t(N + "email")} type="email" value={email} onChange={(e) => { setEmail(e.target.value); if (fout === "EMAIL_TAKEN")
-            setFout(null); }} placeholder={t(N + "emailPlaceholder")} autoComplete="email" inputMode="email" fout={toon("email")}/>
+        <Veld label={t(N + "email")} type="email" value={vastEmail ?? email} onChange={(e) => { if (vastEmail)
+            return; setEmail(e.target.value); if (fout === "EMAIL_TAKEN")
+            setFout(null); }} readOnly={!!vastEmail} aria-readonly={vastEmail ? true : undefined} className={vastEmail ? "[&_input]:cursor-not-allowed [&_input]:bg-[color-mix(in_oklab,var(--foreground)_5%,transparent)] [&_input]:text-ink-soft" : ""} hint={vastEmail ? t(N + "emailVast") : undefined} placeholder={t(N + "emailPlaceholder")} autoComplete="email" inputMode="email" fout={toon("email")}/>
         {fout === "EMAIL_TAKEN" ? <Link to="/inloggen" className="mt-1 inline-flex min-h-10 items-center text-xs font-extrabold text-[#3F5747]">{t(N + "naarInloggen")}</Link> : null}
         <WachtwoordVeld label={t(N + "wachtwoord")} value={wachtwoord} onChange={(e) => setWachtwoord(e.target.value)} autoComplete="new-password" fout={toon("wachtwoord")}/>
         <WachtwoordEisen wachtwoord={wachtwoord}/>

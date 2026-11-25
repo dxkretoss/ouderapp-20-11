@@ -21,13 +21,10 @@ export const onderwerpLabel = (g) => (onderwerpSleutel[g] ? t(`onderwerp.${onder
 /** Rollen in een voorstel, relatief aan wie kijkt: IK = de ingelogde ouder, ANDER = de gekoppelde andere ouder. */
 export const IK = "ik";
 export const ANDER = "ander";
-export const PRO = "Lotte Jansen";
-export const proLabel = () => t("proLabel");
 // Opslagwaarde blijft Nederlands ("5 oktober 2026"): geschiedenisDatum leest dit terug. Tonen gaat via toonDatum.
 const nlDatum = (d) => d.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" });
 export const vandaag = () => nlDatum(new Date());
 const nlUit = (iso) => (iso ? nlDatum(new Date(iso)) : undefined);
-export const metPro = { soort: "professional", get label() { return proLabel(); } };
 /** Wie moet nog instemmen? Een professional telt nooit als akkoord van ouders. */
 // Oudere (test)bronnen gebruiken nog de namen "Sanne"/"Joris" voor kijker/ander.
 const ALIAS = { [IK]: "Sanne", [ANDER]: "Joris" };
@@ -35,10 +32,11 @@ const isRol = (wie, r) => wie === r || wie === ALIAS[r];
 export const nodig = (v) => (v.partijen ?? [IK, ANDER]).filter((o) => !v.akkoord[o] && !v.akkoord[ALIAS[o]]);
 export const wachtOpMij = (a) => !!a.voorstel && !isRol(a.voorstel.door, IK) && nodig(a.voorstel).includes(IK);
 /** Naam voor een rol: jij / de naam van de andere ouder (of "de andere ouder"). */
-export const naam = (wie) => (wie === IK ? t("jij") : wie === ANDER ? anderNaam() : wie === PRO ? "Lotte" : wie);
+export const naam = (wie) => (wie === IK ? t("jij") : wie === ANDER ? anderNaam() : wie);
 function anderNaam() {
-    const a = startState().coOuders?.[0];
-    return a?.name || i18n.t("common.deAndereOuder");
+    // Met meerdere andere ouders (per kind een andere) is "de andere ouder" de enige juiste naam.
+    const co = startState().coOuders ?? [];
+    return (co.length === 1 && co[0]?.name) || i18n.t("common.deAndereOuder");
 }
 const eigenNaam = () => authState().gebruiker?.name || t("jij");
 const zinSoort = (v) => (v.soort === "nieuw" ? "nieuw" : v.soort === "stoppen" ? "stoppen" : "wijziging");
@@ -88,7 +86,7 @@ export function afspraakVanServer(r) {
     } : undefined;
     const door = r.agreed_by ?? [];
     return {
-        id: r.id, titel: r.title, tekst: r.text, onderwerp: r.topic || "Overig", kindIds: r.child_ids ?? [], get kind() { return kindTekst(r.child_ids); },
+        id: r.id, titel: r.title, tekst: r.text, onderwerp: r.topic || "Overig", anderId: r.other_parent_id ?? null, kindIds: r.child_ids ?? [], get kind() { return kindTekst(r.child_ids); },
         status: STATUS[r.status] ?? "Actief", afgesprokenOp: nlUit(r.agreed_at), geldtVanaf: nlUit(r.valid_from), gestoptOp: nlUit(r.stopped_at),
         get afgesprokenDoor() { return door.length >= 2 ? `${eigenNaam()} & ${anderNaam()}` : door.length === 1 ? persoonNaam(door[0]) : undefined; },
         ...(r.source?.kind === "document" ? { bron: { soort: "document", label: r.source.label ?? "", document: true } } : {}),
@@ -113,6 +111,8 @@ const sync = serverBron({
     },
     wis: () => { lijst = []; besluiten = []; meld(); },
 });
+/** Laadstatus voor de schermen (useStatus / ververs). */
+export const afsprakenBron = sync;
 export const afsprakenState = () => { sync.zorg(); return lijst; };
 export function useAfspraken() {
     sync.zorg();
@@ -137,8 +137,9 @@ async function roep(actie, body) {
     }
 }
 /** Nieuwe afspraak voorstellen (zonder gekoppelde andere ouder: direct vastgelegd). */
-export async function stelNieuweAfspraakVoor({ onderwerp, titel, tekst, kindIds = [] }) {
-    const r = await roep("propose-new", { topic: onderwerp, title: titel, text: tekst, child_ids: kindIds });
+export async function stelNieuweAfspraakVoor({ onderwerp, titel, tekst, kindIds = [], anderId }) {
+    // anderId: alleen zonder kinderen en met meerdere andere ouders (voor wie het voorstel is).
+    const r = await roep("propose-new", { topic: onderwerp, title: titel, text: tekst, child_ids: kindIds, ...(anderId ? { other_parent_id: anderId } : {}) });
     return r ? vervang(r.agreement) : null;
 }
 /** Wijziging of stoppen voorstellen; de huidige afspraak blijft gelden tot beide ouders akkoord zijn. */
@@ -174,12 +175,12 @@ export function trekAfspraakIn(id, door = IK) {
     return true;
 }
 /** Bevestigde onderdelen uit de ouderschapsplan-import: komen als voorstel in deze ene bron (solo: direct). */
-export async function importeerAfspraken(items, document) {
-    const r = await roep("import", { items: items.map((x) => ({ title: x.titel, text: x.tekst, topic: x.onderwerp, source_label: x.bron })), document });
+export async function importeerAfspraken(items, document, { kindIds = [], anderId } = {}) {
+    const r = await roep("import", { items: items.map((x) => ({ title: x.titel, text: x.tekst, topic: x.onderwerp, source_label: x.bron })), document, child_ids: kindIds, ...(anderId ? { other_parent_id: anderId } : {}) });
     (r?.agreements ?? []).forEach(vervang);
     return !!r;
 }
-/** Alleen voor de (nog niet gekoppelde) professional-weergave: lokale wijziging, niets naar de server. */
+/** Alleen voor tests (zonder sessie): lokale wijziging, niets naar de server. */
 export function zetAfspraken(f) {
     const oud = new Map(lijst.map((a) => [a.id, a]));
     lijst = f(lijst).map((a) => { const o = oud.get(a.id); return o === a ? o : { ...a, versie: (o?.versie ?? 0) + 1 }; });
@@ -194,9 +195,20 @@ export function useBesluiten() {
 }
 export const besluitenState = () => { sync.zorg(); return besluiten; };
 export async function neemBesluitVoor({ titel, soort, kindId, modus }) {
+    // Een beslissing hoort bij één kind; de server richt hem aan de andere ouder van dat kind.
     const r = await roep("decision-create", { title: titel, kind: soort, child_id: kindId, mode: modus });
     if (r) {
         besluiten = [...besluiten, r.decision];
+        meld();
+        verversAudit();
+    }
+    return r?.decision ?? null;
+}
+/** Eigen open beslissing intrekken (zolang de andere ouder nog niet antwoordde). Geeft de beslissing of null. */
+export async function trekBesluitIn(id) {
+    const r = await roep("decision-withdraw", { decision_id: id });
+    if (r) {
+        besluiten = besluiten.map((b) => (b.id === id ? r.decision : b));
         meld();
         verversAudit();
     }
@@ -234,7 +246,7 @@ export function toonDatum(tekst, zonderJaar = false) {
 export function isIngevuldeAfspraak() {
     return true;
 }
-/** Voert een volledig goedgekeurd voorstel uit (alleen nog voor de lokale professional-weergave). */
+/** Voert een volledig goedgekeurd voorstel uit (alleen nog voor lokale tests zonder sessie). */
 export function voerUit(a) {
     const v = a.voorstel;
     if (!v || nodig(v).length)

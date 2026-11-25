@@ -64,3 +64,23 @@ export function InhoudLaden({ hoogte = "min-h-[55dvh]" }) {
       <span className="text-sm font-semibold text-ink-soft">{t("common.laden")}</span>
     </div>);
 }
+
+/** Eerste keer laden mislukt: rustige melding met "Opnieuw proberen" (in plaats van een leeg scherm). */
+export function LaadFout({ onOpnieuw }) {
+    const { t } = useTranslation();
+    return (<div role="alert" className="mt-6 rounded-[22px] bg-surface p-5 text-center">
+      <p className="text-sm text-ink-soft">{t("common.laadFout")}</p>
+      {onOpnieuw ? <button onClick={onOpnieuw} className="mt-3 min-h-11 rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{t("common.opnieuwProberen")}</button> : null}
+    </div>);
+}
+/**
+ * Laad- of foutweergave voor een serverbron (`bron.useStatus()`): geeft een element terug zolang er
+ * nog geen gegevens zijn, anders null (dan toont de pagina zijn eigen inhoud of lege staat).
+ */
+export function laadWeergave(status, onOpnieuw) {
+    if (status === "leeg" || status === "laden")
+        return <InhoudLaden />;
+    if (status === "fout")
+        return <LaadFout onOpnieuw={onOpnieuw}/>;
+    return null;
+}

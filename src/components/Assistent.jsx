@@ -163,7 +163,7 @@ export function Assistent({ pagina } = {}) {
       </button>
       <Sheet open={open} onOpenChange={(o) => { if (!o && rec.current?.state === "recording")
         rec.current.stop(); setOpen(o); }}>
-        <SheetContent side="bottom" className="left-1/2 max-h-[90vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8">
+        <SheetContent side="bottom" className="left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8">
           <SheetHeader className="pr-8 text-left">
             <SheetTitle className="font-display text-xl font-medium">{t(`${NS}.titel`)}</SheetTitle>
             <SheetDescription className="text-xs">{t(`${NS}.uitleg`)}</SheetDescription>

@@ -7,8 +7,11 @@ import { start } from "@/lib/start-store";
  * profielsecties) en de eigen privénotitie (`get-private-note`, alleen voor de ingelogde ouder).
  * Eén bron: start-store houdt de korte vorm voor lijsten; na wijzigingen aan naam/datum/kleur/foto wordt
  * die opnieuw opgehaald. Beide gekoppelde ouders lezen dezelfde gegevens; bewerken alleen met can_edit.
+ * Per kind en per onderdeel kan de toegang van een ouder beperkt zijn ("Gezag en toegang", manage-children
+ * `access`): onderdelen die je niet mag zien komen niet van de server (`hidden_sections`), `my_access`
+ * zegt per onderdeel of je mag bewerken.
  */
-let state = { kinderen: {}, notities: {}, laden: {} };
+let state = { kinderen: {}, notities: {}, laden: {}, toegang: {}, toegangLaden: {}, toegangFout: {} };
 const listeners = new Set();
 const zet = (p) => { state = { ...state, ...p }; listeners.forEach((l) => l()); };
 function meldFout(e) {
@@ -19,15 +22,22 @@ function meldFout(e) {
 /** Het API-kind zonder bsn (dat veld toont dit scherm niet en bewaren we niet in het geheugen). */
 const zonderBsn = ({ bsn: _bsn, ...c }) => c;
 export async function laadKind(id) {
-    zet({ laden: { ...state.laden, [id]: true } });
+    zet({ laden: { ...state.laden, [id]: true }, fouten: { ...(state.fouten ?? {}), [id]: false } });
+    // De privénotitie apart: als alleen die mislukt, blijft het profiel gewoon zichtbaar.
+    const notitie = api("manage-children", "get-private-note", { child_id: id }).then((n) => n.note ?? "", () => undefined);
     try {
-        const [k, n] = await Promise.all([api("manage-children", "get", { child_id: id }), api("manage-children", "get-private-note", { child_id: id })]);
-        zet({ kinderen: { ...state.kinderen, [id]: zonderBsn(k.child) }, notities: { ...state.notities, [id]: n.note ?? "" } });
+        const k = await api("manage-children", "get", { child_id: id });
+        const n = await notitie;
+        zet({ kinderen: { ...state.kinderen, [id]: zonderBsn(k.child) }, notities: n === undefined ? state.notities : { ...state.notities, [id]: n } });
     }
     catch (e) {
         if (e?.code !== "NOT_FOUND")
             meldFout(e);
-        zet({ kinderen: { ...state.kinderen, [id]: e?.code === "NOT_FOUND" ? null : state.kinderen[id] } });
+        zet({
+            kinderen: { ...state.kinderen, [id]: e?.code === "NOT_FOUND" ? null : state.kinderen[id] },
+            // Nog niets geladen en geen "niet gevonden": het scherm toont een fout met opnieuw proberen.
+            fouten: { ...(state.fouten ?? {}), [id]: e?.code !== "NOT_FOUND" && state.kinderen[id] === undefined },
+        });
     }
     finally {
         zet({ laden: { ...state.laden, [id]: false } });
@@ -87,5 +97,73 @@ export function useKindProfiel(id) {
         window.addEventListener("focus", terug);
         return () => window.removeEventListener("focus", terug);
     }, [id]);
-    return { kind: s.kinderen[id], notitie: s.notities[id] ?? "", laden: !!s.laden[id] };
+    return { kind: s.kinderen[id], notitie: s.notities[id] ?? "", laden: !!s.laden[id], fout: !!s.fouten?.[id] };
+}
+
+/* ---------- Gezag en toegang (per kind) ---------- */
+export async function laadToegang(id) {
+    zet({ toegangLaden: { ...state.toegangLaden, [id]: true }, toegangFout: { ...state.toegangFout, [id]: false } });
+    try {
+        const r = await api("manage-children", "access", { child_id: id });
+        zet({ toegang: { ...state.toegang, [id]: r } });
+    }
+    catch (e) {
+        if (e?.code !== "NOT_FOUND")
+            meldFout(e);
+        zet({ toegangFout: { ...state.toegangFout, [id]: true } });
+    }
+    finally {
+        zet({ toegangLaden: { ...state.toegangLaden, [id]: false } });
+    }
+}
+/** Na een wijziging in toegang: overzicht, profiel en de lijst opnieuw (wat je mag zien kan veranderd zijn). */
+function naToegang(id, r) {
+    zet({ toegang: { ...state.toegang, [id]: r } });
+    laadKind(id);
+    start.hydrateer();
+}
+/**
+ * Toegang van een ouder (jij of de andere ouder) voor één onderdeel wijzigen. Jouw eigen toegang beperken
+ * gaat meteen; al het andere wordt een verzoek dat de andere ouder moet beantwoorden. Geeft het nieuwe
+ * overzicht terug (null bij een fout).
+ */
+export async function vraagToegang(id, ouderId, sectie, rechten) {
+    try {
+        const r = await api("manage-children", "request-access", { child_id: id, parent_id: ouderId, section: sectie, view: !!rechten.view, propose: !!rechten.propose, edit: !!rechten.edit });
+        naToegang(id, r);
+        return r;
+    }
+    catch (e) {
+        meldFout(e);
+        return null;
+    }
+}
+export async function beantwoordToegang(id, verzoekId, akkoord) {
+    try {
+        const r = await api("manage-children", "respond-access", { request_id: verzoekId, accept: akkoord });
+        naToegang(id, r);
+        return true;
+    }
+    catch (e) {
+        meldFout(e);
+        laadToegang(id);
+        return false;
+    }
+}
+export async function trekToegangIn(id, verzoekId) {
+    try {
+        const r = await api("manage-children", "withdraw-access", { request_id: verzoekId });
+        naToegang(id, r);
+        return true;
+    }
+    catch (e) {
+        meldFout(e);
+        return false;
+    }
+}
+export function useToegang(id) {
+    const s = useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => state, () => state);
+    useEffect(() => { if (id)
+        laadToegang(id); }, [id]);
+    return { toegang: s.toegang[id], laden: !!s.toegangLaden[id], fout: !!s.toegangFout[id] };
 }

@@ -11,7 +11,6 @@ import { CoBadge } from "@/components/CoBadge";
 import { CoPrivacy } from "@/components/CoPrivacy";
 import { HulpKaart } from "@/components/Onveilig";
 import { Button } from "@/components/ui/button";
-import { useStart } from "@/lib/start-store";
 import { useVakanties } from "@/lib/vakantie-store";
 import { useTaken, taakWieTekst } from "@/lib/taken-store";
 import { praatVerhaal } from "@/lib/verhaal.functions";
@@ -19,7 +18,9 @@ import { useActiviteiten } from "@/components/Activiteiten";
 import { useAfspraken } from "@/lib/afspraken-store";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { actieInfo, bewaarGesprek, bouwVerhaalContext, categorieLabel, contextCategorieen, kiesActies, leesBewaard, leesToestemming, verwijderBewaard, zetToestemming, zorgSignaal, } from "@/lib/verhaal";
+import { actieInfo, bewaarGesprek, bewaardUit, bouwVerhaalContext, categorieLabel, contextCategorieen, kiesActies, toestemmingUit, verwijderBewaard, zetOudeVerhaalOver, zetToestemming, zorgSignaal, } from "@/lib/verhaal";
+import { persoonlijkBron, usePersoonlijk } from "@/lib/persoonlijk-store";
+import { useVoorkeuren } from "@/lib/voorkeuren-store";
 import { Chevron, MetChevron } from "@/components/Tekens";
 export const Route = createFileRoute("/verhaal")({
     head: () => ({
@@ -39,8 +40,6 @@ const modusItem = (id) => ({ id, get titel() { return i18n.t(`routes.verhaal.mod
 const modi = [modusItem("praten"), modusItem("overzicht"), modusItem("doen")];
 function Verhaal() {
     const { t } = useTranslation();
-    const startSt = useStart();
-    const eigen = !!startSt.eigen;
     // De GEZIN-regel (naam + namen/leeftijden van de kinderen) bouwt de server zelf uit de sessie (co-assistant).
     const { moment: momentId } = Route.useSearch();
     const overMoment = momentId ? momenten.find((m) => m.id === momentId) : undefined;
@@ -49,10 +48,14 @@ function Verhaal() {
     const { voorstellen } = useActiviteiten();
     const afsprakenBron = useAfspraken();
     const [modus, setModus] = useState("praten");
-    const [toestemming, setToestemmingState] = useState(null);
+    const vk = useVoorkeuren();
+    const ps = usePersoonlijk();
+    const psStatus = persoonlijkBron.useStatus();
+    const toestemming = toestemmingUit(vk);
     const [vraagToestemming, setVraagToestemming] = useState(false);
     const [berichten, setBerichten] = useState([]);
-    const [heeftBewaard, setHeeftBewaard] = useState(false);
+    const bewaardGesprek = bewaardUit(ps);
+    const heeftBewaard = bewaardGesprek.length > 0;
     const [bewaren, setBewaren] = useState(false);
     const [tekst, setTekst] = useState("");
     const [bezig, setBezig] = useState(false);
@@ -60,22 +63,24 @@ function Verhaal() {
     const [zorg, setZorg] = useState(false);
     const [stap, setStap] = useState(overMoment ? "gesprek" : "start");
     const einde = useRef(null);
-    useEffect(() => { setToestemmingState(leesToestemming()); setHeeftBewaard(leesBewaard().length > 0); }, []);
-    useEffect(() => { if (bewaren)
-        bewaarGesprek(berichten); }, [bewaren, berichten]);
+    useEffect(() => { if (psStatus === "klaar")
+        void zetOudeVerhaalOver(vk, ps); }, [psStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Bewaren: privé in je account (alleen jij), na elke beurt bijgewerkt; uitzetten verwijdert het.
+    useEffect(() => { if (bewaren && berichten.length)
+        void bewaarGesprek(berichten); }, [bewaren, berichten]);
     useEffect(() => { einde.current?.scrollIntoView({ block: "nearest" }); }, [berichten.length, bezig]);
-    const kiesToestemming = (v) => { zetToestemming(v); setToestemmingState(v); setVraagToestemming(false); };
+    const kiesToestemming = (v) => { zetToestemming(v); setVraagToestemming(false); };
     const kiesModus = (m) => { setModus(m); if (m !== "praten" && toestemming === null)
         setVraagToestemming(true); };
-    // Alleen in het voorbeeldgezin zijn er gegevens die deze ouder mag zien; eigen gezin heeft nog geen beveiligde gedeelde bron.
-    const contextMag = toestemming === "ja" && !eigen;
+    // Met toestemming: alleen wat deze ouder in de app zelf mag zien (de stores komen al gefilterd van de server).
+    const contextMag = toestemming === "ja";
     const context = contextMag
         ? bouwVerhaalContext({
             vakanties,
             voorstellen: voorstellen.map((v) => ({ titel: v.titel, status: v.status })),
             taken: taken.map((tk) => ({ tekst: tk.tekst, wie: tk.wie ? taakWieTekst(tk.wie) : "", klaar: tk.klaar, overdragenAan: tk.overdragenAan })),
             afspraken: afsprakenBron.filter((a) => a.status === "Actief").map((a) => ({ titel: a.titel, tekst: a.tekst })),
-        }, contextCategorieen)
+        }, contextCategorieen).slice(0, 6000)
         : "";
     const stuur = async (invoer = tekst) => {
         const inhoud = invoer.trim();
@@ -103,7 +108,7 @@ function Verhaal() {
         verwijderBewaard(); setBewaren(false); };
     return (<AppShell>
       <PageHeader titel={overMoment ? t("routes.verhaal.titelMoment") : stap === "luister" ? t("routes.verhaal.titelLuister") : t("routes.verhaal.titel")} {...(stap === "luister" ? {} : { subtitel: t("routes.verhaal.subtitel") })} terug={overMoment ? "/lastige-momenten" : "/meer"}/>
-      {stap === "start" && berichten.length === 0 && !overMoment ? (<CoStart heeftBewaard={heeftBewaard} onLuister={() => setStap("luister")} onVerder={() => { setBerichten(leesBewaard()); setBewaren(true); setStap("gesprek"); }}/>) : stap === "luister" && berichten.length === 0 ? (<CoLuistert onKlaar={(zin) => { setStap("gesprek"); void stuur(zin); }}/>) : <>
+      {stap === "start" && berichten.length === 0 && !overMoment ? (<CoStart heeftBewaard={heeftBewaard} onLuister={() => setStap("luister")} onVerder={() => { setBerichten(bewaardGesprek); setBewaren(true); setStap("gesprek"); }}/>) : stap === "luister" && berichten.length === 0 ? (<CoLuistert onKlaar={(zin) => { setStap("gesprek"); void stuur(zin); }}/>) : <>
       {overMoment ? (<Link to="/lastige-momenten" className="mt-3 flex items-center gap-3 rounded-[18px] border border-white/85 bg-white/60 px-4 py-2.5">
           <AppIcon functie="documenten" maat="sm" vorm="kaal"/>
           <span className="min-w-0"><span className="block text-xs text-ink-soft">{t("routes.verhaal.overDitMoment")}</span><span className="block text-[15px] font-black">{overMoment.nl.vraag}</span></span>
@@ -129,7 +134,7 @@ function Verhaal() {
         </div>) : (<div className="mt-3 flex items-start justify-between gap-3 rounded-md bg-muted/50 px-3 py-2 text-xs text-ink-soft">
           <span>
             {toestemming === "ja"
-                    ? eigen ? t("routes.verhaal.toestemming.eigenGezin") : t("routes.verhaal.toestemming.neemtMee", { lijst: contextCategorieen.map((c) => categorieLabel[c]).join(", ") })
+                    ? t("routes.verhaal.toestemming.neemtMee", { lijst: contextCategorieen.map((c) => categorieLabel[c]).join(", ") })
                     : t("routes.verhaal.toestemming.geen")}
           </span>
           <button className="shrink-0 font-semibold text-brand underline-offset-2 hover:underline" onClick={() => kiesToestemming(toestemming === "ja" ? "nee" : "ja")}>
@@ -140,8 +145,8 @@ function Verhaal() {
       <div className="mt-4 space-y-3" aria-live="polite">
         {berichten.length === 0 && heeftBewaard ? (<div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-ink-soft">{t("routes.verhaal.bewaard.heeft")}</span>
-            <Button size="sm" variant="outline" onClick={() => { setBerichten(leesBewaard()); setBewaren(true); }}>{t("routes.verhaal.bewaard.verder")}</Button>
-            <Button size="sm" variant="ghost" onClick={() => { verwijderBewaard(); setHeeftBewaard(false); }}>{t("common.verwijderen")}</Button>
+            <Button size="sm" variant="outline" onClick={() => { setBerichten(bewaardGesprek); setBewaren(true); }}>{t("routes.verhaal.bewaard.verder")}</Button>
+            <Button size="sm" variant="ghost" onClick={() => void verwijderBewaard()}>{t("common.verwijderen")}</Button>
           </div>) : null}
         {berichten.map((b, i) => (<div key={i} className={b.rol === "ouder" ? "flex justify-end" : ""}>
             {b.rol === "ouder" ? (<p className="max-w-[85%] whitespace-pre-wrap rounded-[18px_18px_6px_18px] bg-[#DCE6D2] px-3.5 py-2.5 text-[15px] text-[#2F4A3A]">{b.tekst}</p>) : (<div className="max-w-[92%] text-[15px] text-ink">
@@ -180,10 +185,8 @@ function Verhaal() {
         } }} className="w-full resize-none rounded-md border border-border bg-card px-3 py-2.5 text-sm outline-none focus:border-brand"/>
         <div className="mt-2 flex items-center justify-between gap-3">
           <label className="flex items-center gap-2 text-xs text-ink-soft">
-            <input type="checkbox" checked={bewaren} onChange={(e) => { setBewaren(e.target.checked); if (!e.target.checked) {
-            verwijderBewaard();
-            setHeeftBewaard(false);
-        } }}/>
+            <input type="checkbox" checked={bewaren} onChange={(e) => { setBewaren(e.target.checked); if (!e.target.checked)
+            void verwijderBewaard(); }}/>
             {t("routes.verhaal.bewaren")}
           </label>
           <Button type="submit" size="sm" disabled={!tekst.trim() || bezig}><AppIcon functie="berichten" maat="sm" vorm="kaal"/> {t("common.versturen")}</Button>

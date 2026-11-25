@@ -1,11 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell, Card, PageHeader } from "@/components/AppShell";
 import { useStart } from "@/lib/start-store";
 import { ProfielBeeld } from "@/components/ProfielBeeld";
-import { bevestigGezag, gezagLabels, laadGezag, regelingNaam, setGezagState, useGezagState, zetGezag } from "@/lib/gezag-store";
+import { betwistGezag, bevestigGezag, gezagLabels, laadGezag, regelingNaam, useGezagState, zetAfwijkend, zetGezag } from "@/lib/gezag-store";
 import { AppIcon } from "@/components/AppIcon";
-import { Vinkje, Chevron } from "@/components/Tekens";
+import { Chevron, MetChevron } from "@/components/Tekens";
+import { GezagToegang } from "@/components/GezagToegang";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 const N = "routes.gezag.";
@@ -22,17 +23,14 @@ export const Route = createFileRoute("/gezag")({
     }),
     component: GezagPagina,
 });
-// Ids; labels via routes.gezag.recht / afwijking / uitleg.
-const rechten = ["bekijken", "infoToevoegen", "afsprakenVoorstellen", "beslissingenGoedkeuren", "documentenBekijken", "documentenToevoegen", "professionals", "instellingen"];
+// Ids; labels via routes.gezag.afwijking / uitleg.
 const afwijkingen = ["aangepast", "informatie", "beperkteInfo", "begeleid", "geenOmgang", "communicatie", "anders"];
 const uitleg = ["gezamenlijk", "eenhoofdig", "omgang", "zorgregeling", "omgangsregeling", "informatie"];
-/** Uitleg, geen toegangsregel: gezag is zelf opgegeven en verandert niets aan wat iemand in de app kan. */
-function magOuder(g, ouder, recht) {
-    const heeftGezag = g === "gezamenlijk" || (g === "ouder1" && ouder === "ik") || (g === "ouder2" && ouder === "ander");
-    if (heeftGezag)
-        return true;
-    return ["bekijken", "infoToevoegen", "afsprakenVoorstellen", "documentenBekijken"].includes(recht);
-}
+/*
+ * Gezag is zelf opgegeven en verandert niets aan wat iemand in de app kan. "Wie mag wat" toont daarom niet
+ * een afgeleide van gezag, maar de echte toegang per kind zoals de server die afdwingt (Gezag en toegang),
+ * met de vermelding dat een juridische toets van die rechten nog niet is gedaan.
+ */
 function GezagPagina() {
     const { t } = useTranslation();
     const s = useGezagState();
@@ -51,8 +49,11 @@ function GezagPagina() {
     const g = s.gezag[kindId] ?? "onbekend";
     const meta = s.meta[kindId];
     const afw = s.afwijkingen[kindId] ?? [];
-    const afwijkend = afw.length > 0 || s.afwijkend;
+    const afwijkend = afw.length > 0 || !!s.afwijkend[kindId];
     const magBewerken = kind.kanBewerken !== false;
+    // Zonder gekoppelde andere ouder valt er niets te bevestigen: geen "wacht op de andere ouder".
+    const samen = !!s.samen[kindId] || !!kind.samen;
+    const herkomst = s.herkomst[kindId];
     const onduidelijk = g === "anders" || g === "onbekend" || g === "voogd" || afwijkend;
     return (<AppShell>
       <PageHeader titel={t(N + "titel")} subtitel={t(N + "subtitel")}/>
@@ -70,11 +71,19 @@ function GezagPagina() {
             <input type="radio" name="gezag" checked={g === k} disabled={!magBewerken} onChange={() => zetGezag(kindId, k)} className="accent-[var(--color-brand)]"/>
             {gezagLabels[k]}
           </label>))}
-        {meta ? <div className="flex items-center justify-between gap-3 rounded-md bg-bg-muted p-3 text-sm">
-          {s.bevestigd[kindId] ? (<span className="inline-flex items-center gap-1.5"><AppIcon functie="akkoord" maat="sm" vorm="kaal"/>{t(N + "bevestigd")}</span>) : meta.doorMij ? (<span className="text-ink-soft">{t(N + "wachtOpAndere")}</span>) : (<>
+        {meta ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-bg-muted p-3 text-sm">
+          {herkomst === "verified" ? (<span className="inline-flex items-center gap-1.5"><AppIcon functie="akkoord" maat="sm" vorm="kaal"/>{t(N + "herkomst.verified")}</span>)
+            : s.bevestigd[kindId] ? (<span className="inline-flex items-center gap-1.5"><AppIcon functie="akkoord" maat="sm" vorm="kaal"/>{t(N + "bevestigd")}</span>)
+            : herkomst === "disputed" ? (<span className="text-ink-soft">{meta.doorMij ? t(N + "herkomst.betwistDoorAnder") : t(N + "herkomst.betwistDoorJou")}</span>)
+            : !samen ? (<span className="text-ink-soft">{t(N + "herkomst.soloIngevuld")}</span>)
+            : meta.doorMij ? (<span className="text-ink-soft">{t(N + "wachtOpAndere")}</span>) : (<>
               <span className="text-ink-soft">{t(N + "nogNietBevestigd")}</span>
-              <button onClick={() => bevestigGezag(kindId)} className="shrink-0 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t(N + "bevestigen")}</button>
+              <span className="flex shrink-0 gap-2">
+                <button onClick={() => betwistGezag(kindId)} className="rounded-full border border-border bg-white/70 px-3 py-1.5 text-xs font-semibold">{t(N + "kloptNiet")}</button>
+                <button onClick={() => bevestigGezag(kindId)} className="rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t(N + "bevestigen")}</button>
+              </span>
             </>)}
+          <p className="w-full text-[11px] text-ink-soft">{t(N + "herkomst.uitleg")}</p>
         </div> : null}
         <p className="text-xs text-ink-soft">{t(N + "tip")}</p>
       </Card>
@@ -94,38 +103,20 @@ function GezagPagina() {
 
       <Card className="mt-4">
         <p className="text-sm font-semibold">{t(N + "wieMagWat")}</p>
-        <p className="mt-1 text-xs text-ink-soft">{t(N + "wieMagWatUitleg")}</p>
-        <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-2 text-sm">
-          <span />
-          <span className="text-xs font-semibold text-brand">{t("common.jij")}</span>
-          <span className="max-w-[6rem] text-center text-xs font-semibold leading-tight">{t("common.deAndereOuder")}</span>
-          {rechten.map((r) => (<div key={r} className="contents">
-              <span className="text-ink-soft">{t(N + `recht.${r}`)}</span>
-              {["ik", "ander"].map((o) => {
-                const val = magOuder(g, o, r);
-                return (<span key={o} className="flex justify-center" aria-label={`${t(N + `recht.${r}`)} ${o === "ik" ? t("common.jij") : t("common.deAndereOuder")}: ${val ? t(N + "inUitleg") : t(N + "afhankelijk")}`}>
-                    {val ? <Vinkje className="size-4 text-brand"/> : <span aria-hidden="true">—</span>}
-                  </span>);
-            })}
-            </div>))}
-        </div>
+        <p className="mt-1 text-xs text-ink-soft">{t(N + "wieMagWatEcht")}</p>
+        <div className="mt-3"><GezagToegang kindId={kindId} naam={kind.naam}/></div>
+        <Link to="/kinderen/$kindId" params={{ kindId }} hash="toegang" className="mt-3 inline-flex min-h-10 items-center text-sm font-semibold text-brand"><MetChevron>{t(N + "toegangAanpassen")}</MetChevron></Link>
       </Card>
 
       <Card className="mt-4 space-y-3">
         <label className="flex items-center justify-between gap-3 text-sm font-semibold">
           {t(N + "afwijkend")}
-          <input type="checkbox" checked={afwijkend} disabled={!magBewerken} onChange={(e) => { if (e.target.checked)
-            setGezagState({ afwijkend: true });
-        else {
-            setGezagState({ afwijkend: false });
-            if (afw.length)
-                zetGezag(kindId, g, []);
-        } }} className="size-5 accent-[var(--color-brand)]"/>
+          <input type="checkbox" checked={afwijkend} disabled={!magBewerken} onChange={(e) => zetAfwijkend(kindId, e.target.checked)} className="size-5 accent-[var(--color-brand)]"/>
         </label>
         {afwijkend && (<>
             <p className="text-xs text-ink-soft">{t(N + "afwijkendUitleg")}</p>
             <div className="flex flex-wrap gap-2">
-              {afwijkingen.map((a) => (<button key={a} disabled={!magBewerken} onClick={() => zetGezag(kindId, g, afw.includes(a) ? afw.filter((x) => x !== a) : [...afw, a])} className={`rounded-full border px-3 py-1.5 text-xs ${afw.includes(a) ? "border-brand bg-brand text-primary-foreground" : "border-white/70 bg-white/70"}`}>{t(N + `afwijking.${a}`)}</button>))}
+              {afwijkingen.map((a) => (<button key={a} disabled={!magBewerken} onClick={() => zetGezag(kindId, g, afw.includes(a) ? afw.filter((x) => x !== a) : [...afw, a], true)} className={`rounded-full border px-3 py-1.5 text-xs ${afw.includes(a) ? "border-brand bg-brand text-primary-foreground" : "border-white/70 bg-white/70"}`}>{t(N + `afwijking.${a}`)}</button>))}
             </div>
           </>)}
       </Card>

@@ -1,6 +1,6 @@
 // Access rules for children and co-parents. Always called with the SESSION user id.
 import { db } from "./db.ts";
-import { check, err } from "./respond.ts";
+import { check, err, HttpError } from "./respond.ts";
 
 export interface ChildAccess {
   child_id: string;
@@ -96,4 +96,62 @@ export async function parentCount(childId: string, createdBy: string, ignoreUser
   if (createdBy) ids.add(createdBy);
   if (ignoreUserId) ids.delete(ignoreUserId);
   return ids.size;
+}
+
+/* ------------------------------------------------------------------ per-child co-parents
+ * A parent can have a different co-parent per child (child 1 with A, child 2 with B). A child has at
+ * most two parents (CHILD_LIMIT), so per child "the other parent" is one person. Shared records are
+ * always addressed to exactly one other parent (`other_parent_id`), derived from their children.
+ */
+
+/** For each of my children: the other parent(s) linked to it with whom I have an active connection. */
+export async function coParentsByChild(me: string): Promise<Map<string, string[]>> {
+  const kids = await childIdsFor(me);
+  const out = new Map<string, string[]>();
+  if (!kids.length) return out;
+  const [links, created, connected] = await Promise.all([
+    db().from("child_parents").select("child_id, parent_id").in("child_id", kids),
+    db().from("children").select("id, created_by").in("id", kids),
+    coParentIdsFor(me),
+  ]);
+  const active = new Set(connected);
+  const add = (child: string, parent: string | null) => {
+    if (!parent || parent === me || !active.has(parent)) return;
+    const l = out.get(child) ?? [];
+    if (!l.includes(parent)) l.push(parent);
+    out.set(child, l);
+  };
+  for (const k of kids) out.set(k, []);
+  for (const r of (check(links, "child links") ?? []) as Array<{ child_id: string; parent_id: string }>) add(r.child_id, r.parent_id);
+  for (const r of (check(created, "child creators") ?? []) as Array<{ id: string; created_by: string }>) add(r.id, r.created_by);
+  return out;
+}
+
+
+/**
+ * The one other parent a shared record for `childIds` goes to, or null when it can only be private
+ * (Solo children). Throws VALIDATION when the children belong to different other parents, or when
+ * there are no children and several co-parents but no explicit (valid) `requested` co-parent.
+ * `requested` (optional) must be a connected co-parent of every child.
+ */
+export async function pairOf(me: string, childIds: string[], requested?: unknown): Promise<string | null> {
+  const byChild = await coParentsByChild(me);
+  const all = await coParentIdsFor(me);
+  const want = typeof requested === "string" && requested ? requested : null;
+  if (!childIds.length) {
+    if (want) {
+      if (!all.includes(want)) throw err.notFound();
+      return want;
+    }
+    if (all.length > 1) throw err.validation("Choose the other parent this is for");
+    return all[0] ?? null;
+  }
+  const sets = childIds.map((c) => byChild.get(c) ?? []);
+  const candidates = (want ? [want] : sets[0]).filter((p) => sets.every((s) => s.includes(p)));
+  if (candidates.length === 1) return candidates[0];
+  if (sets.every((s) => s.length === 0)) {
+    if (want) throw err.notFound();
+    return null; // Solo children: can only be private
+  }
+  throw new HttpError(400, "MIXED_CHILDREN", "These children are not all shared with the same other parent");
 }

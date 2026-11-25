@@ -3,7 +3,24 @@ export const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStar
 export const dt = (s) => new Date(`${s}T00:00`);
 export const plusDagen = (s, n) => { const d = dt(s); d.setDate(d.getDate() + n); return iso(d); };
 export const maandagVan = (s) => plusDagen(s, -((dt(s).getDay() + 6) % 7));
+/**
+ * Dagen waarop afspraak `a` in [van, tot] zichtbaar is. Een afspraak over meerdere dagen (einddatum)
+ * staat op elke dag van start t/m einddatum (ook bij herhaling: elke keer even lang).
+ */
 export function voorkomens(a, van, tot) {
+    const duur = a.einddatum && a.einddatum > a.datum ? Math.round((dt(a.einddatum).getTime() - dt(a.datum).getTime()) / 864e5) : 0;
+    if (!duur)
+        return startDagen(a, van, tot);
+    const uit = new Set();
+    for (const s of startDagen(a, plusDagen(van, -duur), tot))
+        for (let i = 0; i <= duur; i++) {
+            const d = plusDagen(s, i);
+            if (d >= van && d <= tot)
+                uit.add(d);
+        }
+    return [...uit].sort();
+}
+function startDagen(a, van, tot) {
     const h = a.herhaling;
     if (!h || h.freq === "geen")
         return a.datum >= van && a.datum <= tot ? [a.datum] : [];

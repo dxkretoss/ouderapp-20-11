@@ -7,9 +7,25 @@ import { check, err, ok, serveActions } from "../_shared/respond.ts";
 import { requireUser } from "../_shared/session.ts";
 import { HttpError } from "../_shared/respond.ts";
 import { optDate, optText, reqText, requireUuid } from "../_shared/util.ts";
+import { notify, NotifyCategory } from "../_shared/practical-audit.ts";
+import { coParentsByChild, pairOf } from "../_shared/access.ts";
+
+/**
+ * The co-parent a pair-level action (cost agreement, settlement) is about: `partner_id` from the body
+ * (must be an active co-parent), or the only co-parent. Several co-parents and none chosen → VALIDATION.
+ */
+function partnerIn(fam: Family, requested: unknown, required = true): string | null {
+  if (typeof requested === "string" && requested) {
+    if (!fam.partners.includes(requested)) throw err.notFound();
+    return requested;
+  }
+  if (fam.partners.length === 1) return fam.partners[0];
+  if (fam.partners.length > 1 && required) throw err.validation("Choose the other parent this is for");
+  return null;
+}
 import {
-  assertActivePartner, assertParticipant, audit, childIdsInput, familyOf, Family, money, optFuture, otherOf,
-  pairFilter, pct, r2, safePaymentLink, signReceipts, storeAttachment, validIban,
+  assertActivePartner, assertVisible, audit, childIdsInput, costPair, familyOf, Family, money, optFuture, otherOf,
+  pairFilter, pct, r2, RECEIPTS_BUCKET, safePaymentLink, signReceipts, storeAttachment, validIban, visibleRows,
 } from "../_shared/costs-family.ts";
 
 type Row = Record<string, any>;
@@ -40,14 +56,14 @@ const nowIso = () => new Date().toISOString();
 async function loadExpense(me: string, id: unknown): Promise<Row> {
   const row = check(await db().from("expenses").select("*").eq("id", requireUuid(id, "expense_id")).maybeSingle(), "load expense") as Row | null;
   if (!row) throw err.notFound("Expense not found");
-  assertParticipant(me, row.created_by ?? row.payer_id, row.other_parent_id);
+  await assertVisible(me, row.created_by ?? row.payer_id, row.other_parent_id, row.child_ids);
   return row;
 }
 
 async function loadBudget(me: string, id: unknown): Promise<Row> {
   const row = check(await db().from("budget_proposals").select("*").eq("id", requireUuid(id, "budget_id")).maybeSingle(), "load budget") as Row | null;
   if (!row) throw err.notFound("Budget not found");
-  assertParticipant(me, row.created_by, row.other_parent_id);
+  await assertVisible(me, row.created_by, row.other_parent_id, row.child_ids);
   return row;
 }
 
@@ -165,8 +181,28 @@ async function settlementsOut(rows: Row[]): Promise<Row[]> {
 function recurringOut(r: Row): Row {
   return {
     id: r.id, title: r.title, amount: Number(r.amount), interval: r.interval, child_ids: r.child_ids ?? [],
-    creator_pct: Number(r.split_ratio ?? 50), created_by: r.created_by, other_parent_id: r.other_parent_id ?? null, category: r.category, created_at: r.created_at,
+    creator_pct: Number(r.split_ratio ?? 50), created_by: r.created_by, other_parent_id: r.other_parent_id ?? null,
+    shared: !!r.other_parent_id, category: r.category, created_at: r.created_at, updated_at: r.updated_at ?? null,
   };
+}
+
+async function potsOut(rows: Row[]): Promise<Row[]> {
+  if (!rows.length) return [];
+  const deps = (check(
+    await db().from("savings_pot_deposits").select("id, pot_id, created_by, amount, date, note, created_at").in("pot_id", rows.map((r) => r.id)).order("date", { ascending: false }).order("created_at", { ascending: false }),
+    "pot deposits",
+  ) ?? []) as Row[];
+  return rows.map((r) => {
+    const mine = deps.filter((d) => d.pot_id === r.id);
+    return {
+      id: r.id, title: r.title, target_amount: Number(r.target_amount ?? 0),
+      saved: r2(mine.reduce((n, d) => n + Number(d.amount), 0)),
+      child_ids: r.child_ids ?? (r.child_id ? [r.child_id] : []),
+      created_by: r.created_by, other_parent_id: r.other_parent_id ?? null, shared: !!r.other_parent_id,
+      color: r.color ?? null, note: r.note ?? null, created_at: r.created_at, updated_at: r.updated_at ?? null,
+      deposits: mine.map((d) => ({ id: d.id, amount: Number(d.amount), date: d.date, note: d.note === "start" ? null : d.note ?? null, created_by: d.created_by, created_at: d.created_at })),
+    };
+  });
 }
 
 function agreementOut(r: Row | null): Row | null {
@@ -179,10 +215,10 @@ function agreementOut(r: Row | null): Row | null {
 }
 
 /** Agreement rows of this family: the pair's rows, plus my own solo rows. Newest first. */
-async function agreementRows(fam: Family): Promise<Row[]> {
+async function agreementRows(fam: Family, partner: string | null): Promise<Row[]> {
   const filters = [`and(proposed_by.eq.${fam.me},partner_id.is.null)`];
-  if (fam.partner) {
-    filters.push(`and(proposed_by.eq.${fam.me},partner_id.eq.${fam.partner})`, `and(proposed_by.eq.${fam.partner},partner_id.eq.${fam.me})`);
+  if (partner) {
+    filters.push(`and(proposed_by.eq.${fam.me},partner_id.eq.${partner})`, `and(proposed_by.eq.${partner},partner_id.eq.${fam.me})`);
   }
   return (check(
     await db().from("cost_agreements").select("*").or(filters.join(",")).order("created_at", { ascending: false }).limit(50),
@@ -190,9 +226,10 @@ async function agreementRows(fam: Family): Promise<Row[]> {
   ) ?? []) as Row[];
 }
 
-async function agreementState(fam: Family): Promise<{ current: Row | null; pending: Row | null; pairCurrent: Row | null }> {
-  const rows = await agreementRows(fam);
-  const pair = (r: Row) => !!fam.partner && !!r.partner_id;
+/** The cost agreement with one co-parent (per pair: child 1 with A can have another split than child 2 with B). */
+async function agreementState(fam: Family, partner: string | null = fam.partner): Promise<{ current: Row | null; pending: Row | null; pairCurrent: Row | null }> {
+  const rows = await agreementRows(fam, partner);
+  const pair = (r: Row) => !!partner && !!r.partner_id;
   const pairCurrent = rows.find((r) => pair(r) && r.status === "bevestigd") ?? null;
   const current = pairCurrent ?? rows.find((r) => !r.partner_id && r.status === "bevestigd") ?? null;
   const pending = rows.find((r) => pair(r) && r.status === "voorgesteld") ?? null;
@@ -245,20 +282,35 @@ async function eligibleForSettlement(e: Row, me: string, partner: string, cache:
 
 async function overview(me: string): Promise<Row> {
   const fam = await familyOf(me);
-  const [exp, bud, set, rec, agr] = await Promise.all([
+  const [exp, bud, set, rec, agr, pots] = await Promise.all([
     db().from("expenses").select("*").or(pairFilter(me)).order("date", { ascending: false }).order("created_at", { ascending: false }).limit(1000),
     db().from("budget_proposals").select("*").or(pairFilter(me)).order("created_at", { ascending: false }).limit(500),
     db().from("settlements").select("*").or(`payer_id.eq.${me},receiver_id.eq.${me}`).order("created_at", { ascending: false }).limit(200),
     db().from("recurring_expenses").select("*").or(pairFilter(me)).order("created_at").limit(200),
     agreementState(fam),
+    db().from("savings_pots").select("*").or(pairFilter(me)).order("created_at").limit(200),
   ]);
+  // One entry per co-parent: which of my children are shared with them and our agreement.
+  const byChild = await coParentsByChild(me);
+  const pairs = await Promise.all(fam.partners.map(async (p) => {
+    const st = await agreementState(fam, p);
+    return {
+      partner_id: p,
+      child_ids: [...byChild.entries()].filter(([, ps]) => ps.includes(p)).map(([c]) => c),
+      agreement: { current: agreementOut(st.current), pending: agreementOut(st.pending) },
+    };
+  }));
   return {
     me,
     partner_id: fam.partner,
-    expenses: await expensesOut(((check(exp, "list expenses") ?? []) as Row[]).filter((r) => !r.is_draft)),
-    budgets: await budgetsOut((check(bud, "list budgets") ?? []) as Row[]),
+    partner_ids: fam.partners,
+    pairs,
+    // Per child: the other parent only sees records whose children are all still shared with them.
+    expenses: await expensesOut(await visibleRows(me, ((check(exp, "list expenses") ?? []) as Row[]).filter((r) => !r.is_draft), (r) => r.created_by ?? r.payer_id)),
+    budgets: await budgetsOut(await visibleRows(me, (check(bud, "list budgets") ?? []) as Row[])),
     settlements: await settlementsOut((check(set, "list settlements") ?? []) as Row[]),
-    recurring: ((check(rec, "list recurring") ?? []) as Row[]).map(recurringOut),
+    recurring: (await visibleRows(me, (check(rec, "list recurring") ?? []) as Row[])).map(recurringOut),
+    pots: await potsOut(await visibleRows(me, ((check(pots, "list pots") ?? []) as Row[]).map((r) => ({ ...r, child_ids: r.child_ids ?? (r.child_id ? [r.child_id] : []) })))),
     agreement: { current: agreementOut(agr.current), pending: agreementOut(agr.pending) },
   };
 }
@@ -283,16 +335,30 @@ async function createExpense(me: string, body: Row): Promise<Row> {
   const split = SPLITS.includes(x.split) ? x.split : "standaard";
   let payerPct = split === "50" ? 50 : split === "volledig" ? 100 : pct(x.payer_pct ?? 50, "payer_pct");
   const comment = optText(x.comment, "comment", 1000);
-  const partner = fam.partner;
-  const agr = (await agreementState(fam)).pairCurrent;
+  // "Alleen jij" (shared: false) stays with me; otherwise the other parent of these children.
+  // shared undefined = older app version: shared when the children have another parent.
+  // An expense against an agreed budget belongs to that budget's pair.
+  const viaBudget = x.budget_id ? await loadBudget(me, x.budget_id) : null;
+  const partner = viaBudget
+    ? otherOf(me, viaBudget.created_by, viaBudget.other_parent_id)
+    : await costPair(me, childIds, x.shared, x.other_parent_id);
+  const agr = (await agreementState(fam, partner)).pairCurrent;
   const threshold = agr?.approval_threshold === null || agr?.approval_threshold === undefined ? null : Number(agr.approval_threshold);
 
   let budget: Row | null = null;
   if (x.budget_id) {
-    budget = await loadBudget(me, x.budget_id);
+    budget = viaBudget as Row;
     if (!AGREED_BUDGET.includes(budget.status)) throw err.validation("Budget is not agreed");
-    const other = otherOf(me, budget.created_by, budget.other_parent_id);
-    if (!partner || other !== partner) throw err.validation("Budget belongs to another family");
+    if (!partner) throw err.validation("Budget belongs to another family");
+    // The children must belong to this budget (and to this pair): an expense for a child of another
+    // co-parent can never be booked against this pair's budget.
+    const budgetKids = (budget.child_ids ?? (budget.child_id ? [budget.child_id] : [])) as string[];
+    if (budgetKids.length && childIds.some((c) => !budgetKids.includes(c))) {
+      throw new HttpError(400, "MIXED_CHILDREN", "These children are not part of this budget");
+    }
+    if (childIds.length && (await pairOf(me, childIds, partner)) !== partner) {
+      throw new HttpError(400, "MIXED_CHILDREN", "These children are not shared with this parent");
+    }
     // The split comes from the budget.
     const creatorPct = Number(budget.payer_share_percent ?? 50);
     payerPct = budget.created_by === me ? creatorPct : 100 - creatorPct;
@@ -374,28 +440,29 @@ async function respondExpense(me: string, body: Row): Promise<Row> {
 }
 
 async function createBudget(me: string, body: Row): Promise<Row> {
-  const fam = await familyOf(me);
-  if (!fam.partner) throw err.forbidden("Invite the other parent first");
   const x = body.budget && typeof body.budget === "object" ? body.budget : {};
   const title = reqText(x.title, "title", 200);
   const amount = money(x.amount, "amount");
   const myPct = pct(x.my_pct ?? 50, "my_pct");
   const childIds = await childIdsInput(me, x.child_ids);
+  // A budget is always a proposal to the other parent of these children.
+  const partner = await costPair(me, childIds, true, x.other_parent_id);
+  if (!partner) throw err.forbidden("Invite the other parent first");
   const period = x.period === "maand" ? "monthly" : x.period === "jaar" ? "yearly" : "one_time";
   const row = check(
     await db().from("budget_proposals").insert({
-      created_by: me, other_parent_id: fam.partner, title, max_amount: amount,
+      created_by: me, other_parent_id: partner, title, max_amount: amount,
       payer_share_percent: myPct, other_share_percent: r2(100 - myPct),
       child_ids: childIds, child_id: childIds[0] ?? null,
       category: CATEGORIES.includes(x.category) ? x.category : "General", period,
-      status: "pending", turn_to_respond: fam.partner,
+      status: "pending", turn_to_respond: partner,
       preferred_response_date: optDate(x.response_date, "response_date") ?? null,
       notes: optText(x.note, "note", 1000) ?? null,
     }).select("*").single(),
     "insert budget",
   ) as Row;
   await addBudgetStep(row.id, me, "voorstel", { amount, creator_pct: myPct });
-  await audit(me, "budget", row.id, "CREATED", [me, fam.partner], { label: title, amount });
+  await audit(me, "budget", row.id, "CREATED", [me, partner], { label: title, amount });
   return (await budgetsOut([row]))[0];
 }
 
@@ -483,10 +550,11 @@ async function remindBudget(me: string, body: Row): Promise<Row> {
   return (await budgetsOut([b]))[0];
 }
 
-async function startSettlement(me: string, body: Row): Promise<Row> {
+async function startSettlement(me: string, body: Row): Promise<{ settlement: Row; created: boolean }> {
   const fam = await familyOf(me);
-  if (!fam.partner) throw err.forbidden("Invite the other parent first");
-  const partner = fam.partner;
+  // Settling is per co-parent: only expenses of this pair are included (eligibleForSettlement).
+  const partner = partnerIn(fam, body.partner_id, false);
+  if (!partner) throw err.forbidden(fam.partners.length ? "Choose the other parent this is for" : "Invite the other parent first");
   const ids = Array.isArray(body.expense_ids) ? [...new Set(body.expense_ids.map((v: unknown) => requireUuid(v, "expense_ids")))] : [];
   if (!ids.length || ids.length > 500) throw err.validation("expense_ids is required");
   // An open settlement that already reserves one of these expenses is returned instead of a duplicate.
@@ -494,8 +562,8 @@ async function startSettlement(me: string, body: Row): Promise<Row> {
     await db().from("settlements").select("*").or(`payer_id.eq.${me},receiver_id.eq.${me}`).in("status", OPEN_SETTLEMENT).overlaps("expense_ids", ids),
     "open settlements",
   ) ?? []) as Row[];
-  if (open.length) return (await settlementsOut([open[0]]))[0];
-  const rows = (check(await db().from("expenses").select("*").in("id", ids), "settlement expenses") ?? []) as Row[];
+  if (open.length) return { settlement: (await settlementsOut([open[0]]))[0], created: false };
+  const rows = await visibleRows(me, (check(await db().from("expenses").select("*").in("id", ids), "settlement expenses") ?? []) as Row[], (r) => r.created_by ?? r.payer_id);
   const cache = new Map<string, Row | null>();
   const eligible: Row[] = [];
   for (const e of rows) if (await eligibleForSettlement(e, me, partner, cache)) eligible.push(e);
@@ -508,22 +576,24 @@ async function startSettlement(me: string, body: Row): Promise<Row> {
   }
   net = r2(net);
   if (Math.abs(net) < 0.01) throw err.validation("Nothing to settle");
-  const row = check(
-    await db().from("settlements").insert({
-      created_by: me,
-      payer_id: net > 0 ? partner : me,
-      receiver_id: net > 0 ? me : partner,
-      amount: Math.abs(net),
-      period: optText(body.period_label, "period_label", 60) ?? "maand",
-      status: "nog-te-betalen",
-      expense_ids: eligible.map((e) => e.id),
-      reference_code: `OC-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-    }).select("*").single(),
-    "insert settlement",
-  ) as Row;
-  check(await db().from("settlement_steps").insert({ settlement_id: row.id, actor_id: me, status: "nog-te-betalen" }), "settlement step");
-  await audit(me, "verrekening", row.id, "CREATED", [me, partner], { amount: Math.abs(net), expense_ids: row.expense_ids });
-  return (await settlementsOut([row]))[0];
+  // Atomic: one start per pair at a time (advisory lock in SQL); an open settlement that already holds
+  // one of these expenses (e.g. a parallel double tap) is returned instead of a duplicate.
+  const res = check(
+    await db().rpc("start_settlement", {
+      p_created_by: me,
+      p_payer: net > 0 ? partner : me,
+      p_receiver: net > 0 ? me : partner,
+      p_amount: Math.abs(net),
+      p_period: optText(body.period_label, "period_label", 60) ?? "maand",
+      p_expense_ids: eligible.map((e) => e.id),
+      p_reference: `OC-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+    }),
+    "start settlement",
+  ) as { id: string; created: boolean } | null;
+  if (!res?.id) throw err.server("Settlement could not be started");
+  const row = check(await db().from("settlements").select("*").eq("id", res.id).single(), "load new settlement") as Row;
+  if (res.created) await audit(me, "verrekening", row.id, "CREATED", [me, partner], { amount: Math.abs(net), expense_ids: row.expense_ids });
+  return { settlement: (await settlementsOut([row]))[0], created: !!res.created };
 }
 
 async function moveSettlement(me: string, s: Row, status: string, patch: Row = {}): Promise<Row> {
@@ -541,19 +611,21 @@ async function saveAgreement(me: string, body: Row): Promise<Row> {
   const moment = SETTLE_MOMENTS.includes(body.settle_moment) ? body.settle_moment : "maand";
   const threshold = body.approval_threshold === undefined || body.approval_threshold === null || body.approval_threshold === "" ? null : money(body.approval_threshold, "approval_threshold", { allowZero: true });
   const base = { proposed_by: me, split_mode: mode, proposer_pct: pct(body.my_pct ?? 50, "my_pct"), settle_moment: moment, approval_threshold: threshold };
-  if (fam.partner) {
-    // One open proposal per family: an earlier open proposal (from either parent) is replaced.
+  // Per co-parent; with no co-parent (or `solo: true`) it is my own agreement for my Solo children.
+  const partner = body.solo === true ? null : partnerIn(fam, body.partner_id);
+  if (partner) {
+    // One open proposal per pair: an earlier open proposal (from either parent) is replaced.
     check(
       await db().from("cost_agreements").update({ status: "vervangen" }).eq("status", "voorgesteld")
-        .or(`and(proposed_by.eq.${me},partner_id.eq.${fam.partner}),and(proposed_by.eq.${fam.partner},partner_id.eq.${me})`),
+        .or(`and(proposed_by.eq.${me},partner_id.eq.${partner}),and(proposed_by.eq.${partner},partner_id.eq.${me})`),
       "replace agreement proposal",
     );
-    check(await db().from("cost_agreements").insert({ ...base, partner_id: fam.partner, status: "voorgesteld" }), "insert agreement");
+    check(await db().from("cost_agreements").insert({ ...base, partner_id: partner, status: "voorgesteld" }), "insert agreement");
   } else {
     check(await db().from("cost_agreements").insert({ ...base, partner_id: null, status: "bevestigd", decided_by: me, decided_at: nowIso() }), "insert agreement");
   }
-  await audit(me, "kostenafspraak", me, fam.partner ? "CREATED" : "UPDATED", [me, fam.partner], { split_mode: mode, settle_moment: moment, approval_threshold: threshold });
-  const st = await agreementState(fam);
+  await audit(me, "kostenafspraak", me, partner ? "CREATED" : "UPDATED", [me, partner], { split_mode: mode, settle_moment: moment, approval_threshold: threshold });
+  const st = await agreementState(fam, partner);
   return { current: agreementOut(st.current), pending: agreementOut(st.pending) };
 }
 
@@ -570,8 +642,398 @@ async function respondAgreement(me: string, body: Row): Promise<Row> {
     "answer agreement",
   );
   await audit(me, "kostenafspraak", row.id, r === "akkoord" ? "ACCEPTED" : "DECLINED", [me, row.proposed_by]);
-  const st = await agreementState(fam);
+  const st = await agreementState(fam, row.proposed_by);
   return { current: agreementOut(st.current), pending: agreementOut(st.pending) };
+}
+
+// ------------------------------------------------------------------ expense edit / withdraw / delete / share / remind
+
+const RESPONSE_STEPS = ["akkoord", "ander_voorstel", "niet_akkoord"];
+
+/** Has the other parent of this expense already answered it (Akkoord / Ander voorstel / Niet akkoord)? */
+async function otherResponded(e: Row): Promise<boolean> {
+  const creator = e.created_by ?? e.payer_id;
+  const rows = (check(
+    await db().from("expense_steps").select("id, actor_id").eq("expense_id", e.id).in("step_type", RESPONSE_STEPS),
+    "expense responses",
+  ) ?? []) as Row[];
+  return rows.some((s) => s.actor_id && s.actor_id !== creator);
+}
+
+/** Is this expense reserved by an open settlement (not finished yet)? */
+async function reservedBySettlement(id: string): Promise<boolean> {
+  const rows = (check(
+    await db().from("settlements").select("id").in("status", OPEN_SETTLEMENT).contains("expense_ids", [id]).limit(1),
+    "reserved expense",
+  ) ?? []) as Row[];
+  return rows.length > 0;
+}
+
+function assertCreator(me: string, e: Row): void {
+  if ((e.created_by ?? e.payer_id) !== me) throw err.forbidden("Only the parent who added this expense can do this");
+}
+
+/** Status of a shared expense: needs the other parent's answer ("wacht") unless nothing is settled. */
+function sharedStatus(partner: string | null, paidFrom: string, split: string, agr: Row | null): "wacht" | "opgeslagen" {
+  return !partner || paidFrom === "kindrekening" || split === "volledig" || agr?.split_mode === "alleen" ? "opgeslagen" : "wacht";
+}
+
+/** A one-time budget that pointed at this expense becomes an agreed (unspent) budget again. */
+async function releaseBudget(e: Row): Promise<void> {
+  if (!e.budget_id) return;
+  check(
+    await db().from("budget_proposals").update({ status: "agreed", expense_id: null, updated_at: nowIso() }).eq("id", e.budget_id).eq("expense_id", e.id).in("status", ["spent", "uitgegeven"]),
+    "release budget",
+  );
+}
+
+/**
+ * Edit by the creator. Private ("Alleen jij") expenses can always be fixed until settled; shared ones
+ * only while the other parent has not answered and no settlement holds them.
+ */
+async function updateExpense(me: string, body: Row): Promise<Row> {
+  const e = await loadExpense(me, body.expense_id);
+  assertCreator(me, e);
+  if (e.status === "verrekend" || e.settlement_id) throw err.forbidden("A settled expense cannot be changed");
+  if (await reservedBySettlement(e.id)) throw err.forbidden("This expense is part of an open settlement");
+  if (e.other_parent_id) {
+    if (!["wacht", "opgeslagen"].includes(e.status)) throw err.forbidden("The other parent already responded");
+    if (await otherResponded(e)) throw err.forbidden("The other parent already responded");
+  }
+  const x = body.expense && typeof body.expense === "object" ? body.expense : {};
+  const description = x.description === undefined ? e.description : reqText(x.description, "description", 200);
+  const amount = x.amount === undefined ? Number(e.amount) : money(x.amount, "amount");
+  const date = x.date === undefined ? e.date : optDate(x.date, "date") ?? e.date;
+  const category = x.category === undefined ? e.category : CATEGORIES.includes(x.category) ? x.category : "Overig";
+  const paidFrom = x.paid_from === undefined ? (e.paid_from ?? "eigen") : x.paid_from === "kindrekening" ? "kindrekening" : "eigen";
+  const childIds = x.child_ids === undefined ? (e.child_ids ?? []) as string[] : await childIdsInput(me, x.child_ids);
+  let partner: string | null = e.other_parent_id ?? null;
+  if (partner && x.child_ids !== undefined) {
+    // A shared expense stays with the same other parent: the new children must be theirs too.
+    const p = await costPair(me, childIds, true, partner);
+    if (p !== partner) throw err.validation("These children are not shared with this parent");
+  }
+  let split = e.split_choice ?? "standaard";
+  let payerPct = Number(e.payer_share_percent ?? 50);
+  if (!e.budget_id && (x.split !== undefined || x.payer_pct !== undefined)) {
+    split = SPLITS.includes(x.split) ? x.split : split;
+    payerPct = split === "50" ? 50 : split === "volledig" ? 100 : pct(x.payer_pct ?? payerPct, "payer_pct");
+  }
+  const agr = partner ? (await agreementState(await familyOf(me), partner)).pairCurrent : null;
+  const threshold = agr?.approval_threshold === null || agr?.approval_threshold === undefined ? null : Number(agr.approval_threshold);
+  const shared = !!partner && split !== "volledig" && agr?.split_mode !== "alleen";
+  if (threshold !== null && shared && amount > threshold && !e.budget_id) {
+    throw new HttpError(400, "VALIDATION", "BUDGET_REQUIRED: above the approval threshold a budget proposal comes first");
+  }
+  const status = partner ? sharedStatus(partner, paidFrom, split, agr) : (e.status === "ingetrokken" ? "opgeslagen" : e.status);
+  const row = check(
+    await db().from("expenses").update({
+      description, amount, date, category, child_ids: childIds, child_id: childIds[0] ?? null,
+      paid_from: paidFrom, split_choice: split,
+      split_type: payerPct === 100 ? "sole_payer" : payerPct === 50 ? "50_50" : "custom",
+      payer_share_percent: payerPct, other_share_percent: r2(100 - payerPct),
+      status, approval_status: status === "wacht" ? "pending" : "agreed",
+      turn_to_respond: status === "wacht" ? partner : null, counter_pending: false, updated_at: nowIso(),
+    }).eq("id", e.id).select("*").single(),
+    "update expense",
+  ) as Row;
+  await addExpenseStep(e.id, me, "gewijzigd", { amount, payer_pct: payerPct });
+  await audit(me, "kosten", e.id, "UPDATED", [me, partner], { label: description, amount, status });
+  return (await expensesOut([row]))[0];
+}
+
+/** The creator withdraws a shared expense (claim) that is not settled and not in an open settlement. */
+async function withdrawExpense(me: string, body: Row): Promise<Row> {
+  const e = await loadExpense(me, body.expense_id);
+  assertCreator(me, e);
+  if (!e.other_parent_id) throw err.validation("Only a shared expense can be withdrawn");
+  if (!["wacht", "bevestigd", "opgeslagen", "betwist"].includes(e.status) || e.settlement_id) throw err.forbidden("This expense can no longer be withdrawn");
+  if (await reservedBySettlement(e.id)) throw err.forbidden("This expense is part of an open settlement");
+  const row = check(
+    await db().from("expenses").update({ status: "ingetrokken", approval_status: "withdrawn", turn_to_respond: null, counter_pending: false, updated_at: nowIso() })
+      .eq("id", e.id).select("*").single(),
+    "withdraw expense",
+  ) as Row;
+  await releaseBudget(e);
+  await addExpenseStep(e.id, me, "ingetrokken");
+  await audit(me, "kosten", e.id, "CANCELLED", [me, e.other_parent_id], { label: e.description });
+  return (await expensesOut([row]))[0];
+}
+
+/**
+ * Delete by the creator: a private expense (not settled), or a shared one that is withdrawn or that
+ * the other parent has not answered yet. Receipts are removed from storage. Returns the deleted row.
+ */
+async function deleteExpense(me: string, body: Row): Promise<Row> {
+  const e = await loadExpense(me, body.expense_id);
+  assertCreator(me, e);
+  if (e.status === "verrekend" || e.settlement_id) throw err.forbidden("A settled expense cannot be deleted");
+  if (await reservedBySettlement(e.id)) throw err.forbidden("This expense is part of an open settlement");
+  if (e.other_parent_id && e.status !== "ingetrokken") {
+    if (!["wacht", "opgeslagen"].includes(e.status) || await otherResponded(e)) throw err.forbidden("Withdraw this expense first");
+  }
+  const atts = (check(await db().from("expense_attachments").select("storage_path").eq("expense_id", e.id), "delete attachments") ?? []) as Row[];
+  await releaseBudget(e);
+  check(await db().from("expenses").delete().eq("id", e.id), "delete expense");
+  if (atts.length) {
+    const { error } = await db().storage.from(RECEIPTS_BUCKET).remove(atts.map((a) => a.storage_path));
+    if (error) console.warn("[manage-expenses] receipt cleanup failed:", error);
+  }
+  await audit(me, "kosten", e.id, "DELETED", [me, e.other_parent_id], { label: e.description, amount: Number(e.amount) });
+  return e;
+}
+
+/** A private expense is shared later with the other parent of its children (status "wacht" when approval applies). */
+async function shareExpense(me: string, body: Row): Promise<Row> {
+  const fam = await familyOf(me);
+  const e = await loadExpense(me, body.expense_id);
+  assertCreator(me, e);
+  if (e.other_parent_id) throw err.validation("This expense is already shared");
+  if (e.status === "verrekend" || e.settlement_id) throw err.forbidden("A settled expense cannot be shared");
+  const partner = await costPair(me, (e.child_ids ?? []) as string[], true, body.other_parent_id);
+  if (!partner) throw err.forbidden("These children have no other parent in the app yet");
+  assertActivePartner(fam, partner);
+  const agr = (await agreementState(fam, partner)).pairCurrent;
+  let split = e.split_choice ?? "standaard";
+  let payerPct = Number(e.payer_share_percent ?? 50);
+  if (body.split !== undefined || body.payer_pct !== undefined) {
+    split = SPLITS.includes(body.split) ? body.split : split;
+    payerPct = split === "50" ? 50 : split === "volledig" ? 100 : pct(body.payer_pct ?? payerPct, "payer_pct");
+  }
+  const paidFrom = e.paid_from ?? "eigen";
+  const status = sharedStatus(partner, paidFrom, split, agr);
+  const row = check(
+    await db().from("expenses").update({
+      other_parent_id: partner, split_choice: split,
+      split_type: payerPct === 100 ? "sole_payer" : payerPct === 50 ? "50_50" : "custom",
+      payer_share_percent: payerPct, other_share_percent: r2(100 - payerPct),
+      status, approval_status: status === "wacht" ? "pending" : "agreed",
+      turn_to_respond: status === "wacht" ? partner : null, counter_pending: false, updated_at: nowIso(),
+    }).eq("id", e.id).is("other_parent_id", null).select("*").maybeSingle(),
+    "share expense",
+  ) as Row | null;
+  if (!row) throw err.validation("Expense changed in the meantime");
+  await addExpenseStep(e.id, me, "gedeeld", { amount: Number(e.amount), payer_pct: payerPct });
+  await audit(me, "kosten", e.id, "UPDATED", [me, partner], { label: e.description, shared: true, status });
+  return (await expensesOut([row]))[0];
+}
+
+/** Friendly reminder from the parent who waits for the other parent's answer (max 2, 24 h apart). */
+async function remindExpense(me: string, body: Row): Promise<Row> {
+  const fam = await familyOf(me);
+  const e = await loadExpense(me, body.expense_id);
+  if (e.status !== "wacht" || !e.turn_to_respond || e.turn_to_respond === me) throw err.forbidden("Nothing to remind");
+  assertActivePartner(fam, otherOf(me, e.created_by ?? e.payer_id, e.other_parent_id));
+  const reminders = (check(
+    await db().from("expense_steps").select("created_at").eq("expense_id", e.id).eq("step_type", "herinnering").order("created_at"),
+    "expense reminders",
+  ) ?? []) as Row[];
+  const last = reminders.at(-1);
+  if (reminders.length >= 2 || (last && Date.now() - new Date(last.created_at).getTime() < 24 * 3600 * 1000)) {
+    throw new HttpError(429, "RATE_LIMITED", "Reminder already sent");
+  }
+  await addExpenseStep(e.id, me, "herinnering");
+  return (await expensesOut([e]))[0];
+}
+
+// ------------------------------------------------------------------ fixed costs (vaste lasten)
+
+const INTERVALS = ["weekly", "monthly", "quarterly", "yearly"];
+
+async function loadRecurring(me: string, id: unknown): Promise<Row> {
+  const row = check(await db().from("recurring_expenses").select("*").eq("id", requireUuid(id, "recurring_id")).maybeSingle(), "load recurring") as Row | null;
+  if (!row) throw err.notFound();
+  await assertVisible(me, row.created_by, row.other_parent_id, row.child_ids);
+  return row;
+}
+
+async function createRecurring(me: string, body: Row): Promise<Row> {
+  const childIds = await childIdsInput(me, body.child_ids);
+  // New app versions always send `shared`; private ("Alleen jij") is the default there.
+  const partner = await costPair(me, childIds, body.shared, body.other_parent_id);
+  const row = check(
+    await db().from("recurring_expenses").insert({
+      created_by: me, other_parent_id: partner, payer_id: me,
+      title: reqText(body.title, "title", 200), amount: money(body.amount, "amount"),
+      interval: INTERVALS.includes(body.interval) ? body.interval : "monthly",
+      child_ids: childIds, child_id: childIds[0] ?? null, split_ratio: pct(body.my_pct ?? 50, "my_pct"),
+      category: CATEGORIES.includes(body.category) ? body.category : "Overig",
+    }).select("*").single(),
+    "insert recurring",
+  ) as Row;
+  await audit(me, "vaste_last", row.id, "CREATED", [me, partner], { label: row.title });
+  return recurringOut(row);
+}
+
+async function updateRecurring(me: string, body: Row): Promise<{ row: Row; wasShared: boolean }> {
+  const r = await loadRecurring(me, body.recurring_id);
+  if (r.created_by !== me) throw err.forbidden("Only the parent who added this can change it");
+  const childIds = body.child_ids === undefined ? (r.child_ids ?? []) as string[] : await childIdsInput(me, body.child_ids);
+  let partner: string | null = r.other_parent_id ?? null;
+  if (body.shared === false) partner = null;
+  else if (body.shared === true || (partner && body.child_ids !== undefined)) partner = await costPair(me, childIds, true, body.other_parent_id ?? partner ?? undefined);
+  const patch: Row = { child_ids: childIds, child_id: childIds[0] ?? null, other_parent_id: partner, updated_at: nowIso() };
+  if (body.title !== undefined) patch.title = reqText(body.title, "title", 200);
+  if (body.amount !== undefined) patch.amount = money(body.amount, "amount");
+  if (body.my_pct !== undefined) patch.split_ratio = pct(body.my_pct, "my_pct");
+  if (body.interval !== undefined) patch.interval = INTERVALS.includes(body.interval) ? body.interval : "monthly";
+  if (body.category !== undefined) patch.category = CATEGORIES.includes(body.category) ? body.category : "Overig";
+  const row = check(await db().from("recurring_expenses").update(patch).eq("id", r.id).select("*").single(), "update recurring") as Row;
+  await audit(me, "vaste_last", r.id, "UPDATED", [me, partner ?? r.other_parent_id], { label: row.title });
+  return { row: recurringOut(row), wasShared: !!r.other_parent_id };
+}
+
+async function deleteRecurring(me: string, body: Row): Promise<Row> {
+  const r = await loadRecurring(me, body.recurring_id);
+  if (r.created_by !== me) throw err.forbidden("Only the parent who added this can delete it");
+  check(await db().from("recurring_expenses").delete().eq("id", r.id), "delete recurring");
+  await audit(me, "vaste_last", r.id, "DELETED", [me, r.other_parent_id], { label: r.title });
+  return r;
+}
+
+// ------------------------------------------------------------------ savings pots (spaarpotjes)
+
+async function loadPot(me: string, id: unknown): Promise<Row> {
+  const row = check(await db().from("savings_pots").select("*").eq("id", requireUuid(id, "pot_id")).maybeSingle(), "load pot") as Row | null;
+  if (!row) throw err.notFound();
+  await assertVisible(me, row.created_by, row.other_parent_id, row.child_ids ?? (row.child_id ? [row.child_id] : []));
+  return row;
+}
+
+async function potById(id: string): Promise<Row> {
+  const row = check(await db().from("savings_pots").select("*").eq("id", id).single(), "reload pot") as Row;
+  return (await potsOut([row]))[0];
+}
+
+/** Keeps savings_pots.current_amount equal to the sum of the deposits (for exports and old readers). */
+async function syncPotAmount(potId: string): Promise<void> {
+  const deps = (check(await db().from("savings_pot_deposits").select("amount").eq("pot_id", potId), "pot sum") ?? []) as Row[];
+  const sum = r2(deps.reduce((n, d) => n + Number(d.amount), 0));
+  check(await db().from("savings_pots").update({ current_amount: sum, updated_at: nowIso() }).eq("id", potId), "pot amount");
+}
+
+async function createPot(me: string, body: Row): Promise<Row> {
+  const x = body.pot && typeof body.pot === "object" ? body.pot : body;
+  const childIds = await childIdsInput(me, x.child_ids);
+  // Private unless explicitly shared; shared = the other parent of these children.
+  const partner = await costPair(me, childIds, x.shared === true, x.other_parent_id);
+  const target = x.target_amount === undefined || x.target_amount === null || x.target_amount === "" ? 0 : money(x.target_amount, "target_amount", { allowZero: true });
+  const row = check(
+    await db().from("savings_pots").insert({
+      created_by: me, other_parent_id: partner, title: reqText(x.title, "title", 120), target_amount: target,
+      child_ids: childIds, child_id: childIds[0] ?? null, note: optText(x.note, "note", 500) ?? null,
+      color: typeof x.color === "string" && /^#[0-9a-f]{6}$/i.test(x.color) ? x.color : null,
+    }).select("*").single(),
+    "insert pot",
+  ) as Row;
+  const start = x.start_amount === undefined || x.start_amount === null || x.start_amount === "" ? 0 : money(x.start_amount, "start_amount", { allowZero: true });
+  if (start > 0) {
+    check(await db().from("savings_pot_deposits").insert({ pot_id: row.id, created_by: me, amount: start }), "start deposit");
+    await syncPotAmount(row.id);
+  }
+  await audit(me, "spaarpot", row.id, "CREATED", [me, partner], { label: row.title, target });
+  return await potById(row.id);
+}
+
+async function updatePot(me: string, body: Row): Promise<{ pot: Row; wasShared: boolean }> {
+  const p = await loadPot(me, body.pot_id);
+  if (p.created_by !== me) throw err.forbidden("Only the parent who made this pot can change it");
+  const x = body.pot && typeof body.pot === "object" ? body.pot : body;
+  const childIds = x.child_ids === undefined ? (p.child_ids ?? []) as string[] : await childIdsInput(me, x.child_ids);
+  let partner: string | null = p.other_parent_id ?? null;
+  if (x.shared === false) partner = null;
+  else if (x.shared === true || (partner && x.child_ids !== undefined)) partner = await costPair(me, childIds, true, x.other_parent_id ?? partner ?? undefined);
+  const patch: Row = { child_ids: childIds, child_id: childIds[0] ?? null, other_parent_id: partner, updated_at: nowIso() };
+  if (x.title !== undefined) patch.title = reqText(x.title, "title", 120);
+  if (x.target_amount !== undefined) patch.target_amount = x.target_amount === null || x.target_amount === "" ? 0 : money(x.target_amount, "target_amount", { allowZero: true });
+  if (x.note !== undefined) patch.note = optText(x.note, "note", 500) ?? null;
+  check(await db().from("savings_pots").update(patch).eq("id", p.id), "update pot");
+  await audit(me, "spaarpot", p.id, "UPDATED", [me, partner ?? p.other_parent_id], { label: patch.title ?? p.title });
+  return { pot: await potById(p.id), wasShared: !!p.other_parent_id };
+}
+
+async function deletePot(me: string, body: Row): Promise<Row> {
+  const p = await loadPot(me, body.pot_id);
+  if (p.created_by !== me) throw err.forbidden("Only the parent who made this pot can delete it");
+  check(await db().from("savings_pots").delete().eq("id", p.id), "delete pot");
+  await audit(me, "spaarpot", p.id, "DELETED", [me, p.other_parent_id], { label: p.title });
+  return p;
+}
+
+async function addDeposit(me: string, body: Row): Promise<{ pot: Row; amount: number }> {
+  const p = await loadPot(me, body.pot_id);
+  if (p.other_parent_id && p.created_by !== me) assertActivePartner(await familyOf(me), p.created_by);
+  const amount = money(body.amount, "amount");
+  check(
+    await db().from("savings_pot_deposits").insert({
+      pot_id: p.id, created_by: me, amount,
+      date: optDate(body.date, "date") ?? new Date().toISOString().slice(0, 10),
+      note: optText(body.note, "note", 200) ?? null,
+    }),
+    "insert deposit",
+  );
+  await syncPotAmount(p.id);
+  await audit(me, "spaarpot", p.id, "UPDATED", [p.created_by, p.other_parent_id], { label: p.title, deposit: amount });
+  return { pot: await potById(p.id), amount };
+}
+
+async function removeDeposit(me: string, body: Row): Promise<Row> {
+  const d = check(await db().from("savings_pot_deposits").select("*").eq("id", requireUuid(body.deposit_id, "deposit_id")).maybeSingle(), "load deposit") as Row | null;
+  if (!d) throw err.notFound();
+  const p = await loadPot(me, d.pot_id);
+  // The parent who made the deposit removes it (the pot owner may also clean up their own pot).
+  if (d.created_by !== me && p.created_by !== me) throw err.forbidden("Only the parent who made this deposit can remove it");
+  check(await db().from("savings_pot_deposits").delete().eq("id", d.id), "delete deposit");
+  await syncPotAmount(p.id);
+  await audit(me, "spaarpot", p.id, "UPDATED", [p.created_by, p.other_parent_id], { label: p.title, deposit_removed: Number(d.amount) });
+  return await potById(p.id);
+}
+
+/* ---------- notifications to the other parent of the pair (shared records only) ---------- */
+// [creator column, other column, label column, amount column]
+const PAIR_COLS: Record<string, [string, string, string, string | null]> = {
+  expenses: ["created_by", "other_parent_id", "description", "amount"],
+  budget_proposals: ["created_by", "other_parent_id", "title", "max_amount"],
+  settlements: ["payer_id", "receiver_id", "description", "amount"],
+  cost_agreements: ["proposed_by", "partner_id", "split_mode", null],
+  recurring_expenses: ["created_by", "other_parent_id", "title", "amount"],
+  savings_pots: ["created_by", "other_parent_id", "title", "target_amount"],
+};
+const euroText = (n: number) => `€ ${Number(n).toFixed(2).replace(".", ",")}`;
+/**
+ * Best-effort in-app notification for the other parent of a cost record (an already loaded row, e.g.
+ * one that was just deleted). A record without the other parent (private / solo, "Alleen jij") never
+ * notifies anyone. Never fails the action.
+ */
+async function tellAbout(me: string, table: keyof typeof PAIR_COLS, row: Row | null, key: string, category: NotifyCategory, type = "cost", extra: Record<string, string> = {}) {
+  if (!row?.id) return;
+  try {
+    const [a, b, label, amount] = PAIR_COLS[table];
+    const to = row[a] === me ? row[b] : row[a];
+    if (!to || to === me) return;
+    const params: Record<string, string> = {};
+    if (row[label]) params.titel = String(row[label]).slice(0, 80);
+    if (amount && row[amount] !== null && row[amount] !== undefined) params.bedrag = euroText(Number(row[amount]));
+    const kids = Array.isArray(row.child_ids) ? row.child_ids : [];
+    if (kids.length) {
+      const { data: names } = await db().from("children").select("name").in("id", kids);
+      params.kind = ((names ?? []) as Row[]).map((c) => String(c.name)).join(" & ").slice(0, 80);
+    }
+    await notify({
+      to, actorId: me, type, category, key, params: { ...params, ...extra }, link: "/kosten",
+      entityType: table, entityId: row.id, childIds: kids,
+    });
+  } catch (e) {
+    console.warn("[manage-expenses] notify failed:", (e as Error)?.message ?? e);
+  }
+}
+
+/** Same as tellAbout, for a record that still exists (read fresh after the change). */
+async function tellOther(me: string, table: keyof typeof PAIR_COLS, id: unknown, key: string, category: NotifyCategory, type = "cost", extra: Record<string, string> = {}) {
+  if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) return;
+  const { data, error } = await db().from(table).select("*").eq("id", id).maybeSingle();
+  if (error || !data) return;
+  await tellAbout(me, table, data as Row, key, category, type, extra);
 }
 
 Deno.serve(serveActions("manage-expenses", {
@@ -582,25 +1044,33 @@ Deno.serve(serveActions("manage-expenses", {
 
   async "create-expense"(req, body) {
     const me = await requireUser(req);
-    return ok({ expense: await createExpense(me.id, body) });
+    const expense = await createExpense(me.id, body);
+    await tellOther(me.id, "expenses", expense?.id, expense?.status === "wacht" ? "kostAkkoordGevraagd" : "kostToegevoegd", expense?.status === "wacht" ? "actie" : "info");
+    return ok({ expense });
   },
 
   async "respond-expense"(req, body) {
     const me = await requireUser(req);
-    return ok({ expense: await respondExpense(me.id, body) });
+    const expense = await respondExpense(me.id, body);
+    await tellOther(me.id, "expenses", expense?.id, "kostReactie", "wijziging");
+    return ok({ expense });
   },
 
   async "comment-expense"(req, body) {
     const me = await requireUser(req);
     const e = await loadExpense(me.id, body.expense_id);
+    // The other parent only acts while still connected (the creator may always annotate their own record).
+    if ((e.created_by ?? e.payer_id) !== me.id) assertActivePartner(await familyOf(me.id), e.created_by ?? e.payer_id);
     await addExpenseStep(e.id, me.id, "opmerking", { note: reqText(body.text, "text", 1000) });
     await audit(me.id, "kosten", e.id, "UPDATED", [e.created_by, e.other_parent_id], { label: e.description, comment: true });
+    await tellOther(me.id, "expenses", e.id, "kostOpmerking", "info");
     return ok({ expense: (await expensesOut([e]))[0] });
   },
 
   async "add-attachment"(req, body) {
     const me = await requireUser(req);
     const e = await loadExpense(me.id, body.expense_id);
+    if ((e.created_by ?? e.payer_id) !== me.id) assertActivePartner(await familyOf(me.id), e.created_by ?? e.payer_id);
     await storeAttachment(me.id, e.id, body.kind === "bijlage" ? "bijlage" : "bon", body.file, body.file_name);
     await audit(me.id, "kosten", e.id, "UPDATED", [e.created_by, e.other_parent_id], { label: e.description, attachment: body.kind === "bijlage" ? "bijlage" : "bon" });
     const fresh = check(await db().from("expenses").select("*").eq("id", e.id).single(), "reload expense") as Row;
@@ -609,32 +1079,44 @@ Deno.serve(serveActions("manage-expenses", {
 
   async "create-budget"(req, body) {
     const me = await requireUser(req);
-    return ok({ budget: await createBudget(me.id, body) });
+    const budget = await createBudget(me.id, body);
+    await tellOther(me.id, "budget_proposals", budget?.id, "budgetVoorstel", "actie", "budget");
+    return ok({ budget });
   },
 
   async "respond-budget"(req, body) {
     const me = await requireUser(req);
-    return ok({ budget: await respondBudget(me.id, body) });
+    const budget = await respondBudget(me.id, body);
+    await tellOther(me.id, "budget_proposals", budget?.id, "budgetReactie", "wijziging", "budget");
+    return ok({ budget });
   },
 
   async "change-budget"(req, body) {
     const me = await requireUser(req);
-    return ok({ budget: await changeBudget(me.id, body) });
+    const budget = await changeBudget(me.id, body);
+    await tellOther(me.id, "budget_proposals", budget?.id, "budgetGewijzigd", "actie", "budget");
+    return ok({ budget });
   },
 
   async "withdraw-budget"(req, body) {
     const me = await requireUser(req);
-    return ok({ budget: await withdrawBudget(me.id, body) });
+    const budget = await withdrawBudget(me.id, body);
+    await tellOther(me.id, "budget_proposals", budget?.id, "budgetIngetrokken", "info", "budget");
+    return ok({ budget });
   },
 
   async "remind-budget"(req, body) {
     const me = await requireUser(req);
-    return ok({ budget: await remindBudget(me.id, body) });
+    const budget = await remindBudget(me.id, body);
+    await tellOther(me.id, "budget_proposals", budget?.id, "budgetHerinnering", "actie", "budget");
+    return ok({ budget });
   },
 
   async "start-settlement"(req, body) {
     const me = await requireUser(req);
-    return ok({ settlement: await startSettlement(me.id, body) });
+    const { settlement, created } = await startSettlement(me.id, body);
+    if (created) await tellOther(me.id, "settlements", settlement?.id, "verrekeningGestart", "actie");
+    return ok({ settlement });
   },
 
   /** Only the receiving parent adds a payment link and/or their bank details. */
@@ -652,7 +1134,9 @@ Deno.serve(serveActions("manage-expenses", {
       description: optText(body.description, "description", 140) ?? s.description ?? null,
       requested_at: nowIso(),
     };
-    return ok({ settlement: await moveSettlement(me.id, s, "betaalverzoek-gedeeld", patch) });
+    const settlement = await moveSettlement(me.id, s, "betaalverzoek-gedeeld", patch);
+    await tellOther(me.id, "settlements", s.id, "betaalverzoek", "actie");
+    return ok({ settlement });
   },
 
   /** The paying parent reports a payment. This is never proof of receipt. */
@@ -660,7 +1144,9 @@ Deno.serve(serveActions("manage-expenses", {
     const me = await requireUser(req);
     const s = await loadSettlement(me.id, body.settlement_id);
     if (s.payer_id !== me.id || !["nog-te-betalen", "betaalverzoek-gedeeld"].includes(s.status)) throw err.forbidden("Only the paying parent can report a payment");
-    return ok({ settlement: await moveSettlement(me.id, s, "wacht-op-ontvanger", { paid_at: nowIso() }) });
+    const settlement = await moveSettlement(me.id, s, "wacht-op-ontvanger", { paid_at: nowIso() });
+    await tellOther(me.id, "settlements", s.id, "betalingGemeld", "actie");
+    return ok({ settlement });
   },
 
   /** Only the receiving parent confirms receipt; then the linked expenses are settled (once). */
@@ -678,6 +1164,7 @@ Deno.serve(serveActions("manage-expenses", {
       ) ?? []) as Row[];
       if (settled.length) check(await db().from("expense_steps").insert(settled.map((e) => ({ expense_id: e.id, actor_id: me.id, step_type: "verrekend" }))), "settled steps");
     }
+    await tellOther(me.id, "settlements", s.id, "ontvangstBevestigd", "info");
     return ok({ settlement: out });
   },
 
@@ -685,32 +1172,116 @@ Deno.serve(serveActions("manage-expenses", {
     const me = await requireUser(req);
     const s = await loadSettlement(me.id, body.settlement_id);
     if (s.receiver_id !== me.id || s.status !== "ontvangst-bevestigd") throw err.forbidden("Only the receiving parent can finish after confirming receipt");
-    return ok({ settlement: await moveSettlement(me.id, s, "afgerond", { finished_at: nowIso() }) });
+    // Bank details are kept only for the duration of this settlement: wiped when it is finished.
+    const settlement = await moveSettlement(me.id, s, "afgerond", { finished_at: nowIso(), bank_iban: null, bank_account_name: null });
+    await tellOther(me.id, "settlements", s.id, "verrekeningAfgerond", "info");
+    return ok({ settlement });
+  },
+
+  async "update-expense"(req, body) {
+    const me = await requireUser(req);
+    const expense = await updateExpense(me.id, body);
+    await tellOther(me.id, "expenses", expense?.id, "kostGewijzigd", expense?.status === "wacht" ? "actie" : "wijziging");
+    return ok({ expense });
+  },
+
+  async "withdraw-expense"(req, body) {
+    const me = await requireUser(req);
+    const expense = await withdrawExpense(me.id, body);
+    await tellOther(me.id, "expenses", expense?.id, "kostIngetrokken", "info");
+    return ok({ expense });
+  },
+
+  async "delete-expense"(req, body) {
+    const me = await requireUser(req);
+    const row = await deleteExpense(me.id, body);
+    // Only a shared expense the other parent could see was ever announced to them.
+    if (row.other_parent_id && row.status !== "ingetrokken") await tellAbout(me.id, "expenses", row, "kostVerwijderd", "info");
+    return ok({ deleted: row.id });
+  },
+
+  async "share-expense"(req, body) {
+    const me = await requireUser(req);
+    const expense = await shareExpense(me.id, body);
+    await tellOther(me.id, "expenses", expense?.id, expense?.status === "wacht" ? "kostAkkoordGevraagd" : "kostToegevoegd", expense?.status === "wacht" ? "actie" : "info");
+    return ok({ expense });
+  },
+
+  async "remind-expense"(req, body) {
+    const me = await requireUser(req);
+    const expense = await remindExpense(me.id, body);
+    await tellOther(me.id, "expenses", expense?.id, "kostHerinnering", "actie");
+    return ok({ expense });
   },
 
   /** Fixed costs are display-only; they never become expenses or enter the balance. */
   async "create-recurring"(req, body) {
     const me = await requireUser(req);
-    const fam = await familyOf(me.id);
-    const row = check(
-      await db().from("recurring_expenses").insert({
-        created_by: me.id, other_parent_id: fam.partner, payer_id: me.id,
-        title: reqText(body.title, "title", 200), amount: money(body.amount, "amount"), interval: "monthly",
-        child_ids: await childIdsInput(me.id, body.child_ids), split_ratio: pct(body.my_pct ?? 50, "my_pct"),
-      }).select("*").single(),
-      "insert recurring",
-    ) as Row;
-    await audit(me.id, "vaste_last", row.id, "CREATED", [me.id, fam.partner], { label: row.title });
-    return ok({ recurring: recurringOut(row) });
+    const recurring = await createRecurring(me.id, body);
+    if (recurring.shared) await tellOther(me.id, "recurring_expenses", recurring.id, "vasteLastToegevoegd", "info");
+    return ok({ recurring });
+  },
+
+  async "update-recurring"(req, body) {
+    const me = await requireUser(req);
+    const { row, wasShared } = await updateRecurring(me.id, body);
+    if (row.shared) await tellOther(me.id, "recurring_expenses", row.id, wasShared ? "vasteLastGewijzigd" : "vasteLastToegevoegd", "info");
+    return ok({ recurring: row });
+  },
+
+  async "delete-recurring"(req, body) {
+    const me = await requireUser(req);
+    const row = await deleteRecurring(me.id, body);
+    await tellAbout(me.id, "recurring_expenses", row, "vasteLastVerwijderd", "info");
+    return ok({ deleted: row.id });
+  },
+
+  async "create-pot"(req, body) {
+    const me = await requireUser(req);
+    const pot = await createPot(me.id, body);
+    if (pot.shared) await tellOther(me.id, "savings_pots", pot.id, "potToegevoegd", "info");
+    return ok({ pot });
+  },
+
+  async "update-pot"(req, body) {
+    const me = await requireUser(req);
+    const { pot, wasShared } = await updatePot(me.id, body);
+    if (pot.shared) await tellOther(me.id, "savings_pots", pot.id, wasShared ? "potGewijzigd" : "potToegevoegd", "info");
+    return ok({ pot });
+  },
+
+  async "delete-pot"(req, body) {
+    const me = await requireUser(req);
+    const row = await deletePot(me.id, body);
+    await tellAbout(me.id, "savings_pots", row, "potVerwijderd", "info");
+    return ok({ deleted: row.id });
+  },
+
+  async "add-deposit"(req, body) {
+    const me = await requireUser(req);
+    const { pot, amount } = await addDeposit(me.id, body);
+    if (pot.shared) await tellOther(me.id, "savings_pots", pot.id, "potStorting", "info", "cost", { storting: euroText(amount) });
+    return ok({ pot });
+  },
+
+  async "remove-deposit"(req, body) {
+    const me = await requireUser(req);
+    const pot = await removeDeposit(me.id, body);
+    if (pot.shared) await tellOther(me.id, "savings_pots", pot.id, "potStortingVerwijderd", "info");
+    return ok({ pot });
   },
 
   async "save-agreement"(req, body) {
     const me = await requireUser(req);
-    return ok({ agreement: await saveAgreement(me.id, body) });
+    const agreement = await saveAgreement(me.id, body);
+    await tellOther(me.id, "cost_agreements", agreement?.pending?.id ?? agreement?.current?.id, "kostenAfspraakVoorstel", "actie");
+    return ok({ agreement });
   },
 
   async "respond-agreement"(req, body) {
     const me = await requireUser(req);
-    return ok({ agreement: await respondAgreement(me.id, body) });
+    const agreement = await respondAgreement(me.id, body);
+    await tellOther(me.id, "cost_agreements", body.agreement_id, "kostenAfspraakReactie", "wijziging");
+    return ok({ agreement });
   },
 }));

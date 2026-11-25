@@ -55,9 +55,15 @@ function Welkom() {
     const naarHome = () => nav({ to: "/", replace: true });
     const doorgaan = () => (a.status === "aan" ? naarHome() : setStap(stappen[0]));
     const anderAccount = async () => {
+        if (bezig)
+            return;
         setBezig(true);
-        await auth.logout();
-        window.location.replace("/welkom");
+        try {
+            await auth.logout();
+        }
+        finally {
+            window.location.replace("/welkom");
+        }
     };
     const afronden = async () => {
         setBezig(true);
@@ -143,7 +149,7 @@ function Welkom() {
               <p className="mt-3 text-xs text-ink-soft">{t("routes.welkom.gebruik.later")}</p>
               {fout ? <Melding>{foutTekst(fout)}</Melding> : null}
             </div>
-            <HoofdKnop type="button" bezig={bezig} onClick={afronden}>{t("routes.welkom.naarHome")}</HoofdKnop>
+            <HoofdKnop type="button" bezig={bezig} onClick={afronden}>{t(gebruik === "zelf" ? "routes.welkom.naarHomeSolo" : "routes.welkom.naarHome")}</HoofdKnop>
           </div>) : null}
     </AuthKader>);
 }

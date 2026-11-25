@@ -3,7 +3,7 @@
 // (the active co-parent at creation time). Records without other_parent_id belong to the creator only.
 import { db } from "./db.ts";
 import { check, err } from "./respond.ts";
-import { assertChildAccess, coParentIdsFor } from "./access.ts";
+import { assertChildAccess, coParentIdsFor, pairOf } from "./access.ts";
 import { isUuid } from "./util.ts";
 
 export const RECEIPTS_BUCKET = "receipts";
@@ -20,14 +20,27 @@ const FILE_TYPES: Record<string, string> = {
 
 export interface Family {
   me: string;
-  /** The (first) active co-parent, or null for a solo parent. */
+  /**
+   * The co-parent ONLY when there is exactly one (the usual family); null for a solo parent and for a
+   * parent with several co-parents (child 1 with A, child 2 with B). Never use it to address a record
+   * that has children: use `pairOf(me, childIds)` so every record goes to the parent of those children.
+   */
   partner: string | null;
   partners: string[];
 }
 
 export async function familyOf(userId: string): Promise<Family> {
   const partners = (await coParentIdsFor(userId)).sort();
-  return { me: userId, partner: partners[0] ?? null, partners };
+  return { me: userId, partner: partners.length === 1 ? partners[0] : null, partners };
+}
+
+/**
+ * Pair of a shared cost record: the other parent of these children (see access.pairOf), or null when
+ * the record is private ("Alleen jij"), i.e. `shared` is false or the children are Solo.
+ */
+export async function costPair(me: string, childIds: string[], shared: unknown, requested?: unknown): Promise<string | null> {
+  if (shared === false) return null;
+  return await pairOf(me, childIds, requested);
 }
 
 /** PostgREST filter: rows created by me or addressed to me. */
@@ -38,9 +51,67 @@ export function otherOf(me: string, creator: string | null, other: string | null
   return creator === me ? other : creator;
 }
 
-/** Visible = I created it, or it was addressed to me. */
+/** Visible = I created it, or it was addressed to me. (Use assertVisible for records with children.) */
 export function assertParticipant(me: string, creator: string | null, other: string | null): void {
   if (creator !== me && other !== me) throw err.notFound();
+}
+
+/** Per child: every account linked to it as a parent (child_parents role 'parent' + the child's creator). */
+export async function childParents(childIds: string[]): Promise<Map<string, Set<string>>> {
+  const ids = [...new Set(childIds.filter(Boolean))];
+  const out = new Map<string, Set<string>>();
+  if (!ids.length) return out;
+  const [links, kids] = await Promise.all([
+    db().from("child_parents").select("child_id, parent_id, role").in("child_id", ids),
+    db().from("children").select("id, created_by").in("id", ids),
+  ]);
+  const add = (c: string, p: string | null) => {
+    if (!p) return;
+    const s = out.get(c) ?? new Set<string>();
+    s.add(p);
+    out.set(c, s);
+  };
+  for (const l of (check(links, "child parents") ?? []) as Array<{ child_id: string; parent_id: string; role: string | null }>) {
+    if ((l.role ?? "parent") === "parent") add(l.child_id, l.parent_id);
+  }
+  for (const k of (check(kids, "child creators") ?? []) as Array<{ id: string; created_by: string | null }>) add(k.id, k.created_by);
+  return out;
+}
+
+/**
+ * Per-child visibility of a pair record (same rule as practical-scope.canSee): the creator always; the
+ * addressed other parent only while EVERY child of the record is still linked to both of them
+ * (child 1 shared with A, later only with B → A no longer sees it). Without children: the pair only.
+ */
+export function pairSees(
+  me: string,
+  creator: string | null,
+  other: string | null,
+  childIds: string[] | null | undefined,
+  parents: Map<string, Set<string>>,
+): boolean {
+  if (creator === me) return true;
+  if (!creator || other !== me) return false;
+  return (childIds ?? []).filter(Boolean).every((c) => {
+    const s = parents.get(c);
+    return !!s && s.has(me) && s.has(creator);
+  });
+}
+
+/** Throws NOT_FOUND unless pairSees(...) — use when loading one cost record. */
+export async function assertVisible(me: string, creator: string | null, other: string | null, childIds: string[] | null | undefined): Promise<void> {
+  assertParticipant(me, creator, other);
+  if (creator === me) return;
+  const kids = (childIds ?? []).filter(Boolean);
+  if (kids.length && !pairSees(me, creator, other, kids, await childParents(kids))) throw err.notFound();
+}
+
+/** Keeps only the rows `me` may see (pairSees), loading the child links once. */
+export async function visibleRows<T extends Record<string, any>>(me: string, rows: T[], creatorOf: (r: T) => string | null = (r) => r.created_by ?? null): Promise<T[]> {
+  const foreign = rows.filter((r) => creatorOf(r) !== me);
+  const kids = foreign.flatMap((r) => (Array.isArray(r.child_ids) ? r.child_ids : []) as string[]);
+  const parents = await childParents(kids);
+  return rows.filter((r) => pairSees(me, creatorOf(r), r.other_parent_id ?? null, r.child_ids ?? [], parents));
 }
 
 /** Shared mutations need the other party to still be an active co-parent. */

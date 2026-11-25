@@ -5,6 +5,7 @@ import { api, foutTekst } from "@/lib/api";
 import { authState, opAuth } from "@/lib/auth-store";
 import { start, startState } from "@/lib/start-store";
 import { gezinState, isIk, naamVan } from "@/lib/gezin";
+import { serverBron } from "@/lib/praktisch-sync";
 import i18n, { taalLocale } from "@/i18n";
 const t = (sleutel, opties) => i18n.t(sleutel, opties);
 const niv = (id, sleutel) => ({ id, get label() { return t(`lib.kringStore.niveau.${sleutel}`); } });
@@ -31,7 +32,7 @@ export const geenRechten = () => ({ wissel: "geen", momentjes: "geen", taken: "g
  * `momenten`/`wie`/`bevestigd` (ophalen en brengen) worden gevoed door het agenda-domein via zetMomenten;
  * er staan hier geen voorbeeldmomenten meer.
  */
-const leeg = { personen: [], momenten: [], wie: {}, bevestigd: {}, meeKlaar: {}, takenKlaar: {}, noodkaart: {}, noodExtra: {}, gedeeldeDocs: {}, geladen: false, voor: null };
+const leeg = { personen: [], momenten: [], meeKlaar: {}, takenKlaar: {}, noodkaart: {}, noodExtra: {}, gedeeldeDocs: {}, geladen: false, voor: null };
 let state = leeg;
 const listeners = new Set();
 const zet = (p) => {
@@ -114,6 +115,8 @@ function koppel() {
         if (a.status !== "aan") {
             if (state.voor)
                 state = leeg;
+            alsVerzorger = leegVerzorger;
+            rol = { voor: null, rol: null };
             return;
         }
         if (state.voor !== a.gebruiker?.id)
@@ -225,20 +228,253 @@ export const bekijkAls = (id) => api("manage-caregivers", "view-as", { caregiver
 export const mijnKringen = () => api("manage-caregivers", "get-for-user").then((r) => r.views ?? []);
 /** Ophaal-/brengmomenten (bron: agenda-domein). Alleen weergave; kiezen is nooit automatisch akkoord. */
 export const zetMomenten = (momenten) => zet({ momenten: Array.isArray(momenten) ? momenten : [] });
+/* ---------- wie haalt of brengt (server: manage-pickups) ----------
+ * Een ouder kiest per moment wie haalt of brengt: jij, de andere ouder van die kinderen, iemand uit de kring
+ * met de app (die accepteert of weigert) of een contact zonder app (alleen geregistreerd). Beide ouders van
+ * die kinderen zien de status; per kind kan dat een andere andere ouder zijn.
+ */
+const ACTIEF = ["requested", "accepted", "declined"];
+export const toewijzingVanServer = (a) => ({
+    id: a.id, momentId: a.moment_key, soort: a.moment_type, datum: a.date, tijd: a.time ?? "", plek: a.place ?? "", titel: a.title ?? "",
+    kindIds: a.child_ids ?? [], wieSoort: a.assignee_type, wie: a.assignee_id, wieNaam: a.assignee_name ?? "", wieRol: a.assignee_role ?? null,
+    status: a.status, reden: a.reason ?? "", reactieOp: a.responded_at, ingepakt: a.packed_items ?? [], mee: a.mee ?? [],
+    onderwegOp: a.on_the_way_at, aangekomenOp: a.arrived_at, doorMij: !!a.by_me, checkins: a.checkins ?? [],
+});
+const checkinVanServer = (c) => ({ id: c.id, momentId: c.moment_key, datum: c.date, tijd: c.time ?? "", kindIds: c.child_ids ?? [], soort: c.kind, wie: c.user_id, naam: c.name ?? "", mijn: !!c.mine, op: c.at });
+export const hulpVanServer = (h) => ({
+    id: h.id, kindIds: h.child_ids ?? [], wat: h.what, datum: h.date, tijd: h.time ?? "", status: h.status, geaccepteerdDoor: h.accepted_by, geaccepteerdNaam: h.accepted_by_name ?? "",
+    doorMij: !!h.by_me, ontvangers: (h.recipients ?? []).map((r) => ({ id: r.caregiver_id, naam: r.name ?? "", status: r.status, reden: r.reason ?? "" })),
+});
+let ophalen = { toewijzingen: [], checkins: [], hulp: [] };
+const ophalenLuisteraars = new Set();
+const zetOphalen = (p) => { ophalen = { ...ophalen, ...p }; ophalenLuisteraars.forEach((l) => l()); };
+export const ophalenBron = serverBron({
+    laad: async () => {
+        const r = await api("manage-pickups", "list", {}, { stil: true });
+        zetOphalen({ toewijzingen: (r.assignments ?? []).map(toewijzingVanServer), checkins: (r.checkins ?? []).map(checkinVanServer), hulp: (r.help ?? []).map(hulpVanServer) });
+    },
+    wis: () => zetOphalen({ toewijzingen: [], checkins: [], hulp: [] }),
+});
+let ververser = null;
+function startVerversen() {
+    if (ververser || typeof window === "undefined")
+        return;
+    // Live genoeg voor een overdracht: elke minuut opnieuw zolang het venster zichtbaar is (plus bij focus).
+    ververser = window.setInterval(() => { if (document.visibilityState === "visible" && ophalenBron.isEigen())
+        ophalenBron.ververs(); }, 60_000);
+}
+/** Toewijzingen, check-ins en hulpverzoeken (ouderkant). */
+export function useOphalen() {
+    ophalenBron.zorg();
+    startVerversen();
+    return useSyncExternalStore((l) => { ophalenLuisteraars.add(l); return () => ophalenLuisteraars.delete(l); }, () => ophalen, () => ophalen);
+}
+export const ophalenState = () => { ophalenBron.zorg(); return ophalen; };
+/** Alleen voor hulp-store: de lijst hulpverzoeken bijwerken (optimistisch of na een serverantwoord). */
+export const zetHulpLijst = (hulp) => zetOphalen({ hulp });
 const ikNaam = () => gezinState().ik?.naam || t("common.jij");
-export const zetWie = (momentId, wie) => {
-    const m = state.momenten.find((x) => x.id === momentId);
-    if (m && state.wie[momentId] !== wie)
-        legAudit("afspraak", momentId, m.titel, "UPDATED", { veld: t("lib.kringStore.veld.verantwoordelijke"), oud: wieNaam(state.wie[momentId]), nieuw: wieNaam(wie) }, ikNaam(), { kinderen: m.kindIds.map((k) => startState().kinderen.find((x) => x.id === k)?.naam ?? "") });
-    const bevestigd = { ...state.bevestigd };
-    delete bevestigd[momentId];
-    zet({ wie: { ...state.wie, [momentId]: wie }, bevestigd });
-};
-export const bevestig = (momentId, v) => zet({ bevestigd: { ...state.bevestigd, [momentId]: v } });
-export const toggleMee = (momentId, item) => {
-    const l = state.meeKlaar[momentId] ?? [];
-    zet({ meeKlaar: { ...state.meeKlaar, [momentId]: l.includes(item) ? l.filter((x) => x !== item) : [...l, item] } });
-};
+/** De ene andere ouder van een kind (gekoppeld en actief), of null (Solo). */
+function anderVanKind(kindId) {
+    const actief = new Set((gezinState().coOuders ?? []).map((c) => c.id));
+    return (startState().kinderen.find((k) => k.id === kindId)?.ouders ?? []).map((o) => o.id).find((id) => actief.has(id)) ?? null;
+}
+/** Kinderen per andere ouder: [[kind…] per paar]; Solo-kinderen samen. Eén gedeeld item kan maar naar één ouder. */
+export function groepeerPerPaar(kindIds) {
+    const groepen = new Map();
+    for (const k of kindIds ?? []) {
+        const sleutel = anderVanKind(k) ?? "solo";
+        groepen.set(sleutel, [...(groepen.get(sleutel) ?? []), k]);
+    }
+    return [...groepen.entries()].map(([ander, kids]) => ({ ander: ander === "solo" ? null : ander, kids }));
+}
+/** De actieve toewijzing van een moment (voor één kind, of voor het moment als geheel). */
+export function toewijzingVoor(momentId, kindId, s = ophalen) {
+    return s.toewijzingen.filter((a) => a.momentId === momentId && ACTIEF.includes(a.status) && (!kindId || a.kindIds.includes(kindId))).at(-1) ?? null;
+}
+/** Wie haalt/brengt: { wie, wieSoort, status, … } of undefined. */
+export const wieVoor = (momentId, kindId) => toewijzingVoor(momentId, kindId)?.wie;
+/**
+ * Kies wie haalt of brengt. `moment` is een moment-object (of een id uit kring.momenten); `basisKind` beperkt
+ * de keuze tot de kinderen met dezelfde andere ouder als dat kind (kringpagina per kind).
+ * Optimistisch; bij een fout terug en een melding. Geeft true bij succes.
+ */
+export async function zetWie(moment, wie, basisKind) {
+    const m = typeof moment === "string" ? state.momenten.find((x) => x.id === moment) : moment;
+    if (!m || !wie || !m.datum)
+        return false;
+    let groepen = groepeerPerPaar(m.kindIds ?? []);
+    if (basisKind)
+        groepen = groepen.filter((g) => g.kids.includes(basisKind));
+    const ouder = isIk(wie) || groepen.some((g) => g.ander === wie);
+    if (ouder && !isIk(wie))
+        groepen = groepen.filter((g) => g.ander === wie);
+    if (!groepen.length)
+        return false;
+    const vorig = ophalen.toewijzingen;
+    const geraakt = (a) => a.momentId === m.id && ACTIEF.includes(a.status) && a.kindIds.some((k) => groepen.some((g) => g.kids.includes(k)));
+    const p = state.personen.find((x) => x.id === wie);
+    const tijdelijk = groepen.map((g, i) => ({ id: `tmp-${Date.now()}-${i}`, momentId: m.id, soort: m.soort === "afspraak" ? "afspraak" : "wissel", datum: m.datum, tijd: m.tijd ?? "", plek: m.plek ?? "", titel: m.titel ?? "",
+        kindIds: g.kids, wieSoort: ouder ? "parent" : p?.uitgenodigd === false ? "contact" : "caregiver", wie, wieNaam: p?.naam ?? naamVan(wie) ?? "", status: ouder || p?.uitgenodigd === false ? "accepted" : "requested", reden: "", ingepakt: [], mee: [], doorMij: true, checkins: [] }));
+    zetOphalen({ toewijzingen: [...vorig.filter((a) => !geraakt(a)), ...tijdelijk] });
+    try {
+        const uit = [];
+        for (const g of groepen) {
+            const r = await api("manage-pickups", "assign", {
+                moment_key: m.id, moment_type: m.soort === "afspraak" ? "afspraak" : "wissel", date: m.datum, time: m.tijd || null, place: m.plek || null,
+                title: m.soort === "afspraak" ? (m.titel || null) : null, child_ids: g.kids, assignee_type: ouder ? "parent" : "caregiver", assignee_id: wie,
+            });
+            uit.push(toewijzingVanServer(r.assignment));
+        }
+        zetOphalen({ toewijzingen: [...ophalen.toewijzingen.filter((a) => !tijdelijk.some((x) => x.id === a.id) && !uit.some((x) => x.id === a.id)), ...uit] });
+        return true;
+    }
+    catch (e) {
+        zetOphalen({ toewijzingen: vorig });
+        meldFout(e);
+        ophalenBron.ververs();
+        return false;
+    }
+}
+/** Een toewijzing intrekken (ook om een "kan niet" op te ruimen). */
+export async function trekToewijzingIn(id) {
+    const vorig = ophalen.toewijzingen;
+    if (String(id).startsWith("tmp-"))
+        return;
+    zetOphalen({ toewijzingen: vorig.filter((a) => a.id !== id) });
+    try {
+        await api("manage-pickups", "withdraw", { id });
+        return true;
+    }
+    catch (e) {
+        zetOphalen({ toewijzingen: vorig });
+        meldFout(e);
+        return false;
+    }
+}
+/* ---------- "ik ben onderweg" / aankomst (ouder) ---------- */
+/** Onderweg of aangekomen melden voor een moment; per andere ouder een eigen melding. */
+export async function meldCheckIn(moment, soort) {
+    if (!moment?.datum)
+        return false;
+    const vorig = ophalen.checkins;
+    const groepen = groepeerPerPaar(moment.kindIds ?? []);
+    const gebruiker = authState().gebruiker;
+    zetOphalen({ checkins: [...vorig, ...groepen.map((g, i) => ({ id: `tmp-${Date.now()}-${i}`, momentId: moment.id, datum: moment.datum, tijd: moment.tijd ?? "", kindIds: g.kids, soort, wie: gebruiker?.id, naam: gebruiker?.name ?? "", mijn: true, op: new Date().toISOString() }))] });
+    try {
+        const uit = [];
+        for (const g of groepen) {
+            const r = await api("manage-pickups", "checkin", { moment_key: moment.id, date: moment.datum, time: moment.tijd || null, child_ids: g.kids, kind: soort });
+            uit.push(checkinVanServer(r.checkin));
+        }
+        zetOphalen({ checkins: [...vorig.filter((c) => !uit.some((x) => x.id === c.id)), ...uit] });
+        return true;
+    }
+    catch (e) {
+        zetOphalen({ checkins: vorig });
+        meldFout(e);
+        return false;
+    }
+}
+/** Mijn eigen check-in van deze soort voor dit moment (of undefined). */
+export const mijnCheckIn = (momentId, soort, s = ophalen) => s.checkins.find((c) => c.momentId === momentId && c.soort === soort && c.mijn);
+/**
+ * Wie is nu onderweg voor dit moment (zolang die nog niet is aangekomen): { soort: "ik"|"ander"|"kring", naam }.
+ * Alleen "onderweg", nooit locatie, route of aankomsttijd.
+ */
+export function onderwegVoor(momentId, s = ophalen) {
+    const aangekomen = (wie) => s.checkins.some((c) => c.momentId === momentId && c.soort === "aangekomen" && c.wie === wie);
+    const c = s.checkins.find((x) => x.momentId === momentId && x.soort === "onderweg" && !aangekomen(x.wie));
+    if (c)
+        return { soort: c.mijn ? "ik" : "ander", naam: c.naam };
+    const a = s.toewijzingen.find((x) => x.momentId === momentId && x.wieSoort === "caregiver" && x.status === "accepted" && x.onderwegOp && !x.aangekomenOp);
+    if (a) {
+        const p = state.personen.find((x) => x.id === a.wie);
+        return { soort: "kring", naam: p ? persoonLabel(p) : a.wieNaam };
+    }
+    return null;
+}
+/* ---------- als kringlid (verzorger): eigen toewijzingen en hulpverzoeken ---------- */
+const leegVerzorger = { toewijzingen: [], hulp: [], kinderen: {}, geladen: false, fout: null, voor: null };
+let alsVerzorger = leegVerzorger;
+const verzorgerLuisteraars = new Set();
+const zetVerzorger = (p) => { alsVerzorger = { ...alsVerzorger, ...p }; verzorgerLuisteraars.forEach((l) => l()); };
+let verzorgerBezig = null;
+/** Laadt wat dit account als kringlid moet doen. Gooit niet; de fout staat in de state (scherm toont "opnieuw"). */
+export function laadAlsVerzorger() {
+    const a = authState();
+    if (a.status !== "aan" || !a.gebruiker)
+        return Promise.resolve();
+    if (verzorgerBezig)
+        return verzorgerBezig;
+    verzorgerBezig = api("manage-pickups", "mine", {}, { stil: alsVerzorger.geladen })
+        .then((r) => zetVerzorger({ toewijzingen: (r.assignments ?? []).map(toewijzingVanServer), hulp: (r.help ?? []).map(hulpVanServer), kinderen: r.children ?? {}, geladen: true, fout: null, voor: a.gebruiker.id }))
+        .catch((e) => { if (alsVerzorger.voor !== a.gebruiker.id || !alsVerzorger.geladen)
+        zetVerzorger({ fout: e, voor: a.gebruiker.id });
+    else
+        meldFout(e); })
+        .finally(() => { verzorgerBezig = null; });
+    return verzorgerBezig;
+}
+export function useAlsVerzorger() {
+    return useSyncExternalStore((l) => { koppel(); verzorgerLuisteraars.add(l); return () => verzorgerLuisteraars.delete(l); }, () => alsVerzorger, () => leegVerzorger);
+}
+export const alsVerzorgerState = () => alsVerzorger;
+export const zetAlsVerzorger = zetVerzorger;
+const vervangVerzorger = (a) => zetVerzorger({ toewijzingen: alsVerzorger.toewijzingen.map((x) => (x.id === a.id ? { ...x, ...a, mee: a.mee?.length ? a.mee : x.mee, checkins: x.checkins } : x)) });
+async function verzorgerActie(id, actie, velden, optimistischVeld) {
+    const vorig = alsVerzorger.toewijzingen;
+    if (optimistischVeld)
+        zetVerzorger({ toewijzingen: vorig.map((x) => (x.id === id ? { ...x, ...optimistischVeld } : x)) });
+    try {
+        const r = await api("manage-pickups", actie, { id, ...velden });
+        vervangVerzorger(toewijzingVanServer(r.assignment));
+        return true;
+    }
+    catch (e) {
+        zetVerzorger({ toewijzingen: vorig });
+        meldFout(e);
+        if (e?.code === "NOT_OPEN" || e?.code === "NOT_FOUND")
+            laadAlsVerzorger();
+        return false;
+    }
+}
+/** Kringlid: "Ik regel dit" (accept) of "Kan niet" (decline, met optionele reden). */
+export const reageerOphalen = (id, antwoord, reden) => verzorgerActie(id, "respond", { answer: antwoord, ...(antwoord === "decline" && reden ? { reason: reden } : {}) }, { status: antwoord === "accept" ? "accepted" : "declined", reden: reden ?? "" });
+export const meldOnderwegKring = (id) => verzorgerActie(id, "on-the-way", {}, { onderwegOp: new Date().toISOString() });
+export const meldAangekomenKring = (id) => verzorgerActie(id, "arrived", {}, { aangekomenOp: new Date().toISOString() });
+/** Kringlid: een spul van de paklijst afvinken. */
+export function toggleIngepakt(id, item) {
+    const a = alsVerzorger.toewijzingen.find((x) => x.id === id);
+    if (!a)
+        return Promise.resolve(false);
+    const aan = !a.ingepakt.includes(item);
+    return verzorgerActie(id, "packed", { item, packed: aan }, { ingepakt: aan ? [...a.ingepakt, item] : a.ingepakt.filter((x) => x !== item) });
+}
+/* ---------- rol: alleen kringlid? ---------- */
+let rol = { voor: null, rol: null };
+const rolLuisteraars = new Set();
+let rolBezig = null;
+/** Vraagt de server of dit account alleen kringlid is (geen eigen kinderen of gekoppelde ouder). */
+export function laadRol(opnieuw = false) {
+    const a = authState();
+    if (a.status !== "aan" || !a.gebruiker)
+        return Promise.resolve(null);
+    if (!opnieuw && rol.voor === a.gebruiker.id)
+        return Promise.resolve(rol.rol);
+    if (rolBezig)
+        return rolBezig;
+    const id = a.gebruiker.id;
+    rolBezig = api("manage-caregivers", "role", {}, { stil: true })
+        .then((r) => r.role === "caregiver" ? "verzorger" : "ouder", () => "ouder")
+        .then((w) => { rol = { voor: id, rol: w }; rolLuisteraars.forEach((l) => l()); return w; })
+        .finally(() => { rolBezig = null; });
+    return rolBezig;
+}
+export function useRol() {
+    return useSyncExternalStore((l) => { koppel(); rolLuisteraars.add(l); return () => rolLuisteraars.delete(l); }, () => rol, () => rol);
+}
+/* ---------- oud: lokale paklijst op Home (index.jsx, slimme-hulp) ---------- */
+/** Alleen op dit apparaat; de echte paklijst staat in overdracht-store (manage-handover). */
 /** Noodkaart per kind = profielsectie "noodkaart" van het kind (gedeeld door beide ouders). */
 export function toggleNoodVeld(kindId, v) {
     const vorig = state.noodkaart[kindId] ?? [];
@@ -266,7 +502,7 @@ export function wieNaam(id) {
         return t("common.jij");
     const ouder = naamVan(id);
     if (ouder)
-        return gezinState().ander?.id === id ? t("common.deAndereOuder") : ouder;
+        return t("common.deAndereOuder");
     const p = state.personen.find((x) => x.id === id);
     return p ? persoonLabel(p) : t("lib.kringStore.onbekend");
 }
@@ -288,26 +524,30 @@ export const noodcontacten = (kindId) => adresboek(kindId).filter((p) => p.noodc
 /** Contacten zonder app die een ouder wél kan registreren als ophaler (zonder digitale bevestiging). */
 export const contactKandidaten = (m) => state.personen.filter((p) => !p.ingetrokken && p.uitgenodigd === false && m.kindIds.every((k) => p.rechten[k]));
 export const heeftApp = (id) => state.personen.find((p) => p.id === id)?.uitgenodigd !== false;
-/** Generiek: wie mag dit moment regelen? Ouders altijd; kringleden alleen met toegang voor álle betrokken kinderen. */
-export function kandidatenVoor(m) {
-    const o = m.soort === "wissel" ? "wissel" : "agenda";
-    return state.personen.filter((p) => isActief(p) && m.kindIds.every((k) => niveau(p, k, o) !== "geen"));
+/** Generiek: wie mag dit moment regelen? Kringleden met de app: actieve, bevestigde toegang tot wisselmomenten of agenda van álle betrokken kinderen (zelfde regel als de server). */
+export function kandidatenVoor(m, kindIds = m.kindIds) {
+    return state.personen.filter((p) => isActief(p) && p.uitgenodigd !== false && p.bevestigd !== false && kindIds.every((k) => niveau(p, k, "wissel") !== "geen" || niveau(p, k, "agenda") !== "geen"));
 }
-/** Is dit id een ouder (ik of de andere ouder)? */
-const isOuder = (id) => isIk(id) || (!!id && gezinState().ander?.id === id);
+/** Is dit id een ouder (ik of een gekoppelde andere ouder)? */
+const isOuder = (id) => isIk(id) || (!!id && (gezinState().coOuders ?? []).some((c) => c.id === id));
 /** Wie regelt dit — met bevestigingsstatus. Kiezen is nooit automatisch akkoord van een kringlid. */
-export function regelStatus(momentId) {
-    const wie = state.wie[momentId];
-    if (!wie)
+export function regelStatus(momentId, kindId) {
+    const a = toewijzingVoor(momentId, kindId);
+    if (!a)
         return null;
-    if (isIk(wie))
-        return { wie, tekst: t("lib.kringStore.regel.jij"), bevestigd: true };
-    if (isOuder(wie))
-        return { wie, tekst: t("lib.kringStore.regel.andereOuder"), bevestigd: true };
-    if (!heeftApp(wie))
-        return { wie, tekst: t("lib.kringStore.regel.geregistreerd", { naam: wieNaam(wie) }), bevestigd: false };
-    const b = state.bevestigd[momentId];
-    return { wie, tekst: b ? t("lib.kringStore.regel.bevestigd", { naam: wieNaam(wie) }) : t("lib.kringStore.regel.gevraagd", { naam: wieNaam(wie) }), bevestigd: !!b };
+    const basis = { wie: a.wie, wieSoort: a.wieSoort, status: a.status, id: a.id, reden: a.reden, toewijzing: a };
+    if (a.wieSoort === "parent")
+        return { ...basis, tekst: isIk(a.wie) ? t("lib.kringStore.regel.jij") : t("lib.kringStore.regel.andereOuder"), bevestigd: true };
+    const naam = wieNaam(a.wie) === t("lib.kringStore.onbekend") ? a.wieNaam || t("lib.kringStore.onbekend") : wieNaam(a.wie);
+    if (a.wieSoort === "contact")
+        return { ...basis, tekst: t("lib.kringStore.regel.geregistreerd", { naam }), bevestigd: false };
+    if (a.status === "declined")
+        return { ...basis, tekst: a.reden ? t("lib.kringStore.regel.kanNietReden", { naam, reden: a.reden }) : t("lib.kringStore.regel.kanNiet", { naam }), bevestigd: false };
+    if (a.aangekomenOp)
+        return { ...basis, tekst: t("lib.kringStore.regel.isEr", { naam }), bevestigd: true };
+    if (a.status === "accepted")
+        return { ...basis, tekst: a.onderwegOp ? t("lib.kringStore.regel.onderweg", { naam }) : t("lib.kringStore.regel.bevestigd", { naam }), bevestigd: true };
+    return { ...basis, tekst: t("lib.kringStore.regel.gevraagd", { naam }), bevestigd: false };
 }
 export { isOuder };
 /** Tijd of plek van een afspraak definitief aanpassen (wisselmomenten lopen via een voorstel). */

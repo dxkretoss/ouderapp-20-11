@@ -1,11 +1,13 @@
 import { vindDeadline } from "@/lib/deadline";
+import { emailKoppelingAan } from "@/lib/fase";
 import { bevestig } from "@/lib/feedback";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { pauzeAdvies, pauzeRegel } from "@/lib/communicatiedruk";
 import { AppShell, TerugKnop } from "@/components/AppShell";
 import { Kruis, MetChevron } from "@/components/Tekens";
-import { useBerichten, usePeilBerichten, maakGesprek, verstuurBericht, probeerOpnieuw, wisselVastgezet, dempGesprek, isGedempt, dagLabel } from "@/lib/berichten-store";
+import { laadGesprekken, useBerichten, usePeilBerichten, maakGesprek, verstuurBericht, probeerOpnieuw, wisselVastgezet, dempGesprek, isGedempt, dagLabel, bewaarConcept, spoelConcept, vergeetConcept, leesOudConcept, wisOudConcept, geefAkkoord, pauzeLoopt } from "@/lib/berichten-store";
+import { maakAfspraak } from "@/lib/agenda-store";
 import { useGezin } from "@/lib/gezin";
 import { useServerFn } from "@/lib/server-fn";
 import { coachBericht, toonBericht, alGereageerd } from "@/lib/coach.functions";
@@ -30,10 +32,10 @@ import { Button } from "@/components/ui/button";
 import { heeftHerformulering } from "@/lib/coach-vergelijking";
 import { maakCoachCache } from "@/lib/coach-cache";
 import { CommunicatieSuggestie } from "@/components/CommunicatieSuggestie";
-import { voegChatAfspraakToe } from "@/lib/chat-afspraken";
 import { agendaVanBericht, herkenPraktisch, mogelijkeOnveiligheid, mogelijkVerwijt } from "@/lib/communicatie-suggesties";
 import { Trans, useTranslation } from "react-i18next";
-import { InhoudLaden } from "@/components/Laden";
+import { taalLocale } from "@/i18n";
+import { InhoudLaden, LaadFout } from "@/components/Laden";
 import i18n from "@/i18n";
 export const Route = createFileRoute("/berichten")({
     validateSearch: z.object({ concept: z.string().optional(), gesprek: z.string().optional() }),
@@ -64,8 +66,10 @@ function BerichtenPagina() {
     const [berichtOpen, setBerichtOpen] = useState(false);
     const [concept, setConcept] = useState("");
     useEffect(() => { if (context.concept) {
-        setConcept(context.concept);
+        setConcept(context.concept.slice(0, 4000));
         setBerichtOpen(true);
+        // Zonder gekoppelde andere ouder: het concept gaat bij een (nieuw) voorbereid onderwerp, privé bewaard.
+        setNieuwOpen(true);
     } }, [context.concept]);
     const { koppeling, berichten: mails } = useEmailKoppeling();
     const startSt = useStart();
@@ -121,6 +125,11 @@ function BerichtenPagina() {
         <NuAfstemmenStart open={naOpen} onSluit={() => setNaOpen(false)}/>
         <RustSheet open={rustOpen} onSluit={() => setRustOpen(false)}/>
         {zoekOpen ? (<input autoFocus value={zoek} onChange={(e) => setZoek(e.target.value)} placeholder={t("routes.berichten.zoekPlaceholder")} aria-label={t("routes.berichten.zoekenLabel")} className="mt-3 w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm"/>) : null}
+        {pauzeLoopt(vk) ? (<div className="mt-3 flex items-center gap-3 rounded-[18px] border border-white/85 bg-white/60 px-4 py-3" role="status">
+            <BellOff className="size-[18px] shrink-0 text-[#3F5747]" strokeWidth={2} aria-hidden/>
+            <span className="min-w-0 flex-1 text-[13px] text-ink-soft">{t("routes.berichten.pauzeBanner.tekst", { tijd: new Date(vk.berichtenPauzeTot).toLocaleString(taalLocale(), { weekday: "long", hour: "2-digit", minute: "2-digit" }) })}</span>
+            <button onClick={() => zetVoorkeur("berichtenPauzeTot", null)} className="text-[13px] font-extrabold text-[#3F5747]">{t("routes.berichten.pauzeBanner.stoppen")}</button>
+          </div>) : null}
         {startSt.eigen || zoekActief ? null : (<button onClick={() => setNaOpen(true)} className="mt-4 flex w-full items-center gap-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5 text-left">
             <span className="min-w-0 flex-1">
               <span className="block text-[15px] font-black text-[#2F4A3A]">{t("routes.berichten.vandaagRegelen")}</span>
@@ -131,14 +140,18 @@ function BerichtenPagina() {
         {!startSt.eigen && openNuAfstemmen(nuAfstemmen).map((n) => <NuAfstemmenKaart key={n.id} n={n}/>)}
 
         <div className="mt-3 space-y-2.5">
-          {koppeling ? (<button onClick={() => setActief("__email")} className="flex w-full items-center gap-3 rounded-md border border-border bg-card p-3 text-left">
+          {emailKoppelingAan && koppeling ? (<button onClick={() => setActief("__email")} className="flex w-full items-center gap-3 rounded-md border border-border bg-card p-3 text-left">
               <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand"><Mail className="size-5" strokeWidth={1.8}/></div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{t("components.EmailGesprek.titel")}</p>
                 <p className="truncate text-xs text-ink-soft">{t("components.EmailGesprek.viaEmailNaam", { naam: mails[mails.length - 1]?.tekst ?? t("routes.berichten.nogGeenBerichten") })}</p>
               </div>
             </button>) : null}
-          {!verbonden && !koppeling ? (<section className="rounded-lg border border-border bg-card p-4">
+          {!verbonden && concept ? (<section className="rounded-lg border border-brand/30 bg-brand-soft p-4" role="status">
+              <p className="text-sm font-semibold">{t("routes.berichten.eigen.conceptKlaar")}</p>
+              <p className="mt-1 line-clamp-3 text-xs text-ink-soft">“{concept}”</p>
+            </section>) : null}
+          {!verbonden && !(emailKoppelingAan && koppeling) ? (<section className="rounded-lg border border-border bg-card p-4">
               <p className="font-display text-lg font-bold">{t("routes.berichten.eigen.titel")}</p>
               <p className="mt-1 text-sm text-ink-soft">{startSt.uitgenodigd ? t("routes.berichten.eigen.uitgenodigd") : t("routes.berichten.eigen.nietUitgenodigd")} {t("routes.berichten.eigen.alvast")}</p>
               {!startSt.uitgenodigd ? <Link to="/solo" className="mt-3 inline-flex min-h-[44px] items-center rounded-xl bg-brand px-4 text-sm font-semibold text-primary-foreground">{t("routes.berichten.uitnodigen")}</Link> : null}
@@ -148,7 +161,8 @@ function BerichtenPagina() {
               <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{o.onderwerp}</p><p className="truncate text-xs text-ink-soft">{t("routes.berichten.voorbereid")}</p></div>
             </button>))}
           {verbonden && bs.status === "laden" && !lijst.length ? <InhoudLaden hoogte="min-h-[45dvh]"/> : null}
-          {verbonden && bs.status !== "laden" && !zoekActief && !lijst.length && !voorbereid.length ? (<section className="rounded-lg border border-border bg-card p-4">
+          {bs.status === "fout" && !lijst.length && !voorbereid.length ? <LaadFout onOpnieuw={laadGesprekken}/> : null}
+          {verbonden && bs.status !== "laden" && bs.status !== "fout" && !zoekActief && !lijst.length && !voorbereid.length ? (<section className="rounded-lg border border-border bg-card p-4">
               <p className="font-display text-lg font-bold">{t("routes.berichten.leeg.titel")}</p>
               <p className="mt-1 text-sm text-ink-soft">{t("routes.berichten.leeg.tekst")}</p>
             </section>) : null}
@@ -238,7 +252,7 @@ function NieuwBericht({ open, voorinvul, gesprekken, onSluit, onStart }) {
     };
     const veld = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm";
     return (<Sheet open={open} onOpenChange={(o) => !o && onSluit()}>
-      <SheetContent side="bottom" className="left-1/2 max-h-[90vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8">
+      <SheetContent side="bottom" className="left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8">
         <SheetHeader className="text-left">
           <SheetTitle className="font-display text-xl font-medium">{t("routes.berichten.nieuwBericht")}</SheetTitle>
           <SheetDescription className="text-xs text-ink-soft">{t("routes.berichten.nieuw.alleenToegang")}</SheetDescription>
@@ -289,35 +303,42 @@ function Gesprek({ id, concept = "", onTerug }) {
     const vatSamen = useServerFn(vatGesprekSamen);
     const [samenvatting, setSamenvatting] = useState(null);
     const [vatBezig, setVatBezig] = useState(false);
-    const berichten = bs.berichten[id] ?? [];
+    // Bevestigingen ("Akkoord: …") staan als kaart bij het bericht; niet nog eens als ballon.
+    const alleBerichten = bs.berichten[id] ?? [];
+    const berichten = alleBerichten.filter((b) => !b.systeem);
     const [tekst, setTekst] = useState(concept);
-    const conceptSleutel = `onzeapp-concept-${id}`;
+    // Concept: privé op de server (per gesprek). Een meegegeven concept (?concept=) gaat voor.
     const [conceptGeladen, setConceptGeladen] = useState(false);
     const [conceptHersteld, setConceptHersteld] = useState(false);
+    const bekend = bs.gesprekken.some((g) => g.id === id);
     useEffect(() => {
-        if (!concept) {
-            try {
-                const c = localStorage.getItem(conceptSleutel);
-                if (c) {
-                    setTekst(c);
-                    setConceptHersteld(true);
-                }
-            }
-            catch { /* geen opslag */ }
+        if (conceptGeladen)
+            return;
+        if (concept) {
+            setConceptGeladen(true);
+            return;
+        }
+        if (!bekend && bs.status !== "klaar" && bs.status !== "fout")
+            return;
+        const server = gesprek.mijnConcept ?? "";
+        const oud = leesOudConcept(id);
+        const begin = server || oud;
+        if (begin) {
+            setTekst(begin);
+            setConceptHersteld(true);
+        }
+        if (oud) {
+            wisOudConcept(id);
+            if (!server)
+                void bewaarConcept(id, oud, { direct: true });
         }
         setConceptGeladen(true);
-    }, [conceptSleutel]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [bekend, bs.status, id]); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => {
-        if (!conceptGeladen)
-            return;
-        try {
-            if (tekst.trim())
-                localStorage.setItem(conceptSleutel, tekst);
-            else
-                localStorage.removeItem(conceptSleutel);
-        }
-        catch { /* geen opslag */ }
-    }, [tekst, conceptGeladen, conceptSleutel]);
+        if (conceptGeladen)
+            void bewaarConcept(id, tekst);
+    }, [tekst, conceptGeladen, id]);
+    useEffect(() => () => spoelConcept(id), [id]);
     const [voorstel, setVoorstel] = useState(null);
     const [infoOpen, setInfoOpen] = useState(false);
     const [waarschuwing, setWaarschuwing] = useState(null);
@@ -328,24 +349,48 @@ function Gesprek({ id, concept = "", onTerug }) {
     const [actiesVoor, setActiesVoor] = useState(null);
     const [akkoordVoor, setAkkoordVoor] = useState(null);
     const [akkoordTekst, setAkkoordTekst] = useState("");
-    const [akkoorden, setAkkoorden] = useState(() => akkoordGeheugen[id] ?? {});
-    const geenAgenda = useRef(geenAgendaGeheugen);
-    const geefAkkoord = (b) => {
-        const label = vraagLabel(b.tekst, suggestieNamen) ?? b.tekst;
+    const akkoorden = bs.akkoorden?.[id] ?? {};
+    const [akkoordBezig, setAkkoordBezig] = useState(false);
+    const gz = useGezin();
+    /** Kinderen voor de afspraak: alleen kinderen die je met de andere ouder van dít gesprek deelt (per kind een andere ouder kan). */
+    const kinderenVoorAkkoord = (kindNaam) => {
+        const metAnder = gz.kinderen.filter((k) => (k.ouders ?? []).some((o) => o.id === gesprek.anderId)).map((k) => k.id);
+        if (gesprek.kindId)
+            return metAnder.includes(gesprek.kindId) ? [gesprek.kindId] : [];
+        const genoemd = gz.kinderen.find((k) => k.naam === kindNaam);
+        if (genoemd)
+            return metAnder.includes(genoemd.id) ? [genoemd.id] : [];
+        return metAnder;
+    };
+    const geefAkkoordOp = async (b) => {
+        if (akkoordBezig || !gesprek.kanVersturen)
+            return;
+        const label = (vraagLabel(b.tekst, suggestieNamen) ?? b.tekst).slice(0, 200);
         const g = vraagGegevens(b.tekst, suggestieNamen, true);
-        // De andere ouder vroeg het, jij geeft akkoord: dan staat het meteen als afgesproken in de agenda (geen tweede formulier).
-        if (g.datum && g.tijd)
-            voegChatAfspraakToe({ titel: g.titel ?? label, datum: g.datum, tijd: g.tijd, kind: g.kind ?? gezinsStart.kinderen.map((k) => k.naam).join(" & "), toelichting: t("routes.berichten.akkoord.toelichting", { tekst: b.tekst }) });
-        else
-            geenAgenda.current.add(b.id);
-        const nieuw = { ...akkoorden, [b.id]: label };
-        akkoordGeheugen[id] = nieuw;
-        setAkkoorden(nieuw);
-        if (akkoordTekst.trim())
-            verstuur(akkoordTekst);
-        setAkkoordVoor(null);
-        setAkkoordTekst("");
-        bevestig(g.datum && g.tijd ? t("routes.berichten.akkoord.inAgenda") : t("routes.berichten.akkoord.gegeven"), { uitleg: t("routes.berichten.akkoord.zietDit", { naam: ander }) });
+        setAkkoordBezig(true);
+        try {
+            // De andere ouder vroeg het, jij geeft akkoord: dan komt het meteen als gedeelde afspraak in jullie agenda (geen tweede formulier).
+            let eventId = afspraakVoorBericht.get(b.id) ?? null;
+            const kindIds = g.datum && g.tijd ? kinderenVoorAkkoord(g.kind) : [];
+            if (!eventId && kindIds.length) {
+                const r = await maakAfspraak({ titel: (g.titel ?? label).slice(0, 200), datum: g.datum, tijd: g.tijd, kindIds, categorie: "overig", gedeeld: true, toelichting: t("routes.berichten.akkoord.toelichting", { tekst: b.tekst.slice(0, 1500) }) });
+                // Mislukt (bijv. geen rechten of kinderen van verschillende ouders): de agenda meldt de fout; er is nog niets vastgelegd.
+                if (!r?.event?.id)
+                    return;
+                eventId = r.event.id;
+                afspraakVoorBericht.set(b.id, eventId);
+            }
+            const gelukt = await geefAkkoord(id, b.id, { label, eventId, notitie: akkoordTekst });
+            if (!gelukt)
+                return;
+            afspraakVoorBericht.delete(b.id);
+            setAkkoordVoor(null);
+            setAkkoordTekst("");
+            bevestig(eventId ? t("routes.berichten.akkoord.inAgenda") : t("routes.berichten.akkoord.gegeven"), { uitleg: t("routes.berichten.akkoord.zietDit", { naam: ander }) });
+        }
+        finally {
+            setAkkoordBezig(false);
+        }
     };
     const vkG = useVoorkeuren();
     const gezinsStart = useStart();
@@ -451,6 +496,9 @@ function Gesprek({ id, concept = "", onTerug }) {
         setRuimte(false);
         const beoordelingBijVerzenden = analyseVoor(analyse.current, analyseSleutel(inhoud)) ?? (meter?.sleutel === analyseSleutel(inhoud) ? meter.resultaat : null);
         const nieuwId = `n${berichten.length}-${Date.now()}`;
+        // Versturen wist het concept op de server; een nog wachtende concept-opslag mag dat niet terugzetten.
+        vergeetConcept(id);
+        setConceptHersteld(false);
         void verstuurBericht(id, inhoud, beoordelingBijVerzenden?.niveau ?? "geen");
         // Pas ná het toevoegen, alleen voor de afzender, alleen bij betrouwbaar rustige/neutrale toon.
         setFijn(meterAan && verdientBevestiging(beoordelingBijVerzenden) ? nieuwId : null);
@@ -613,10 +661,12 @@ function Gesprek({ id, concept = "", onTerug }) {
               {akkoorden[b.id] ? (<div className="mt-2.5 flex justify-center">
                   <div className="flex max-w-[90%] items-center gap-2 rounded-[16px] border border-[#C9D6C3] bg-[#E9EFE3] px-3 py-2">
                     <Check className="size-4 shrink-0 text-[#3F5747]" strokeWidth={2.2}/>
-                    <span><span className="block text-[13.5px] font-black text-[#2F4A3A]">{geenAgenda.current.has(b.id) ? t("routes.berichten.akkoord.jijGaf") : t("routes.berichten.akkoord.jijGafAgenda")}</span><span className="block text-xs text-ink-soft">{t("routes.berichten.akkoord.labelZiet", { label: akkoorden[b.id], naam: anderKlein })}</span>
-                      {geenAgenda.current.has(b.id)
+                    {akkoorden[b.id].mijn ? (<span><span className="block text-[13.5px] font-black text-[#2F4A3A]">{akkoorden[b.id].inAgenda ? t("routes.berichten.akkoord.jijGafAgenda") : t("routes.berichten.akkoord.jijGaf")}</span><span className="block text-xs text-ink-soft">{t("routes.berichten.akkoord.labelZiet", { label: akkoorden[b.id].label, naam: anderKlein })}</span>
+                      {!akkoorden[b.id].inAgenda
                         ? <Link to="/agenda" search={{ ...agendaVanBericht(b.tekst, suggestieNamen), ...vraagGegevens(b.tekst, suggestieNamen, true) }} className="mt-1 inline-block text-xs font-extrabold text-[#3F5747]"><MetChevron>{t("routes.berichten.akkoord.inAgendaPijl")}</MetChevron></Link>
-                        : <Link to="/agenda" className="mt-1 inline-block text-xs font-extrabold text-[#3F5747]"><MetChevron>{t("routes.berichten.akkoord.bekijkAgenda")}</MetChevron></Link>}</span>
+                        : <Link to="/agenda" className="mt-1 inline-block text-xs font-extrabold text-[#3F5747]"><MetChevron>{t("routes.berichten.akkoord.bekijkAgenda")}</MetChevron></Link>}</span>)
+                    : (<span><span className="block text-[13.5px] font-black text-[#2F4A3A]">{akkoorden[b.id].inAgenda ? t("routes.berichten.akkoord.anderGafAgenda", { naam: ander }) : t("routes.berichten.akkoord.anderGaf", { naam: ander })}</span><span className="block text-xs text-ink-soft">{akkoorden[b.id].label}</span>
+                      {akkoorden[b.id].inAgenda ? <Link to="/agenda" className="mt-1 inline-block text-xs font-extrabold text-[#3F5747]"><MetChevron>{t("routes.berichten.akkoord.bekijkAgenda")}</MetChevron></Link> : null}</span>)}
                   </div>
                 </div>) : null}
             </div>);
@@ -638,8 +688,8 @@ function Gesprek({ id, concept = "", onTerug }) {
               <span className="min-w-0"><span className="block text-[15.5px] font-black">{vraagLabel(akkoordVoor.tekst, suggestieNamen) ?? t("routes.berichten.akkoord.afspraakUitBericht")}</span><span className="block text-xs text-ink-soft">“{akkoordVoor.tekst}”</span></span>
             </div>
             <p className="mt-3 text-[14.5px]">{t("routes.berichten.akkoord.vroegDit", { naam: ander })}</p>
-            <textarea value={akkoordTekst} onChange={(e) => setAkkoordTekst(e.target.value)} rows={2} aria-label={t("routes.berichten.akkoord.berichtErbij")} placeholder={t("routes.berichten.akkoord.berichtErbijPlaceholder")} className="mt-2 w-full resize-none rounded-[16px] border border-[#E6DED2] bg-white px-3.5 py-2.5 text-[15px] outline-none"/>
-            <button onClick={() => geefAkkoord(akkoordVoor)} className="mt-3 h-12 w-full rounded-full bg-brand text-[15px] font-black text-primary-foreground">{t("routes.berichten.akkoord.gevenEnAgenda")}</button>
+            <textarea value={akkoordTekst} onChange={(e) => setAkkoordTekst(e.target.value)} rows={2} maxLength={4000} aria-label={t("routes.berichten.akkoord.berichtErbij")} placeholder={t("routes.berichten.akkoord.berichtErbijPlaceholder")} className="mt-2 w-full resize-none rounded-[16px] border border-[#E6DED2] bg-white px-3.5 py-2.5 text-[15px] outline-none"/>
+            <button disabled={akkoordBezig || !gesprek.kanVersturen} onClick={() => void geefAkkoordOp(akkoordVoor)} className="mt-3 h-12 w-full rounded-full bg-brand text-[15px] font-black text-primary-foreground disabled:opacity-50">{akkoordBezig ? t("routes.berichten.akkoord.bezig") : t("routes.berichten.akkoord.gevenEnAgenda")}</button>
             <button onClick={() => { setAkkoordVoor(null); setAkkoordTekst(""); }} className="mt-2 h-12 w-full rounded-full border border-[#E6DED2] bg-white text-[15px] font-black text-[#2F4A3A]">{t("routes.berichten.akkoord.eerstBespreken")}</button>
             <p className="mt-2 text-center text-xs text-ink-soft">{t("routes.berichten.akkoord.zietInGesprek", { naam: ander })}</p>
           </> : null}
@@ -777,14 +827,17 @@ function Gesprek({ id, concept = "", onTerug }) {
           </div>) : null}
         {fout || traag ? <div className="mt-2 text-xs text-ink"><p>{fout ?? t("routes.berichten.traag")}</p><div className="mt-2 flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => { schrijfNummer.current++; cache.current.wis(); herschrijf(laatsteStijl.current, afstemmingNodig); }}>{t("routes.berichten.opnieuw")}</Button>{!eigen ? <Button size="sm" onClick={probeerVersturen}>{t("routes.berichten.gewoonVersturen")}</Button> : null}</div></div> : null}
         {conceptHersteld && tekst.trim() ? (<p className="mt-1 px-1 text-[11px] text-ink-soft">
-            {t("routes.berichten.conceptBewaard")} <button type="button" onClick={() => { setTekst(""); setConceptHersteld(false); }} className="font-semibold text-brand">{t("routes.berichten.opnieuwBeginnen")}</button>
+            {t("routes.berichten.conceptBewaard")} <button type="button" onClick={() => { setTekst(""); setConceptHersteld(false); void bewaarConcept(id, "", { direct: true }); }} className="font-semibold text-brand">{t("routes.berichten.opnieuwBeginnen")}</button>
           </p>) : null}
         {(vkG.aiSchrijfhulp && tekst.trim()) || eigen ? (<div className="mt-1 flex items-center gap-2 pb-1">
             {vkG.aiSchrijfhulp && tekst.trim() ? <button disabled={bezig} onClick={() => setStijlOpen((o) => !o)} aria-expanded={stijlOpen} className="flex min-h-9 items-center gap-1.5 text-xs font-extrabold text-[#3F5747] disabled:opacity-50">
               <AppIcon functie="co" maat="sm"/>{bezig ? t("routes.berichten.evenKijken") : t("routes.berichten.helpFormuleren")}
             </button> : null}
             <span className="flex-1"/>
-            {eigen ? <button disabled={!tekst.trim()} onClick={() => { setConceptHersteld(true); bevestig(t("routes.berichten.conceptBewaardToast"), { uitleg: t("routes.berichten.bewaardApparaat") }); }} className="rounded-full bg-brand px-4 py-2 text-sm font-black text-primary-foreground disabled:opacity-50">{t("routes.berichten.conceptBewaren")}</button> : null}
+            {eigen ? <button disabled={!tekst.trim()} onClick={async () => { if (await bewaarConcept(id, tekst, { direct: true })) {
+                setConceptHersteld(true);
+                bevestig(t("routes.berichten.conceptBewaardToast"), { uitleg: t("routes.berichten.bewaardApparaat") });
+            } }} className="rounded-full bg-brand px-4 py-2 text-sm font-black text-primary-foreground disabled:opacity-50">{t("routes.berichten.conceptBewaren")}</button> : null}
           </div>) : null}
         </div>
       </div>
@@ -848,10 +901,11 @@ function AfwijkingHint() {
       <Link to="/zorgregeling" search={{ actie: "wijziging", bron: "berichten" }} className="mt-2 inline-flex rounded-md border border-border px-3 py-2 text-xs font-semibold text-brand">{t("routes.berichten.afwijking.knop")}</Link>
     </div>);
 }
-/** Akkoorden die in deze sessie in een gesprek zijn gegeven (demo; echte opslag volgt bij gedeelde accounts). */
-const akkoordGeheugen = {};
-/** Akkoorden zonder herkenbare datum of tijd: die moet de ouder zelf nog in de agenda zetten. */
-const geenAgendaGeheugen = new Set();
+/**
+ * Afspraak die al in de agenda staat terwijl het akkoord nog niet is vastgelegd (bijv. verbinding weg):
+ * bij opnieuw proberen wordt die afspraak gekoppeld in plaats van een tweede aangemaakt.
+ */
+const afspraakVoorBericht = new Map();
 /** Herkenning op Nederlandse én Engelse woorden (de tekst van het bericht zelf). */
 const DAG_WOORD = /\b(vandaag|morgen|overmorgen|maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag|today|tomorrow|day after tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/;
 const WAT_WOORD = /\b(ophalen|brengen|wisselen|tandarts|huisarts|ouderavond|training|zwemles|voetbal|logeren|pick up|pick-up|collect|drop off|drop-off|swap|handover|dentist|doctor|gp|parents' evening|swimming|football|sleepover)\b/;

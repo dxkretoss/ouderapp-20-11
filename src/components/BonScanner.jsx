@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { GeldInvoer } from "@/components/GeldInvoer";
@@ -7,7 +7,7 @@ import { useServerFn } from "@/lib/server-fn";
 import { AppIcon } from "@/components/AppIcon";
 import { Banknote, FolderOpen } from "lucide-react";
 import { MetVinkje } from "@/components/Tekens";
-import { useBudgetten } from "@/lib/budget-store";
+import { useBudgettenPaar } from "@/lib/budget-store";
 import { useStart } from "@/lib/start-store";
 import { leesBon } from "@/lib/bon.functions";
 import { kindLabel } from "@/components/KostenTabs";
@@ -27,7 +27,7 @@ async function verklein(dataUrl) {
     c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
     return c.toDataURL("image/jpeg", 0.85);
 }
-export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, onDocument, }) {
+export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, onDocument, toonVerdeling = true, onKindIds, }) {
     const { t } = useTranslation();
     const invoer = useRef(null);
     const lees = useServerFn(leesBon);
@@ -45,13 +45,15 @@ export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, 
     const [kind, setKind] = useState(kinderOpties[0]?.waarde ?? "Gezin/algemeen");
     const kindIds = kinderOpties.find((k) => k.waarde === kind)?.ids ?? [];
     const [verdeling, setVerdeling] = useState("standaard");
+    // De ouder van deze kinderen bepaalt of delen kan (Alleen jij / Gedeeld staat bij de ouder-component).
+    useEffect(() => { onKindIds?.(kindIds); }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
     const [fotoKlein, setFotoKlein] = useState(null);
     const [categorie, setCategorie] = useState(docCategorieen[0]);
     const [ook, setOok] = useState(true);
     const [klaar, setKlaar] = useState(null);
     const [leest, setLeest] = useState(false);
     const [leesMelding, setLeesMelding] = useState(null);
-    const budgetten = useBudgetten();
+    const budgetten = useBudgettenPaar();
     const [koppel, setKoppel] = useState(null);
     const uitlezen = async (f) => {
         setFotoKlein(f);
@@ -115,12 +117,14 @@ export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, 
             const gelukt = await onKosten({ omschrijving: omschr(), bedrag: bedragNummer, kind, kindIds, verdeling, foto: fotoKlein ?? foto, budgetId: b?.id, ...(/^\d{4}-\d{2}-\d{2}$/.test(datum) ? { datum } : {}) });
             if (gelukt === false)
                 return;
-            if (ook)
-                onDocument({ naam: t("components.BonScanner.bonNaam", { naam: omschr() }), categorie: "Bonnen", kind, foto });
-            setKlaar(b ? t("components.BonScanner.klaar.gekoppeld", { wat: b.wat }) : ook ? t("components.BonScanner.klaar.kostenEnDocumenten") : t("components.BonScanner.klaar.kosten"));
+            // Ook bij documenten: pas "klaar" melden als die upload echt gelukt is.
+            const docGelukt = ook && onDocument ? !!(await onDocument({ naam: t("components.BonScanner.bonNaam", { naam: omschr() }), categorie: "Bonnen", kind, foto })) : false;
+            setKlaar(b ? t("components.BonScanner.klaar.gekoppeld", { wat: b.wat }) : docGelukt ? t("components.BonScanner.klaar.kostenEnDocumenten") : t("components.BonScanner.klaar.kosten"));
         }
         else {
-            onDocument({ naam: naam.trim() || t("components.BonScanner.gescandDocument"), categorie, kind, foto });
+            const doc = await onDocument?.({ naam: naam.trim() || t("components.BonScanner.gescandDocument"), categorie, kind, foto });
+            if (!doc)
+                return; // fout is al gemeld; foto en invoer blijven staan om het opnieuw te proberen
             setKlaar(t("components.BonScanner.klaar.documenten"));
         }
         setFoto(null);
@@ -158,10 +162,10 @@ export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, 
           {klaar ? <p role="status" className="mt-2 text-xs font-semibold text-brand"><MetVinkje>{klaar}</MetVinkje></p> : null}
         </>) : (<div className="space-y-2">
           <img src={foto} alt={t("components.BonScanner.gescandeBon")} className="max-h-56 w-full rounded-md object-contain bg-surface"/>
-          <div className="flex rounded-md bg-surface p-1">
+          {onKosten && onDocument ? <div className="flex rounded-md bg-surface p-1">
             <button onClick={() => setSoort("kosten")} className={tab(soort === "kosten")}><span className="inline-flex items-center justify-center gap-1.5"><Banknote aria-hidden="true" strokeWidth={1.8} className="size-4 shrink-0"/>{t("components.BonScanner.alsKosten")}</span></button>
             <button onClick={() => setSoort("document")} className={tab(soort === "document")}><span className="inline-flex items-center justify-center gap-1.5"><FolderOpen aria-hidden="true" strokeWidth={1.8} className="size-4 shrink-0"/>{t("components.BonScanner.alsDocument")}</span></button>
-          </div>
+          </div> : null}
           {leest ? <p role="status" className="animate-pulse rounded-md bg-muted p-2 text-xs text-ink-soft">{t("components.BonScanner.uitlezen")}</p> : leesMelding ? <p role="status" className="rounded-md bg-muted p-2 text-xs text-ink-soft">{leesMelding}</p> : null}
           <input className={veld} aria-label={t("components.BonScanner.omschrijving")} placeholder={soort === "kosten" ? t("components.BonScanner.omschrijvingPlaceholder") : t("components.BonScanner.naamDocument")} value={naam} onChange={(e) => setNaam(e.target.value)}/>
           {soort === "kosten" ? (<>
@@ -170,16 +174,16 @@ export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, 
                 <input className={veld} aria-label={t("components.BonScanner.datum")} type="date" value={datum} onChange={(e) => setDatum(e.target.value)}/>
               </div>
               <GeldInvoer label={t("components.BonScanner.bedrag")} value={bedrag} onChange={setBedrag}/>
-              <select className={veld} aria-label={t("components.BonScanner.verdeling")} value={verdeling} onChange={(e) => setVerdeling(e.target.value)}>
+              {toonVerdeling ? <select className={veld} aria-label={t("components.BonScanner.verdeling")} value={verdeling} onChange={(e) => setVerdeling(e.target.value)}>
                 {verdeelOpties.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-              </select>
+              </select> : null}
             </>) : (<select className={veld} value={categorie} onChange={(e) => setCategorie(e.target.value)}>
               {docCategorieen.map((c) => <option key={c} value={c}>{docLabel(c)}</option>)}
             </select>)}
-          <select className={veld} value={kind} onChange={(e) => setKind(e.target.value)}>
+          <select className={veld} aria-label={t("components.BonScanner.kind")} value={kind} onChange={(e) => setKind(e.target.value)}>
             {kinderOpties.map((k) => <option key={k.waarde} value={k.waarde}>{kindLabel(k.waarde)}</option>)}
           </select>
-          {soort === "kosten" ? (<label className="flex items-center gap-2 text-xs text-ink-soft">
+          {soort === "kosten" && onDocument ? (<label className="flex items-center gap-2 text-xs text-ink-soft">
               <input type="checkbox" checked={ook} onChange={(e) => setOok(e.target.checked)}/> {t("components.BonScanner.ookDocumenten")}
             </label>) : null}
           {koppel ? (<div role="status" className="rounded-md border border-border bg-muted p-3">

@@ -5,7 +5,8 @@ import { leesAlsDataUrl, meldFout, serverBron } from "@/lib/praktisch-sync";
  * Documenten van het eigen gezin — bron: edge function manage-documents (tabel documents + privé-bucket "documents").
  * Bestanden gaan via de function naar de server (max 10 MB) en komen alleen terug als tijdelijke link (1 uur).
  * Model: { id, naam, categorie (vaste Nederlandse waarde), kindId (null = hele gezin), door (profiel-id), datum (ISO),
- *          grootte (bytes), type, gedeeld, bron }.
+ *          grootte (bytes), type, gedeeld, anderId, bron }.
+ * Gedeeld = gericht aan een andere ouder (other_parent_id); nieuw = standaard "Alleen jij".
  */
 export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const DOCUMENT_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "text/plain", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
@@ -14,7 +15,7 @@ export const DOCUMENT_CATEGORIEEN = ["Officiële afspraken", "School", "Medisch"
 let state = { lijst: [], geladen: false };
 const listeners = new Set();
 const zet = (p) => { state = { ...state, ...p }; listeners.forEach((l) => l()); };
-const vanServer = (d) => ({ id: d.id, naam: d.title, categorie: d.category, kindId: d.child_id ?? null, door: d.uploaded_by, datum: d.created_at, grootte: d.file_size ?? 0, type: d.mime_type, bestand: d.file_name, gedeeld: d.is_shared !== false, bron: d.source });
+const vanServer = (d) => ({ id: d.id, naam: d.title, categorie: d.category, kindId: d.child_id ?? null, door: d.uploaded_by, datum: d.created_at, grootte: d.file_size ?? 0, type: d.mime_type, bestand: d.file_name, gedeeld: d.is_shared !== false && !!d.other_parent_id, deelbaar: d.is_shared !== false, anderId: d.other_parent_id ?? null, bron: d.source });
 const sync = serverBron({
     laad: async () => {
         const r = await api("manage-documents", "list");
@@ -22,6 +23,8 @@ const sync = serverBron({
     },
     wis: () => zet({ lijst: [], geladen: false }),
 });
+/** Laadstatus voor de schermen (useStatus / ververs). */
+export const documentenBron = sync;
 export function useDocumenten() {
     sync.zorg();
     return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => state, () => state);
@@ -36,14 +39,18 @@ export function bestandType(file) {
 }
 /**
  * Upload: `bron` is een File of een data-URL (bijv. een foto uit de bonnenscanner). Geeft het document of null.
- * { naam, categorie, kindId, bron: "upload"|"ouderschapsplan"|"bon"|"school", gedeeld }
+ * { naam, categorie, kindId, bron: "upload"|"ouderschapsplan"|"bon"|"school", gedeeld (standaard false = "Alleen jij"), anderId }
+ * `anderId`: alleen zonder kind en met meerdere andere ouders (voor wie het gedeelde document is).
  */
-export async function uploadDocument(bestand, { naam, categorie = "Overig", kindId = null, bron = "upload", gedeeld = true, bestandsnaam } = {}) {
+export async function uploadDocument(bestand, { naam, categorie = "Overig", kindId = null, bron = "upload", gedeeld = false, anderId, bestandsnaam } = {}) {
     try {
         let data, type, fileName = bestandsnaam;
         if (typeof bestand === "string") {
             data = bestand;
             type = /^data:([^;,]+)/.exec(bestand)?.[1] ?? "";
+            // base64: ~4 tekens per 3 bytes
+            if ((bestand.length - bestand.indexOf(",") - 1) * 0.75 > MAX_DOCUMENT_BYTES)
+                throw { code: "VALIDATION" };
         }
         else {
             if (bestand.size > MAX_DOCUMENT_BYTES)
@@ -52,7 +59,7 @@ export async function uploadDocument(bestand, { naam, categorie = "Overig", kind
             data = await leesAlsDataUrl(bestand);
             fileName = fileName ?? bestand.name;
         }
-        const r = await api("manage-documents", "upload", { title: naam, category: categorie, child_id: kindId, file_base64: data, mime_type: type, file_name: fileName ?? null, source: bron, is_shared: gedeeld });
+        const r = await api("manage-documents", "upload", { title: naam, category: categorie, child_id: kindId, file_base64: data, mime_type: type, file_name: fileName ?? null, source: bron, is_shared: !!gedeeld, ...(gedeeld && anderId ? { other_parent_id: anderId } : {}) });
         const doc = vanServer(r.document);
         zet({ lijst: [doc, ...state.lijst.filter((x) => x.id !== doc.id)] });
         return doc;
@@ -88,14 +95,41 @@ export async function openDocument(id) {
     else
         window.location.href = url;
 }
+/** Verwijderen (alleen wie het uploadde). Optimistisch weg; geeft (async) true bij succes. */
 export async function verwijderDocument(id) {
     const vorig = state.lijst;
     zet({ lijst: state.lijst.filter((x) => x.id !== id) });
     try {
         await api("manage-documents", "delete", { document_id: id });
+        return true;
     }
     catch (e) {
         zet({ lijst: vorig });
         meldFout(e, "documenten-fout");
+        return false;
+    }
+}
+/**
+ * Naam, categorie en/of "Alleen jij" / "Gedeeld" wijzigen (alleen wie het uploadde): { naam, categorie, gedeeld, anderId }.
+ * Optimistisch; geeft (async) true bij succes.
+ */
+export async function wijzigDocument(id, w) {
+    const vorig = state.lijst;
+    const body = { document_id: id };
+    const patch = {};
+    if (w.naam !== undefined) { body.title = w.naam; patch.naam = w.naam; }
+    if (w.categorie !== undefined) { body.category = w.categorie; patch.categorie = w.categorie; }
+    if (typeof w.gedeeld === "boolean") { body.is_shared = w.gedeeld; if (w.gedeeld && w.anderId) body.other_parent_id = w.anderId; patch.gedeeld = w.gedeeld; }
+    zet({ lijst: state.lijst.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+    try {
+        const r = await api("manage-documents", "update", body);
+        const doc = vanServer(r.document);
+        zet({ lijst: state.lijst.map((x) => (x.id === id ? doc : x)) });
+        return true;
+    }
+    catch (e) {
+        zet({ lijst: vorig });
+        meldFout(e, "documenten-fout");
+        return false;
     }
 }

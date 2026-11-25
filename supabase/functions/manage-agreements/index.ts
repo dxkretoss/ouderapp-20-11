@@ -15,14 +15,14 @@ import { db } from "../_shared/db.ts";
 import { check, err, ok, serveActions } from "../_shared/respond.ts";
 import { requireUser } from "../_shared/session.ts";
 import { optText, reqText, requireUuid } from "../_shared/util.ts";
-import { assertChildren, canSee, Family, familyFor, familyMembers, otherParents } from "../_shared/practical-scope.ts";
+import { addressFor, assertChildren, canSee, Family, familyFor, familyMembers } from "../_shared/practical-scope.ts";
 import { logAudit, notify } from "../_shared/practical-audit.ts";
 
 const TOPICS = ["Halen & brengen", "Planning & wijzigingen", "Contact", "Kinderen", "School & opvang", "Gezondheid", "Kosten", "Vakanties", "Overig"];
 const DECISION_KINDS = ["Schoolkeuze", "Medisch", "Verhuizing", "Verdeling van de week", "Opvoeding"];
 const DECISION_MODES = ["goedkeuring", "mening", "informatie"];
 const COLS =
-  "id, user_id, child_ids, title, description, category, agreement_type, status, proposal, versions, agreed_by, agreed_at, valid_from, stopped_at, source, is_safety, is_formal, evaluation_date, link_note, history, revision, decision_kind, decision_mode, responses, created_at, updated_at";
+  "id, user_id, child_ids, title, description, category, agreement_type, status, proposal, versions, agreed_by, agreed_at, valid_from, stopped_at, source, is_safety, is_formal, evaluation_date, link_note, history, revision, decision_kind, decision_mode, responses, other_parent_id, created_at, updated_at";
 
 type Row = Record<string, any>;
 const now = () => new Date().toISOString();
@@ -33,6 +33,7 @@ function out(r: Row) {
     type: r.agreement_type === "decision" ? "decision" : "agreement",
     title: r.title,
     text: r.description,
+    other_parent_id: r.other_parent_id ?? null,
     topic: r.category,
     child_ids: r.child_ids ?? [],
     status: r.status === "pending" && r.agreement_type !== "decision" ? "pending" : r.status,
@@ -62,7 +63,7 @@ async function load(f: Family, id: unknown, type: "agreement" | "decision"): Pro
   const rid = requireUuid(id, type === "decision" ? "decision_id" : "agreement_id");
   const row = check(await db().from("parent_agreements").select(COLS).eq("id", rid).maybeSingle(), "load agreement") as Row | null;
   const isDecision = row?.agreement_type === "decision";
-  if (!row || isDecision !== (type === "decision") || !canSee(f, row.user_id, row.child_ids)) throw err.notFound("Not found");
+  if (!row || isDecision !== (type === "decision") || !canSee(f, row.user_id, row.child_ids, false, row.other_parent_id ?? null)) throw err.notFound("Not found");
   return row;
 }
 
@@ -87,8 +88,8 @@ function checkRevision(row: Row, body: Row) {
   }
 }
 
-/** Parents who must agree: the caller + the co-parent(s) sharing the children. */
-const partiesFor = (f: Family, childIds: string[]) => [f.userId, ...otherParents(f, childIds)];
+/** Parents who must agree on an existing agreement: its creator and the other parent it is shared with. */
+const partiesOf = (row: Row): string[] => [row.user_id, row.other_parent_id].filter(Boolean);
 
 /** Applies a fully approved proposal. */
 function apply(row: Row, p: Row, by: string): Row {
@@ -116,8 +117,10 @@ function optSourceDoc(v: unknown): Row | null {
 }
 
 /** Creates a new agreement: a proposal, or directly recorded for a solo parent. */
-async function createAgreement(me: string, f: Family, b: { title: string; text: string; topic: string; childIds: string[]; source: Row | null; historyType: string; document?: string | null }) {
-  const parties = partiesFor(f, b.childIds);
+async function createAgreement(me: string, f: Family, b: { title: string; text: string; topic: string; childIds: string[]; source: Row | null; historyType: string; document?: string | null; otherParent?: unknown }) {
+  // The other parent of ALL these children (per child a different co-parent is possible); none = Solo.
+  const pair = addressFor(f, b.childIds, false, b.otherParent);
+  const parties = pair ? [me, pair] : [me];
   const solo = parties.length < 2;
   const at = now();
   const base: Row = {
@@ -128,6 +131,7 @@ async function createAgreement(me: string, f: Family, b: { title: string; text: 
     description: b.text,
     category: b.topic,
     agreement_type: "agreement",
+    other_parent_id: pair,
     source: b.source,
     proposed_by: me,
     revision: 1,
@@ -156,7 +160,7 @@ Deno.serve(serveActions("manage-agreements", {
       await db().from("parent_agreements").select(COLS).in("user_id", familyMembers(f)).order("created_at", { ascending: true }).limit(1000),
       "list agreements",
     ) ?? []) as Row[];
-    const mine = rows.filter((r) => canSee(f, r.user_id, r.child_ids));
+    const mine = rows.filter((r) => canSee(f, r.user_id, r.child_ids, false, r.other_parent_id ?? null));
     return ok({
       agreements: mine.filter((r) => r.agreement_type !== "decision").map(out),
       decisions: mine.filter((r) => r.agreement_type === "decision").map(out),
@@ -171,6 +175,7 @@ Deno.serve(serveActions("manage-agreements", {
       text: reqText(body.text, "text", 4000),
       topic: readTopic(body.topic),
       childIds: assertChildren(f, body.child_ids),
+      otherParent: body.other_parent_id,
       source: null,
       historyType: "voorgesteld-nieuw",
     });
@@ -184,6 +189,11 @@ Deno.serve(serveActions("manage-agreements", {
     if (!Array.isArray(body.items) || !body.items.length || body.items.length > 50) throw err.validation("items must be a non-empty array (max 50)");
     const document = optText(body.document, "document", 200) ?? null;
     const childIds = assertChildren(f, body.child_ids);
+    addressFor(f, childIds, false, body.other_parent_id); // fail before creating anything (MIXED_CHILDREN / choose a parent)
+    for (const it of body.items) {
+      reqText(it?.title, "title", 200);
+      reqText(it?.text, "text", 4000);
+    }
     const created: Row[] = [];
     for (const it of body.items) {
       created.push(await createAgreement(me.id, f, {
@@ -194,6 +204,7 @@ Deno.serve(serveActions("manage-agreements", {
         source: optSourceDoc({ label: [document, it?.source_label].filter(Boolean).join(": ") }),
         historyType: "geimporteerd",
         document,
+        otherParent: body.other_parent_id,
       }));
     }
     return ok({ agreements: created.map(out) });
@@ -209,7 +220,13 @@ Deno.serve(serveActions("manage-agreements", {
     const stop = body.kind === "stoppen";
     const text = stop ? null : reqText(body.text, "text", 4000);
     if (!stop && text === row.description) throw err.validation("The text did not change");
-    const parties = partiesFor(f, row.child_ids ?? []);
+    // A shared agreement (made with the other parent) never changes or stops by one parent alone: when that
+    // parent is no longer connected (or the children are no longer shared), nobody can approve it, so refuse.
+    const all = partiesOf(row);
+    const parties = all.filter((p) => p === me.id || f.coParents.includes(p));
+    if (parties.length < all.length) throw err.forbidden("The other parent of this agreement is no longer connected");
+    const kidsOk = (row.child_ids ?? []).every((k: string) => all.every((p) => p === me.id || (f.shared[p] ?? []).includes(k)));
+    if (all.length > 1 && !kidsOk) throw err.forbidden("These children are no longer shared with the other parent");
     const at = now();
     const p = { kind: stop ? "stoppen" : "wijziging", by: me.id, at, text, parties, approvals: { [me.id]: true } };
     const h = hist(row, { by: me.id, type: stop ? "voorgesteld-stoppen" : "voorgesteld-wijziging", tekst: text });
@@ -282,7 +299,8 @@ Deno.serve(serveActions("manage-agreements", {
     if (!DECISION_MODES.includes(mode)) throw err.validation("mode is invalid");
     const childIds = assertChildren(f, body.child_id ? [body.child_id] : []);
     if (childIds.length !== 1) throw err.validation("child_id is required");
-    const others = otherParents(f, childIds);
+    const pair = addressFor(f, childIds, false, body.other_parent_id);
+    const others = pair ? [pair] : [];
     const at = now();
     const row = check(
       await db().from("parent_agreements").insert({
@@ -291,14 +309,31 @@ Deno.serve(serveActions("manage-agreements", {
         status: mode === "goedkeuring" && others.length ? "pending" : "active",
         responses: mode === "goedkeuring" ? { [me.id]: "akkoord" } : {},
         history: [{ at, by: me.id, type: mode === "goedkeuring" ? "voorstel" : "gedeeld" }],
-        proposed_by: me.id, revision: 1,
+        proposed_by: me.id, revision: 1, other_parent_id: pair,
       }).select(COLS).single(),
       "create decision",
     ) as Row;
-    const auditId = await logAudit({ actorId: me.id, section: "besluit", entityId: row.id, label: title, action: "CREATED", childIds, meta: { soort: body.kind } });
+    const auditId = await logAudit({ actorId: me.id, section: "besluit", entityId: row.id, label: title, action: "CREATED", childIds, familyIds: [me.id, pair], meta: { soort: body.kind } });
     await notify({ to: others, actorId: me.id, type: "decision", category: mode === "goedkeuring" ? "actie" : "info", key: mode === "goedkeuring" ? "besluitVoorstel" : "besluitGedeeld",
       params: { titel: title }, link: "/beslissingen", entityType: "decision", entityId: row.id, childIds, auditId });
     return ok({ decision: out(row) });
+  },
+
+  /** The proposer withdraws a decision while the other parent has not answered yet (final). */
+  async "decision-withdraw"(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await load(f, body.decision_id, "decision");
+    if (row.user_id !== me.id) throw err.forbidden("Only the parent who proposed it can withdraw it");
+    if (row.decision_mode !== "goedkeuring" || row.status !== "pending") throw err.validation("Only an open proposal can be withdrawn");
+    const answered = Object.keys(row.responses ?? {}).some((id) => id !== me.id);
+    if (answered) throw err.validation("The other parent already answered");
+    const upd = await save(row, { status: "withdrawn", history: hist(row, { by: me.id, type: "ingetrokken" }) });
+    const auditId = await logAudit({ actorId: me.id, section: "besluit", entityId: row.id, label: row.title, action: "CANCELLED", childIds: row.child_ids ?? [], familyIds: [me.id, row.other_parent_id] });
+    if (row.other_parent_id) {
+      await notify({ to: row.other_parent_id, actorId: me.id, type: "decision", category: "info", key: "besluitIngetrokken", params: { titel: row.title }, link: "/beslissingen", entityType: "decision", entityId: row.id, childIds: row.child_ids ?? [], auditId });
+    }
+    return ok({ decision: out(upd) });
   },
 
   /** response: akkoord | niet. Only the other parent, once (final). */
@@ -309,11 +344,12 @@ Deno.serve(serveActions("manage-agreements", {
     if (row.decision_mode !== "goedkeuring") throw err.validation("This decision does not ask for approval");
     if (row.user_id === me.id) throw err.forbidden("You cannot answer your own decision");
     if ((row.responses ?? {})[me.id]) throw err.validation("You already answered");
+    if (row.status !== "pending") throw err.validation("This decision is no longer open");
     if (!["akkoord", "niet"].includes(body.response)) throw err.validation("response must be akkoord or niet");
     const responses = { ...(row.responses ?? {}), [me.id]: body.response };
     const upd = await save(row, { responses, status: body.response === "akkoord" ? "active" : "rejected", history: hist(row, { by: me.id, type: body.response }) });
     const auditId = await logAudit({ actorId: me.id, section: "besluit", entityId: row.id, label: row.title, action: body.response === "akkoord" ? "ACCEPTED" : "DECLINED",
-      changes: [{ veld: "reactie", oud: null, nieuw: body.response }], childIds: row.child_ids ?? [] });
+      changes: [{ veld: "reactie", oud: null, nieuw: body.response }], childIds: row.child_ids ?? [], familyIds: [row.user_id, row.other_parent_id] });
     await notify({ to: row.user_id, actorId: me.id, type: "decision", category: "wijziging", key: body.response === "akkoord" ? "besluitAkkoord" : "besluitNietAkkoord",
       params: { titel: row.title }, link: "/beslissingen", entityType: "decision", entityId: row.id, childIds: row.child_ids ?? [], auditId });
     return ok({ decision: out(upd) });
@@ -333,7 +369,7 @@ Deno.serve(serveActions("manage-agreements", {
     const me = await requireUser(req);
     const a = body.answers && typeof body.answers === "object" && !Array.isArray(body.answers) ? body.answers : {};
     const answers: Row = {};
-    for (const k of ["goed", "anders", "nodig", "zelf"]) answers[k] = optText(a[k], k, 2000) ?? "";
+    for (const k of ["goed", "anders", "nodig", "zelf", "loslaten"]) answers[k] = optText(a[k], k, 2000) ?? "";
     answers.werkt = ["goed", "grotendeels", "niet"].includes(a.werkt) ? a.werkt : "";
     const row = check(
       await db().from("evaluations").insert({ user_id: me.id, answers }).select("id, evaluated_on, answers, created_at").single(),

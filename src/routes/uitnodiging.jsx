@@ -9,7 +9,7 @@ import { CoOuderUitnodiging } from "@/components/CoOuderUitnodiging";
 import { api, foutTekst } from "@/lib/api";
 import { auth, bewaarUitnodiging, useAuth, wisUitnodiging } from "@/lib/auth-store";
 import { InhoudLaden } from "@/components/Laden";
-import { geenRechten, rechtenSamenvatting, rolNaam } from "@/lib/kring-store";
+import { geenRechten, laadRol, rechtenSamenvatting, rolNaam } from "@/lib/kring-store";
 export const Route = createFileRoute("/uitnodiging")({
     validateSearch: z.object({ t: z.string().optional(), token: z.string().optional() }),
     head: () => ({ meta: [
@@ -70,6 +70,8 @@ function KringUitnodiging({ sleutel }) {
             // Een nieuw account via een kring-uitnodiging heeft geen welkomstappen nodig.
             if (a.status === "onboarding")
                 await auth.updateProfile({ onboarding_completed: true });
+            // De rol kan nu "alleen kringlid" zijn: opnieuw vragen, zodat de app meteen de kringweergave toont.
+            laadRol(true);
             setStap("klaar");
         }
         catch (e) {
@@ -84,7 +86,7 @@ function KringUitnodiging({ sleutel }) {
         setBezig(false);
     };
     if (stap === "klaar")
-        return (<Kader><h1 className="lora text-[30px] leading-tight">{t("routes.uitnodiging.klaar.titel")}</h1><p className="mt-2 text-sm text-ink-soft">{t("routes.uitnodiging.klaar.tekst")}</p>
+        return (<Kader><h1 className="lora text-[30px] leading-tight">{t("routes.uitnodiging.klaar.titel")}</h1><p className="mt-2 text-sm text-ink-soft">{t("routes.uitnodiging.klaar.tekst", { naam: u?.from_parent?.name || t("routes.uitnodiging.eenOuder") })}</p>
       <Link to="/verzorger" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-brand"><MetChevron>{t("routes.uitnodiging.klaar.naarApp")}</MetChevron></Link></Kader>);
     if (fout)
         return (<Kader><h1 className="lora text-[30px] leading-tight">{t("routes.uitnodiging.ongeldig.titel")}</h1><p className="mt-2 text-sm text-ink-soft">{fout === "NETWORK" || fout === "SERVER" ? foutTekst(fout) : t("routes.uitnodiging.ongeldig.tekst")}</p></Kader>);
@@ -96,7 +98,7 @@ function KringUitnodiging({ sleutel }) {
     return (<Kader>
       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">{t("routes.uitnodiging.kop")}</p>
       <h1 className="lora mt-1 text-[30px] leading-tight">{t("routes.uitnodiging.hoi", { naam: u.name })}</h1>
-      <p className="mt-2 text-sm text-ink-soft">{t("routes.uitnodiging.uitgenodigd", { rol: rolNaam(u.role).toLowerCase(), kinderen: kids.map((k) => k.name).join(t("routes.uitnodiging.en")) })}</p>
+      <p className="mt-2 text-sm text-ink-soft">{t("routes.uitnodiging.uitgenodigd", { naam: u.from_parent?.name || t("routes.uitnodiging.eenOuder"), rol: rolNaam(u.role).toLowerCase(), kinderen: kids.map((k) => k.name).join(t("routes.uitnodiging.en")) })}</p>
       {u.from_parent?.name ? <p className="mt-1 text-xs text-ink-soft">{t("routes.uitnodiging.door", { naam: u.from_parent.name })}</p> : null}
 
       {!ingelogd ? (<><p className="mt-6 text-sm">{t("routes.uitnodiging.privacy")}</p>

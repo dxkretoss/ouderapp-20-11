@@ -1,10 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SlimmeMeeLijst } from "@/components/SlimmeMeeLijst";
 import { OverdrachtFormulier } from "@/components/OverdrachtFormulier";
-import { useOverdracht, useWisselMomenten, volgendeVan } from "@/lib/overdracht-store";
+import { itemsVoor, useOverdracht, useWisselMomenten, volgendeVan } from "@/lib/overdracht-store";
 import { VasteRoutines } from "@/components/VasteRoutines";
 import { useEffect, useState } from "react";
-import { beginOverdracht } from "@/lib/wissel-store";
 import { AppShell, Card, PageHeader } from "@/components/AppShell";
 import { AppIcon } from "@/components/AppIcon";
 import { Chevron, MetChevron, Vinkje } from "@/components/Tekens";
@@ -27,6 +26,8 @@ export const Route = createFileRoute("/overdracht")({
             { name: "twitter:card", content: "summary" },
         ],
     }),
+    // ?moment=YYYY-MM-DD opent de lijst van dat wisselmoment (ook een voorbije wissel, vanuit de agenda of een melding).
+    validateSearch: (s) => ({ moment: typeof s.moment === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.moment) ? s.moment : undefined }),
     component: Overdracht,
 });
 /** Keuzes uit de overdrachtsnotitie blijven Nederlandse ids; alleen de weergave wordt vertaald. */
@@ -41,15 +42,24 @@ function Overdracht() {
     const [tab, setTab] = useState("paklijst");
     const odSt = useOverdracht();
     const st = useStart();
-    const momenten = useWisselMomenten();
+    const { moment: gevraagd } = Route.useSearch();
+    // Lijsten blijven een maand bewaard: ook voorbije wissels tot zo ver terug zijn te openen.
+    const momenten = useWisselMomenten(42, 35);
     const { moment, daarna, vorige } = volgendeVan(momenten);
     const [vorigeTonen, setVorigeTonen] = useState(false);
-    const getoond = vorigeTonen && vorige ? vorige : moment;
+    const gekozenIndex = gevraagd ? momenten.findIndex((m) => m.id === gevraagd) : -1;
+    // Staat de gevraagde wissel niet (meer) in de verdeling maar wel een lijst: toon die lijst.
+    const losseLijst = gevraagd && gekozenIndex < 0 ? itemsVoor(odSt, gevraagd) : [];
+    const gekozen = gekozenIndex >= 0 ? momenten[gekozenIndex] : losseLijst.length ? {
+        id: gevraagd, datum: gevraagd, soort: "wissel", tijd: "", plek: "", kindIds: [...new Set(losseLijst.flatMap((i) => i.kindIds))],
+        namen: st.kinderen.filter((k) => losseLijst.some((i) => i.kindIds.includes(k.id))).map((k) => k.naam), naarMij: false,
+        dag: dt(gevraagd).toLocaleDateString(taalLocale(), { weekday: "long", day: "numeric", month: "long" }),
+    } : null;
+    const gekozenDaarna = gekozenIndex >= 0 ? momenten[gekozenIndex + 1] ?? null : null;
+    const getoond = gekozen ?? (vorigeTonen && vorige ? vorige : moment);
     const odGedeeld = !!getoond && odSt.gedeeld.some((o) => o.momentId === getoond.id);
     useEffect(() => { if (typeof window !== "undefined" && window.location.hash === "#overdracht")
         setTab("meegeven"); }, []);
-    useEffect(() => { if (getoond)
-        beginOverdracht(getoond.id); }, [getoond?.id]);
     const [filter, setFilter] = useState("alle");
     const logs = [...odSt.gedeeld, ...odSt.ontvangen].sort((a, b) => String(b.gedeeldOp).localeCompare(String(a.gedeeldOp)));
     const zichtbaar = logs.filter((r) => filter === "alle" || r.kindIds.includes(filter));
@@ -73,15 +83,16 @@ function Overdracht() {
         </Card>) : null}
 
       {tab === "paklijst" && getoond ? (<>
-          {vorigeNalopen && !vorigeTonen ? <button onClick={() => setVorigeTonen(true)} className="mt-4 flex w-full items-center gap-3 rounded-[22px] border border-white/85 bg-white/70 px-4 py-3 text-left"><AppIcon functie="overdracht" maat="sm" vorm="kaal"/><span className="min-w-0 flex-1 text-[15px] font-black">{t("routes.overdracht.vorigeNalopen")}</span><Chevron className="size-5 text-ink-soft"/></button> : null}
-          {vorigeTonen ? <button onClick={() => setVorigeTonen(false)} className="mt-3 inline-flex min-h-10 items-center text-sm font-bold text-brand"><MetChevron>{t("routes.overdracht.naarVolgende")}</MetChevron></button> : null}
-          <SlimmeMeeLijst moment={getoond} daarna={vorigeTonen ? moment : daarna}/>
+          {gekozen ? <Link to="/overdracht" search={{}} className="mt-3 inline-flex min-h-10 items-center text-sm font-bold text-brand"><MetChevron>{t("routes.overdracht.naarVolgende")}</MetChevron></Link> : null}
+          {!gekozen && vorigeNalopen && !vorigeTonen ? <button onClick={() => setVorigeTonen(true)} className="mt-4 flex w-full items-center gap-3 rounded-[22px] border border-white/85 bg-white/70 px-4 py-3 text-left"><AppIcon functie="overdracht" maat="sm" vorm="kaal"/><span className="min-w-0 flex-1 text-[15px] font-black">{t("routes.overdracht.vorigeNalopen")}</span><Chevron className="size-5 text-ink-soft"/></button> : null}
+          {!gekozen && vorigeTonen ? <button onClick={() => setVorigeTonen(false)} className="mt-3 inline-flex min-h-10 items-center text-sm font-bold text-brand"><MetChevron>{t("routes.overdracht.naarVolgende")}</MetChevron></button> : null}
+          <SlimmeMeeLijst moment={getoond} daarna={gekozen ? gekozenDaarna : vorigeTonen ? moment : daarna}/>
           <OnderwegStatus momentId={getoond.id}/>
           <IkBenLater moment={getoond}/>
           <Link to="/veranderd" search={{ moment: getoond.id }} className="mt-1 flex min-h-10 items-center px-1 text-sm font-bold text-brand">{t("routes.overdracht.veranderd")}</Link>
           <VasteRoutines />
           {!odGedeeld ? <button onClick={() => setTab("meegeven")} className="mt-4 flex w-full items-center gap-3 rounded-[22px] border-2 border-[#A9BCA8] px-4 py-3 text-left" style={{ background: "linear-gradient(135deg, rgba(220,230,210,.95), rgba(233,239,227,.9))" }}><span className="min-w-0 flex-1"><span className="block text-[16px] font-black text-[#2F4A3A]">{t("routes.overdracht.overdrachtVoorJoris")}</span><span className="block text-sm text-[#3F5747]">{t("routes.overdracht.vulIn")}</span></span><Chevron className="size-5 text-[#3F5747]"/></button> : null}
-        </>) : tab === "meegeven" && getoond ? (<OverdrachtFormulier key={getoond.id} momentId={getoond.id} aan={t("common.deAndereOuder")} wanneer={wanneer} viaSchool={/school|opvang|childcare|nursery/i.test(getoond.plek ?? "")}/>) : tab === "terugblik" ? (<div className="mt-5 space-y-4">
+        </>) : tab === "meegeven" && getoond ? (<OverdrachtFormulier key={getoond.id} momentId={getoond.id} kindIds={getoond.kindIds} aan={t("common.deAndereOuder")} wanneer={wanneer} viaSchool={/school|opvang|childcare|nursery/i.test(getoond.plek ?? "")}/>) : tab === "terugblik" ? (<div className="mt-5 space-y-4">
           <p className="text-sm text-ink-soft">{t("routes.overdracht.terugblikUitleg")}</p>
           {st.kinderen.length > 1 ? <div className="flex flex-wrap gap-2">
             {[{ id: "alle", naam: t("common.alleKinderen") }, ...st.kinderen].map((k) => (<button key={k.id} onClick={() => setFilter(k.id)} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${filter === k.id ? "bg-white shadow-sm" : "bg-surface text-ink-soft"}`}>{k.naam}</button>))}

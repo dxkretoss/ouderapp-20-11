@@ -7,9 +7,8 @@ import { Check, Plus } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { Chevron, MetChevron, MetVinkje } from "@/components/Tekens";
 import { AppShell, PageHeader } from "@/components/AppShell";
-import { contactKandidaten, kandidatenVoor, persoonLabel, regelStatus, zetWie } from "@/lib/kring-store";
+import { contactKandidaten, groepeerPerPaar, kandidatenVoor, persoonLabel, regelStatus, trekToewijzingIn, useKring, useOphalen, zetWie } from "@/lib/kring-store";
 import { dienVoorstelIn } from "@/lib/zorg-store";
-import { useTaken } from "@/lib/taken-store";
 import { useMemo } from "react";
 import { useStart } from "@/lib/start-store";
 import { useAgenda, wijzigAfspraak } from "@/lib/agenda-store";
@@ -161,17 +160,23 @@ function MomentKeuze({ kind, moment, kiesMoment, filter }) {
 }
 function Halen({ moment, kind, kiesMoment, direct, onTijd }) {
     const { t } = useTranslation();
-    useTaken();
+    useKring();
+    useOphalen();
     const od = useOverdracht();
     const [kringOpen, setKringOpen] = useState(direct);
     const [hulpOpen, setHulpOpen] = useState(false);
     useEffect(() => setKringOpen(direct), [direct]);
     if (!moment)
         return <MomentKeuze kind={kind} moment={moment} kiesMoment={kiesMoment}/>;
-    const status = regelStatus(moment.id);
-    const kandidaten = kandidatenVoor(moment);
+    // Eén gedeeld item gaat naar één andere ouder: bij kinderen van verschillende ouders alleen de groep van het gekozen kind.
+    const groep = groepeerPerPaar(moment.kindIds).find((g) => !kind || g.kids.includes(kind)) ?? { kids: moment.kindIds };
+    const basis = kind && moment.kindIds.includes(kind) ? kind : groep.kids[0];
+    const status = regelStatus(moment.id, basis);
+    const kringStatus = status && status.wieSoort !== "parent" ? status : null;
+    const kandidaten = kandidatenVoor(moment, groep.kids);
+    const kies = (id) => zetWie(moment, id, basis);
     return (<div className="mt-6 space-y-5">
-      {status && status.wie !== "sanne" && status.wie !== "joris" ? (<p className={`text-sm font-semibold ${status.bevestigd ? "text-brand" : "text-ink-soft"}`}>{status.bevestigd ? <MetVinkje achter>{status.tekst}</MetVinkje> : status.tekst}</p>) : null}
+      {kringStatus ? (<p className={`text-sm font-semibold ${kringStatus.bevestigd ? "text-brand" : kringStatus.status === "declined" ? "text-[#A4533E]" : "text-ink-soft"}`}>{kringStatus.bevestigd ? <MetVinkje achter>{kringStatus.tekst}</MetVinkje> : kringStatus.tekst}</p>) : null}
       {!kringOpen ? (<div>
           <p className={kop}>{t("routes.veranderd.halen.watDoen")}</p>
           <div className="mt-2 grid gap-2">
@@ -185,19 +190,20 @@ function Halen({ moment, kind, kiesMoment, direct, onTijd }) {
         </div>) : (<div>
           <p className={kop}>{t("routes.veranderd.halen.wieOvernemen")}</p>
           <div className="mt-2 grid gap-2">
-            {kandidaten.map((p) => (<button key={p.id} onClick={() => zetWie(moment.id, p.id)} aria-pressed={status?.wie === p.id} className={`${knop} flex items-center justify-between ${status?.wie === p.id ? "border-brand" : ""}`}>
-                <span>{t("routes.veranderd.halen.vragen", { naam: persoonLabel(p) })}</span>{status?.wie === p.id ? <Check className="size-4 text-brand"/> : null}
+            {kandidaten.map((p) => (<button key={p.id} onClick={() => kies(p.id)} aria-pressed={kringStatus?.wie === p.id && kringStatus.status !== "declined"} className={`${knop} flex items-center justify-between ${kringStatus?.wie === p.id && kringStatus.status !== "declined" ? "border-brand" : ""}`}>
+                <span>{t("routes.veranderd.halen.vragen", { naam: persoonLabel(p) })}</span>{kringStatus?.wie === p.id && kringStatus.status !== "declined" ? <Check className="size-4 text-brand"/> : null}
               </button>))}
-            {contactKandidaten(moment).map((p) => (<button key={p.id} onClick={() => zetWie(moment.id, p.id)} aria-pressed={status?.wie === p.id} className={`${knop} flex items-center justify-between ${status?.wie === p.id ? "border-brand" : ""}`}>
-                <span>{persoonLabel(p)} <span className="text-[11px] font-normal text-ink-soft">{t("routes.veranderd.halen.zonderApp")}</span></span>{status?.wie === p.id ? <Check className="size-4 text-brand"/> : null}
+            {contactKandidaten({ ...moment, kindIds: groep.kids }).map((p) => (<button key={p.id} onClick={() => kies(p.id)} aria-pressed={kringStatus?.wie === p.id && kringStatus.status !== "declined"} className={`${knop} flex items-center justify-between ${kringStatus?.wie === p.id && kringStatus.status !== "declined" ? "border-brand" : ""}`}>
+                <span>{persoonLabel(p)} <span className="text-[11px] font-normal text-ink-soft">{t("routes.veranderd.halen.zonderApp")}</span></span>{kringStatus?.wie === p.id && kringStatus.status !== "declined" ? <Check className="size-4 text-brand"/> : null}
               </button>))}
-            {status && status.wie !== "sanne" && status.wie !== "joris" ? <p className="text-[11px] text-ink-soft">{status.bevestigd ? <MetVinkje achter>{status.tekst}</MetVinkje> : status.tekst}</p> : null}
+            {kringStatus ? <p className="text-[11px] text-ink-soft">{kringStatus.bevestigd ? <MetVinkje achter>{kringStatus.tekst}</MetVinkje> : kringStatus.tekst}</p> : null}
+            {kringStatus && !String(kringStatus.id).startsWith("tmp-") ? <button onClick={() => trekToewijzingIn(kringStatus.id)} className="inline-flex min-h-10 items-center text-left text-sm font-semibold text-ink-soft">{t("routes.kringKindId.lijst.intrekken")}</button> : null}
             {kandidaten.length === 0 ? <p className="text-sm text-ink-soft">{t("routes.veranderd.halen.niemand")}</p> : null}
-            <Link to="/kring/$kindId" params={{ kindId: moment.kindIds[0] }} className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-brand"><Plus aria-hidden="true" className="size-4 shrink-0"/>{t("routes.veranderd.halen.verzorgerToevoegen").replace(/^\+\s*/, "")}</Link>
+            <Link to="/kring/$kindId" params={{ kindId: basis }} className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-brand"><Plus aria-hidden="true" className="size-4 shrink-0"/>{t("routes.veranderd.halen.verzorgerToevoegen").replace(/^\+\s*/, "")}</Link>
           </div>
           <p className="mt-3 text-[11px] text-ink-soft">{t("routes.veranderd.halen.vragenUitleg")}</p>
-          {status && status.wie !== "sanne" && status.wie !== "joris" && kandidaten.some((p) => p.id === status.wie) ? (<div className="mt-4 border-t border-border pt-3">
-              <p className={kop}>{t("routes.veranderd.halen.teZien", { naam: kandidaten.find((p) => p.id === status.wie) ? persoonLabel(kandidaten.find((p) => p.id === status.wie)) : "" })}</p>
+          {kringStatus && kringStatus.status !== "declined" && kandidaten.some((p) => p.id === kringStatus.wie) ? (<div className="mt-4 border-t border-border pt-3">
+              <p className={kop}>{t("routes.veranderd.halen.teZien", { naam: persoonLabel(kandidaten.find((p) => p.id === kringStatus.wie)) })}</p>
               <p className="mt-1 text-sm font-semibold">{moment.dag} · {moment.titel}</p>
               <p className="text-xs text-ink-soft">{moment.tijd ? uur(moment.tijd) : ""}{moment.plek ? ` · ${moment.plek}` : ""}</p>
               <p className="mt-1 text-xs">{t("routes.veranderd.halen.mee", { lijst: itemsVoor(od, moment.id).map((i) => i.naam).join(", ") || "-" })}</p>

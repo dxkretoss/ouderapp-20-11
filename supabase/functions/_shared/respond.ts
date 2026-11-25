@@ -2,6 +2,9 @@ import { corsHeaders, handleOptions } from "./cors.ts";
 
 export type ErrorCode =
   | "VALIDATION"
+  | "NOT_CONFIGURED"
+  | "MIXED_CHILDREN"
+  | "NOT_OPEN"
   | "WEAK_PASSWORD"
   | "EMAIL_TAKEN"
   | "INVALID_CREDENTIALS"

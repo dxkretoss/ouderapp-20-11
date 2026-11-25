@@ -1,4 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
+import { isNietInDezeFase } from "@/lib/fase";
 import { Outlet, Link, createRootRouteWithContext, useRouter, useRouterState, } from "@tanstack/react-router";
 import { Fragment, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -11,6 +12,7 @@ import { SpoedScherm } from "../components/SpoedScherm";
 import { OPENBARE_PADEN } from "@/lib/sessie-store";
 import { useAuth } from "@/lib/auth-store";
 import { useStart } from "@/lib/start-store";
+import { laadRol, useRol } from "@/lib/kring-store";
 import { AppLaden, Laadbalk } from "@/components/Laden";
 function NotFoundComponent() {
     const { t } = useTranslation();
@@ -100,14 +102,33 @@ function RootComponent() {
     const auth = useAuth();
     const st = useStart();
     const openbaar = OPENBARE_PADEN.some((p) => pad === p || pad.startsWith(p + "/"));
-    const naarWelkom = !openbaar && (auth.status === "uit" || auth.status === "onboarding");
+    // Na bevestigen zonder wachtwoord (needs_password_reset): eerst een wachtwoord kiezen op /verifieren, vóór al het andere.
+    const naarWachtwoord = (auth.status === "aan" || auth.status === "onboarding") && auth.gebruiker?.needs_password_reset === true && pad !== "/verifieren";
+    const naarWelkom = !naarWachtwoord && !openbaar && (auth.status === "uit" || auth.status === "onboarding");
     // Sessie wordt gecontroleerd, of het gezin van dit account is nog nooit opgehaald: even laden.
     const laden = !openbaar && (auth.status === "laden" || (auth.status === "aan" && st.geladenVoor !== auth.gebruiker?.id));
     const sessie = auth.status === "aan" ? "eigen" : "uit";
+    // Alleen kringlid (geen eigen kinderen, geen gekoppelde ouder, wel kringtoegang): alleen de kringweergave.
+    // De server beslist (manage-caregivers "role"); tot dat bekend is, geen ouder-app tonen.
+    const rol = useRol();
+    const misschienVerzorger = !openbaar && auth.status === "aan" && st.geladenVoor === auth.gebruiker?.id && !st.kinderen.length && !st.coOuders?.length;
+    const rolBekend = rol.voor === auth.gebruiker?.id;
+    useEffect(() => { if (misschienVerzorger)
+        laadRol(); }, [misschienVerzorger]);
+    const alleenVerzorger = misschienVerzorger && rolBekend && rol.rol === "verzorger";
+    const rolLaden = misschienVerzorger && !rolBekend;
+    const verzorgerPad = pad === "/verzorger" || pad.startsWith("/verzorger/");
+    const naarVerzorger = alleenVerzorger && !verzorgerPad;
     useEffect(() => {
-        if (naarWelkom)
+        if (naarWachtwoord)
+            router.navigate({ to: "/verifieren", replace: true });
+        else if (naarWelkom)
             router.navigate({ to: "/welkom", replace: true });
-    }, [naarWelkom, router]);
+        else if (naarVerzorger)
+            router.navigate({ to: "/verzorger", replace: true });
+        else if (isNietInDezeFase(pad))
+            router.navigate({ to: "/", replace: true });
+    }, [naarWachtwoord, naarWelkom, naarVerzorger, pad, router]);
     const { i18n: taal } = useTranslation();
     // Andere taal: paginatitels opnieuw opbouwen; de key hieronder laat alle schermen opnieuw renderen,
     // zodat ook vertaalde labels uit src/lib (getters met i18n.t) de nieuwe taal tonen.
@@ -146,9 +167,9 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Fragment key={taal.resolvedLanguage}>
         <Laadbalk />
-        {naarWelkom || laden ? <AppLaden /> : <Outlet />}
+        {naarWachtwoord || naarWelkom || laden || naarVerzorger || (rolLaden && !verzorgerPad) ? <AppLaden /> : <Outlet />}
         {sessie === "uit" ? null : <AppSlot />}
-        {sessie === "uit" ? null : <SpoedScherm />}
+        {sessie === "uit" || alleenVerzorger ? null : <SpoedScherm />}
       </Fragment>
       <Toaster position="top-center"/>
     </QueryClientProvider>);

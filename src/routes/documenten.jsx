@@ -9,7 +9,12 @@ import { ContextToevoegen } from "@/components/ContextToevoegen";
 import { FileText, FileUp, ReceiptText, School } from "lucide-react";
 import { BonScanner } from "@/components/BonScanner";
 import { documentCategorieLabel } from "@/lib/demo-data";
-import { DOCUMENT_CATEGORIEEN, MAX_DOCUMENT_BYTES, openDocument, uploadDocument, useDocumenten } from "@/lib/documenten-store";
+import { laadWeergave } from "@/components/Laden";
+import { documentenBron } from "@/lib/documenten-store";
+import { DOCUMENT_CATEGORIEEN, MAX_DOCUMENT_BYTES, openDocument, uploadDocument, useDocumenten, verwijderDocument, wijzigDocument } from "@/lib/documenten-store";
+import { DeelLabel, DelenKeuze, deelCheck, VerwijderDialoog } from "@/components/DelenKeuze";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { MoreHorizontal } from "lucide-react";
 import { useGezin } from "@/lib/gezin";
 import { OuderschapsplanImport } from "@/components/OuderschapsplanImport";
 import { SchoolinfoUitlezen } from "@/components/SchoolinfoUitlezen";
@@ -43,10 +48,12 @@ function Documenten() {
     const g = useGezin();
     const nav = useNavigate();
     const { lijst: serverLijst } = useDocumenten();
+    const laadStatus = documentenBron.useStatus();
     const kindNaam = (id) => st.kinderen.find((k) => k.id === id)?.naam;
     const ik = g.ik?.id;
     // Weergavemodel zoals de demo: kind als tekst, "nieuw" = door de andere ouder toegevoegd in de laatste 7 dagen.
     const alle = serverLijst.map((d) => ({ ...d, kind: d.kindId ? kindNaam(d.kindId) ?? "" : st.kinderen.map((k) => k.naam).join(" & ") || t("routes.documenten.eigen.heleGezin"), nieuw: d.door !== ik && Date.now() - Date.parse(d.datum) < 7 * 864e5 }));
+    const vanWie = (id) => g.coOuders.find((c) => c.id === id)?.naam || t("common.deAndereOuder");
     const NIEUW = new Set(alle.filter((d) => d.nieuw).map((d) => d.id));
     const upload = useRef(null);
     const [bestand, setBestand] = useState(null);
@@ -55,6 +62,11 @@ function Documenten() {
     const [uploadCat, setUploadCat] = useState("Overig");
     const [uploadStatus, setUploadStatus] = useState("");
     const [bezig, setBezig] = useState(false);
+    // Nieuw document = standaard "Alleen jij".
+    const [uploadGedeeld, setUploadGedeeld] = useState(false);
+    const [uploadAnder, setUploadAnder] = useState("");
+    const uploadDelen = deelCheck(g, uploadKind ? [uploadKind] : [], uploadGedeeld, uploadAnder);
+    const [beheer, setBeheer] = useState(null);
     const cats = ["Alles", ...Array.from(new Set(alle.map((d) => d.categorie)))];
     const [cat, setCat] = useState("Alles");
     const lijst = alle.filter((d) => cat === "Alles" || d.categorie === cat);
@@ -62,15 +74,16 @@ function Documenten() {
     const gesorteerd = [...lijst].sort((x, y) => Number(NIEUW.has(y.id)) - Number(NIEUW.has(x.id)));
     const belangrijk = alle.filter((d) => d.categorie === "Officiële afspraken" || d.categorie === "Medisch" || /paspoort|passport/i.test(d.naam)).slice(0, 3);
     const opslaan = async () => {
-        if (!uploadNaam.trim() || !bestand || bezig)
+        if (!uploadNaam.trim() || !bestand || bezig || !uploadDelen.ok)
             return;
         setBezig(true);
-        const doc = await uploadDocument(bestand, { naam: uploadNaam.trim(), categorie: uploadCat, kindId: uploadKind || null, bron: "upload" });
+        const doc = await uploadDocument(bestand, { naam: uploadNaam.trim(), categorie: uploadCat, kindId: uploadKind || null, bron: "upload", gedeeld: uploadDelen.gedeeld, anderId: uploadDelen.anderId });
         setBezig(false);
         if (!doc)
             return;
         setCat("Alles");
         setBestand(null);
+        setUploadGedeeld(false);
         setUploadStatus(t("routes.documenten.upload.toegevoegd"));
         bevestig(t("routes.documenten.eigen.toegevoegd"), { uitleg: doc.naam });
     };
@@ -86,13 +99,12 @@ function Documenten() {
             { titel: t("routes.documenten.toevoegen.bon"), uitleg: t("routes.documenten.toevoegen.bonUitleg"), icoon: ReceiptText, onKies: () => setToon("bon") },
         ]}/>
       </div>
-      <p className="mt-1.5 flex items-center gap-1.5 px-1 text-[13px] text-ink-soft"><AppIcon functie="slot" maat="sm" vorm="kaal"/>{g.ander ? t("routes.documenten.veiligGedeeldMet", { naam: g.ander.naam || t("common.deAndereOuder") }) : t("routes.documenten.veiligSolo")}</p>
+      <p className="mt-1.5 flex items-center gap-1.5 px-1 text-[13px] text-ink-soft"><AppIcon functie="slot" maat="sm" vorm="kaal"/>{g.gekoppeld ? t("routes.documenten.veiligKeuze") : t("routes.documenten.veiligSolo")}</p>
 
       {toon ? (<div className="mt-4">
           {toon === "plan" ? <OuderschapsplanImport onOpgeslagen={() => { }}/> : null}
           {toon === "school" ? <SchoolinfoUitlezen /> : null}
-          {toon === "bon" ? <BonScanner standaard="document" onDocument={(d) => { if (d.foto)
-                uploadDocument(d.foto, { naam: d.naam, categorie: DOCUMENT_CATEGORIEEN.includes(d.categorie) ? d.categorie : "Overig", kindId: st.kinderen.find((k) => k.id === d.kind || k.naam === d.kind)?.id ?? null, bron: "bon", bestandsnaam: `${d.naam}.jpg` }); }} onKosten={() => { }}/> : null}
+          {toon === "bon" ? <BonScanner standaard="document" onDocument={(d) => d.foto ? uploadDocument(d.foto, { naam: d.naam, categorie: DOCUMENT_CATEGORIEEN.includes(d.categorie) ? d.categorie : "Overig", kindId: st.kinderen.find((k) => k.id === d.kind || k.naam === d.kind)?.id ?? null, bron: "bon", bestandsnaam: `${d.naam}.jpg` }) : null}/> : null}
           <button onClick={() => setToon(null)} className="mt-1 min-h-10 text-sm font-semibold text-ink-soft">{t("common.sluiten")}</button>
         </div>) : null}
 
@@ -115,20 +127,23 @@ function Documenten() {
       <ul className="mt-3 divide-y divide-[#E9E1D5] rounded-[22px] border border-white/85 bg-white/60 px-3.5">
         {gesorteerd.map((d) => {
             const sv = stijl(d.categorie);
-            return (<li key={d.id} id={`item-${d.id}`} className="zoekdoel">
-            <button onClick={() => openDocument(d.id)} aria-label={t("routes.documenten.openen", { naam: d.naam })} className="flex min-h-14 w-full items-center gap-3 py-2.5 text-left">
+            const eigen = d.door === ik;
+            return (<li key={d.id} id={`item-${d.id}`} className="zoekdoel flex items-center">
+            <button onClick={() => openDocument(d.id)} aria-label={t("routes.documenten.openen", { naam: d.naam })} className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2.5 text-left">
             <span className="grid size-8 shrink-0 place-items-center rounded-[10px]" style={{ background: sv.tint }}><AppIcon functie={sv.icoon} maat="sm" vorm="kaal"/></span>
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5 text-[15px] font-black"><span className="truncate">{d.naam}</span>{NIEUW.has(d.id) ? <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[11px] font-black text-primary-foreground">{t("routes.documenten.nieuw")}</span> : null}</span>
-              <span className="block text-xs text-ink-soft">{d.kind.replace(" & ", ` ${t("common.en")} `)} · {datumTekst(d.datum)}{NIEUW.has(d.id) ? t("routes.documenten.vanNaam", { naam: g.ander?.naam || t("common.deAndereOuder") }) : ""}</span>
+              <span className="block text-xs text-ink-soft">{d.kind.replace(" & ", ` ${t("common.en")} `)} · {datumTekst(d.datum)}{NIEUW.has(d.id) ? t("routes.documenten.vanNaam", { naam: vanWie(d.door) }) : ""}</span>
+              {g.gekoppeld ? <DeelLabel gedeeld={!eigen || d.gedeeld} className="mt-1"/> : null}
             </span>
-            <Chevron className="size-4 text-ink-soft"/>
+            {!eigen ? <Chevron className="size-4 text-ink-soft"/> : null}
             </button>
+            {eigen ? <button onClick={() => setBeheer(d)} aria-label={t("routes.documenten.beheer.label", { naam: d.naam })} className="grid size-11 shrink-0 place-items-center text-ink-soft"><MoreHorizontal aria-hidden className="size-5" strokeWidth={2}/></button> : null}
           </li>);
         })}
         {!gesorteerd.length && alle.length ? <li className="py-4 text-sm text-ink-soft">{t("routes.documenten.leegCategorie")}</li> : null}
       </ul>
-      {!alle.length && !bestand && !toon ? (<div className="mt-10 flex flex-col items-center text-center">
+      {!alle.length && !bestand && !toon ? (laadWeergave(laadStatus, documentenBron.ververs) ?? <div className="mt-10 flex flex-col items-center text-center">
           <p className="font-display text-lg font-bold">{t("routes.documenten.eigen.rustig")}</p>
           <p className="mt-1 max-w-xs text-sm text-ink-soft">{t("routes.documenten.eigen.leegUitleg")}</p>
           <button onClick={() => upload.current?.click()} className="mt-5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-primary-foreground">{t("routes.documenten.eigen.eerste")}</button>
@@ -148,15 +163,79 @@ function Documenten() {
         <label className="block text-xs font-semibold">{t("routes.documenten.upload.naam")}<input aria-label={t("routes.documenten.upload.naam")} value={uploadNaam} onChange={(e) => setUploadNaam(e.target.value)} required className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"/></label>
         <label className="block text-xs font-semibold">{t("routes.documenten.upload.voorWie")}<select aria-label={t("routes.documenten.upload.voorWieLabel")} value={uploadKind} onChange={(e) => setUploadKind(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">{st.kinderen.map((k) => <option key={k.id} value={k.id}>{k.naam}</option>)}<option value="">{t("routes.documenten.eigen.heleGezin")}</option></select></label>
         <label className="block text-xs font-semibold">{t("routes.documenten.upload.categorie")}<select aria-label={t("routes.documenten.upload.categorie")} value={uploadCat} onChange={(e) => setUploadCat(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">{DOCUMENT_CATEGORIEEN.map((c) => <option key={c} value={c}>{documentCategorieLabel(c)}</option>)}</select></label>
-        <p className="text-xs text-ink-soft">{t("routes.documenten.upload.veilig")}</p>
-        <div className="flex gap-2"><Button type="submit" disabled={!uploadNaam.trim() || bezig}>{t("routes.documenten.upload.toevoegen")}</Button><Button type="button" variant="ghost" onClick={() => setBestand(null)}>{t("common.annuleren")}</Button></div>
+        <DelenKeuze kindIds={uploadKind ? [uploadKind] : []} gedeeld={uploadGedeeld} onGedeeld={setUploadGedeeld} anderId={uploadAnder} onAnderId={setUploadAnder}/>
+        <p className="text-xs text-ink-soft">{t("routes.documenten.upload.veiligKeuze")}</p>
+        <div className="flex gap-2"><Button type="submit" disabled={!uploadNaam.trim() || bezig || !uploadDelen.ok}>{t("routes.documenten.upload.toevoegen")}</Button><Button type="button" variant="ghost" onClick={() => setBestand(null)}>{t("common.annuleren")}</Button></div>
       </form> : null}
       {uploadStatus ? <p role="status" className="mt-2 text-xs text-brand">{uploadStatus}</p> : null}
+      <DocumentBeheer d={beheer} onSluit={() => setBeheer(null)}/>
       <Link to="/exporteren" className="mt-4 flex items-center gap-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3">
         <span className="min-w-0 flex-1"><span className="block text-[15px] font-black">{t("routes.documenten.export.titel")}</span><span className="block text-xs text-ink-soft">{t("routes.documenten.export.uitleg")}</span></span>
         <Chevron className="size-4 text-ink-soft"/>
       </Link>
     </AppShell>);
+}
+/** Eigen document beheren: naam, soort, "Alleen jij" / "Gedeeld", verwijderen. */
+function DocumentBeheer({ d, onSluit }) {
+    const { t } = useTranslation();
+    const g = useGezin();
+    const [naam, setNaam] = useState("");
+    const [categorie, setCategorie] = useState("Overig");
+    const [gedeeld, setGedeeld] = useState(false);
+    const [ander, setAnder] = useState("");
+    const [bezig, setBezig] = useState(false);
+    const [weg, setWeg] = useState(false);
+    const [voor, setVoor] = useState(null);
+    // Velden vullen zodra een (ander) document geopend wordt.
+    if (d && voor !== d.id) {
+        setVoor(d.id);
+        setNaam(d.naam);
+        setCategorie(DOCUMENT_CATEGORIEEN.includes(d.categorie) ? d.categorie : "Overig");
+        setGedeeld(!!d.gedeeld);
+        setAnder(d.anderId ?? "");
+        setWeg(false);
+    }
+    const delen = deelCheck(g, d?.kindId ? [d.kindId] : [], gedeeld, ander);
+    const geldig = !!naam.trim() && delen.ok && !bezig;
+    const opslaan = async () => {
+        if (!d || !geldig)
+            return;
+        setBezig(true);
+        const gelukt = await wijzigDocument(d.id, { naam: naam.trim(), categorie, gedeeld: delen.gedeeld, anderId: delen.anderId });
+        setBezig(false);
+        if (gelukt) {
+            bevestig(t("routes.documenten.beheer.opgeslagen"));
+            onSluit();
+        }
+    };
+    const verwijder = async () => {
+        if (!d)
+            return;
+        setWeg(false);
+        onSluit();
+        if (await verwijderDocument(d.id))
+            bevestig(t("routes.documenten.beheer.verwijderd"), { uitleg: d.naam });
+    };
+    return (<Sheet open={!!d} onOpenChange={(o) => !o && onSluit()}>
+      <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto">
+        {d ? (<>
+            <SheetHeader className="text-left">
+              <SheetTitle className="lora text-[24px] leading-tight">{t("routes.documenten.beheer.titel")}</SheetTitle>
+              <SheetDescription>{d.naam}</SheetDescription>
+            </SheetHeader>
+            <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); opslaan(); }}>
+              <label className="block text-xs font-semibold">{t("routes.documenten.upload.naam")}<input value={naam} maxLength={200} onChange={(e) => setNaam(e.target.value)} required className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"/></label>
+              <label className="block text-xs font-semibold">{t("routes.documenten.upload.categorie")}<select value={categorie} onChange={(e) => setCategorie(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">{DOCUMENT_CATEGORIEEN.map((c) => <option key={c} value={c}>{documentCategorieLabel(c)}</option>)}</select></label>
+              <DelenKeuze kindIds={d.kindId ? [d.kindId] : []} gedeeld={gedeeld} onGedeeld={setGedeeld} anderId={ander} onAnderId={setAnder}/>
+              <div className="sticky bottom-0 space-y-2 bg-background pb-2 pt-1">
+                <Button type="submit" className="w-full" disabled={!geldig}>{t("common.opslaan")}</Button>
+                <Button type="button" variant="ghost" className="w-full text-ink-soft" onClick={() => setWeg(true)}>{t("common.verwijderen")}</Button>
+              </div>
+            </form>
+          </>) : null}
+      </SheetContent>
+      <VerwijderDialoog open={weg} onOpenChange={setWeg} titel={t("routes.documenten.beheer.verwijderTitel")} tekst={d?.gedeeld ? t("routes.documenten.beheer.verwijderTekstGedeeld") : t("routes.documenten.beheer.verwijderTekst")} onBevestig={verwijder}/>
+    </Sheet>);
 }
 const datumTekst = (iso) => new Date(iso).toLocaleDateString(taalLocale(), { day: "numeric", month: "long", year: "numeric" });
 /** Korte categorienaam voor de filterknoppen; "Alles" is de vaste waarde voor geen filter. */

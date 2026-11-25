@@ -1,4 +1,6 @@
 import i18n from "@/i18n";
+import { zetVoorkeur } from "@/lib/voorkeuren-store";
+import { vanSoort, wisPersoonlijk, zetEnkelPersoonlijk } from "@/lib/persoonlijk-store";
 export const verhaalActies = ["bericht", "vakanties", "samen_regelen", "taken", "afspraken", "agenda", "praten", "niets"];
 const actie = (id, to) => ({ get label() { return i18n.t(`lib.verhaal.actie.${id}`); }, ...(to ? { to } : {}) });
 export const actieInfo = {
@@ -43,45 +45,34 @@ export function bouwVerhaalContext(b, kies) {
         delen.push("VASTGELEGDE AFSPRAKEN:\n" + b.afspraken.map((a) => `- ${a.titel}: ${a.tekst}`).join("\n"));
     return delen.join("\n\n");
 }
-// --- Apparaatopslag: toestemming en bewaarde gesprekken ---
-const TOESTEMMING = "onzeapp-verhaal-toestemming";
-const BEWAARD = "onzeapp-verhaal-bewaard";
-export function leesToestemming() {
-    try {
-        const v = localStorage.getItem(TOESTEMMING);
-        return v === "ja" || v === "nee" ? v : null;
-    }
-    catch {
-        return null;
-    }
-}
-export function zetToestemming(v) {
-    try {
-        if (v)
-            localStorage.setItem(TOESTEMMING, v);
-        else
-            localStorage.removeItem(TOESTEMMING);
-    }
-    catch { /* geen opslag */ }
-}
-export function leesBewaard() {
-    try {
-        const r = JSON.parse(localStorage.getItem(BEWAARD) ?? "[]");
-        return Array.isArray(r) ? r : [];
-    }
-    catch {
-        return [];
-    }
-}
+// --- Toestemming (voorkeur van je account) en het bewaarde gesprek met Co (privé, manage-personal) ---
+/** Toestemming om relevante appgegevens mee te nemen: "ja" | "nee" | null (nog niet gevraagd). */
+export const toestemmingUit = (vk) => (vk?.coToestemming === "ja" || vk?.coToestemming === "nee" ? vk.coToestemming : null);
+export const zetToestemming = (v) => zetVoorkeur("coToestemming", v === "ja" || v === "nee" ? v : null);
+/** Het bewaarde gesprek (hooguit de laatste 30 beurten), alleen voor jou. */
+export const bewaardUit = (ps) => vanSoort(ps, "co_chat")[0]?.data?.berichten ?? [];
 export function bewaarGesprek(b) {
-    try {
-        localStorage.setItem(BEWAARD, JSON.stringify(b.map(({ rol, tekst }) => ({ rol, tekst }))));
-    }
-    catch { /* geen opslag */ }
+    return zetEnkelPersoonlijk("co_chat", { berichten: b.filter((x) => x.tekst?.trim()).slice(-30).map(({ rol, tekst }) => ({ rol, tekst: tekst.slice(0, 3000) })) });
 }
-export function verwijderBewaard() {
+export const verwijderBewaard = () => wisPersoonlijk("co_chat");
+/** Oude, alleen-lokale toestemming en bewaard gesprek één keer naar je account overzetten. */
+let overgezet = false;
+export async function zetOudeVerhaalOver(vk, ps) {
+    if (overgezet || typeof window === "undefined")
+        return;
+    overgezet = true;
     try {
-        localStorage.removeItem(BEWAARD);
+        const oud = localStorage.getItem("onzeapp-verhaal-toestemming");
+        if ((oud === "ja" || oud === "nee") && !toestemmingUit(vk))
+            zetToestemming(oud);
+        const b = JSON.parse(localStorage.getItem("onzeapp-verhaal-bewaard") ?? "[]");
+        const goed = Array.isArray(b) ? b.filter((x) => x && (x.rol === "ouder" || x.rol === "ai") && typeof x.tekst === "string") : [];
+        if (goed.length && !bewaardUit(ps).length && !(await bewaarGesprek(goed))) {
+            overgezet = false;
+            return;
+        }
+        localStorage.removeItem("onzeapp-verhaal-toestemming");
+        localStorage.removeItem("onzeapp-verhaal-bewaard");
     }
-    catch { /* geen opslag */ }
+    catch { /* geen (geldige) oude gegevens */ }
 }

@@ -1,5 +1,5 @@
 // Which web origin may appear in e-mailed links.
-import { err } from "./respond.ts";
+import { HttpError } from "./respond.ts";
 
 function originOf(v: string): string | null {
   try {
@@ -33,5 +33,6 @@ export function appOrigin(requested?: unknown): string {
   if (pub) return pub;
   if (allowed.length) return allowed[0];
   console.error("[origin] PUBLIC_APP_URL / APP_ORIGINS not configured");
-  throw err.server("App URL is not configured");
+  // Configuration problem (secret PUBLIC_APP_URL / APP_ORIGINS), not a user error.
+  throw new HttpError(500, "NOT_CONFIGURED", "App URL is not configured (set PUBLIC_APP_URL)");
 }

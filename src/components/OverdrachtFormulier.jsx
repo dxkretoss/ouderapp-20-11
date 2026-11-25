@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { tLijst } from "@/i18n";
 import { Link } from "@tanstack/react-router";
@@ -6,8 +6,7 @@ import { ChevronDown, Moon, NotebookPen, Plus, Star, CircleHelp, CalendarClock }
 import { startState, useStart, leeftijdTekst } from "@/lib/start-store";
 import { useAgenda } from "@/lib/agenda-store";
 import { iso, plusDagen, voorkomens, dt } from "@/lib/agenda-datum";
-import { bewaarConcept, deelOverdracht, legeInhoud, useOverdracht, wijzigOverdracht } from "@/lib/overdracht-store";
-import { markeerOverdrachtIngevuld } from "@/lib/wissel-store";
+import { bewaarConcept, conceptVoor, deelOverdracht, gedeeldVoor, legeInhoud, paarVan, useOverdracht, wijzigOverdracht } from "@/lib/overdracht-store";
 import { MetVinkje } from "@/components/Tekens";
 /** Overdracht (stijl A6): wat de andere ouder moet weten vóór de wissel. Alles optioneel, niets vooraf ingevuld. */
 const GEZONDHEID = ["Alles goed", "Medicijn", "Ziek geweest", "Arts of tandarts"];
@@ -33,22 +32,65 @@ function Blok({ titel, icoon, tegel, kleur, open, wissel, children, extra }) {
     </section>);
 }
 const veld = "w-full rounded-[14px] border border-[#E6DED2] bg-white px-3 py-2 text-[15px] outline-none";
-export function OverdrachtFormulier({ momentId, aan, wanneer, viaSchool = false }) {
-    const { t } = useTranslation();
+export function OverdrachtFormulier({ momentId, aan, wanneer, viaSchool = false, kindIds }) {
+    const { t, i18n: taal } = useTranslation();
     const st = useOverdracht();
     const start = useStart();
+    // Alleen de kinderen van dit wisselmoment. Kinderen van verschillende andere ouders: per andere ouder een eigen notitie.
+    const alle = start.kinderen.filter((k) => !kindIds?.length || kindIds.includes(k.id)).map((k) => ({ ...k, kleur: k.kleur ?? "#8A7E72", leeftijd: leeftijdTekst(k.geboortedatum) ?? "" }));
+    const groepen = [];
+    for (const k of alle) {
+        const paar = paarVan([k.id]);
+        const g = groepen.find((x) => x.paar === paar);
+        if (g)
+            g.kinderen.push(k);
+        else
+            groepen.push({ paar, kinderen: [k] });
+    }
+    const [gekozen, setGekozen] = useState(() => groepen.find((g) => gedeeldVoor(st, momentId, g.kinderen.map((k) => k.id)) || conceptVoor(st, momentId, g.kinderen.map((k) => k.id)))?.paar ?? groepen[0]?.paar ?? "");
+    const groep = groepen.find((g) => g.paar === gekozen) ?? groepen[0] ?? { paar: "", kinderen: alle };
+    let lijst = null;
+    try {
+        lijst = new Intl.ListFormat(taal.resolvedLanguage ?? "nl", { style: "long", type: "conjunction" });
+    }
+    catch { /* oude browser */ }
+    const namen = (ks) => (lijst ? lijst.format(ks.map((k) => k.naam)) : ks.map((k) => k.naam).join(", "));
+    return (<>
+      {groepen.length > 1 ? (<div className="mt-4">
+          <p className="text-xs text-ink-soft">{t("components.OverdrachtFormulier.perOuder")}</p>
+          <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label={t("components.OverdrachtFormulier.notitieVoor")}>
+            {groepen.map((g) => (<button key={g.paar || "solo"} onClick={() => setGekozen(g.paar)} aria-pressed={g.paar === groep.paar} className={`inline-flex h-10 items-center gap-2 rounded-full pl-1.5 pr-3.5 text-sm font-black ${g.paar === groep.paar ? "border-2 border-brand bg-white" : "bg-white/60"}`}>
+                <span className="flex">{g.kinderen.map((k, i) => <span key={k.id} className="size-5 rounded-full border-2 border-white" style={{ background: k.kleur, marginLeft: i ? -7 : 0 }}/>)}</span>
+                {gedeeldVoor(st, momentId, g.kinderen.map((k) => k.id)) ? <MetVinkje>{namen(g.kinderen)}</MetVinkje> : namen(g.kinderen)}
+              </button>))}
+          </div>
+        </div>) : null}
+      <Notitie key={groep.paar || "solo"} momentId={momentId} aan={aan} wanneer={wanneer} viaSchool={viaSchool} kinderen={groep.kinderen}/>
+    </>);
+}
+/** De notitie voor de kinderen van één andere ouder (één concept en één gedeelde notitie per moment en ouder). */
+function Notitie({ momentId, aan, wanneer, viaSchool, kinderen }) {
+    const { t } = useTranslation();
+    const st = useOverdracht();
     const agenda = useAgenda();
-    const kinderen = start.kinderen.map((k) => ({ ...k, kleur: k.kleur ?? "#8A7E72", leeftijd: leeftijdTekst(k.geboortedatum) ?? "" }));
-    const gedeeld = st.gedeeld.find((o) => o.momentId === momentId);
-    const [inhoud, setInhoudState] = useState(() => st.concept[momentId] ?? legeInhoud());
+    const groepIds = kinderen.map((k) => k.id);
+    /** De kinderen waarover deze notitie gaat (bepaalt ook de andere ouder op de server). */
+    const notitieKids = (i) => (i.voor !== "samen" && groepIds.includes(i.voor) ? [i.voor] : groepIds);
+    const gedeeld = gedeeldVoor(st, momentId, groepIds);
+    const [inhoud, setInhoudState] = useState(() => conceptVoor(st, momentId, groepIds) ?? legeInhoud());
     const [open, setOpen] = useState({ gezondheid: true, slaap: true, school: true, komend: true, gevoel: true });
-    const zetInhoud = (i) => { setInhoudState(i); bewaarConcept(momentId, i); };
+    // Het concept staat (privé) op de server en kan binnenkomen nadat het formulier al open is.
+    const aangeraakt = useRef(false);
+    const serverConcept = conceptVoor(st, momentId, groepIds);
+    useEffect(() => { if (serverConcept && !aangeraakt.current)
+        setInhoudState(serverConcept); }, [serverConcept]);
+    const zetInhoud = (i) => { aangeraakt.current = true; setInhoudState(i); bewaarConcept(momentId, notitieKids(i), i); };
     const wissel = (k) => setOpen((o) => ({ ...o, [k]: !o[k] }));
     const toggle = (veldnaam, w) => {
         const l = inhoud[veldnaam];
         zetInhoud({ ...inhoud, [veldnaam]: l.includes(w) ? l.filter((x) => x !== w) : [...l, w] });
     };
-    const kids = inhoud.voor === "samen" ? kinderen : kinderen.filter((k) => k.id === inhoud.voor);
+    const kids = kinderen.filter((k) => notitieKids(inhoud).includes(k.id));
     const vandaag = iso(new Date());
     // Gedeelde afspraken van de komende dagen uit de agenda (privé-afspraken nooit).
     const komend = agenda.events.filter((a) => a.gedeeld !== false).flatMap((a) => voorkomens(a, vandaag, plusDagen(vandaag, 4)).map((d) => ({ ...a, sleutel: a.id + d, op: d }))).sort((a, b) => (a.op + a.tijd).localeCompare(b.op + b.tijd)).slice(0, 4);
@@ -60,7 +102,7 @@ export function OverdrachtFormulier({ momentId, aan, wanneer, viaSchool = false 
         <div className="rounded-[22px] border-2 border-[#A9BCA8] px-4 py-3" style={{ background: "linear-gradient(135deg, rgba(220,230,210,.95), rgba(233,239,227,.9))" }}>
           <p className="text-[16px] font-black text-[#2F4A3A]"><MetVinkje>{t("components.OverdrachtFormulier.gedeeldMet", { aan })}</MetVinkje></p>
           <p className="text-sm text-[#3F5747]">{t("components.OverdrachtFormulier.zietVoor", { aan })}</p>
-          <button onClick={() => { wijzigOverdracht(momentId); setInhoudState(gedeeld.inhoud); }} className="mt-1 inline-flex min-h-10 items-center text-sm font-black text-brand">{t("components.OverdrachtFormulier.aanpassen")}</button>
+          <button onClick={() => { aangeraakt.current = true; wijzigOverdracht(gedeeld); setInhoudState(gedeeld.inhoud); }} className="mt-1 inline-flex min-h-10 items-center text-sm font-black text-brand">{t("components.OverdrachtFormulier.aanpassen")}</button>
         </div>
         <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.1em] text-ink-soft">{t("components.OverdrachtFormulier.zoZiet", { aan })}</p>
         <OverdrachtWeergave inhoud={gedeeld.inhoud} van={t("common.jij")}/>
@@ -138,7 +180,7 @@ export function OverdrachtFormulier({ momentId, aan, wanneer, viaSchool = false 
           <p className="text-[14.5px] leading-snug text-[#2F4A3A]">{SCHERP.test(vrijeTekst) ? <Trans i18nKey="components.OverdrachtFormulier.scherp" values={{ aan }} components={{ b: <b/> }}/> : <Trans i18nKey="components.OverdrachtFormulier.goedZo" components={{ b: <b/> }}/>}</p>
         </div>) : null}
 
-      <button disabled={!ietsIngevuld} onClick={() => { deelOverdracht(momentId, aan, inhoud, inhoud.voor === "samen" ? kinderen.map((k) => k.id) : [inhoud.voor]); markeerOverdrachtIngevuld(); }} className="mt-4 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground disabled:opacity-45">{t("components.OverdrachtFormulier.delen", { aan })}</button>
+      <button disabled={!ietsIngevuld} onClick={() => { deelOverdracht(momentId, aan, inhoud, notitieKids(inhoud)); }} className="mt-4 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground disabled:opacity-45">{t("components.OverdrachtFormulier.delen", { aan })}</button>
       <p className="mt-2 text-center text-xs text-ink-soft">{t("components.OverdrachtFormulier.spullenPaklijst", { aan })}</p>
     </div>);
 }

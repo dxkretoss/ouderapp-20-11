@@ -86,7 +86,9 @@
       "Dec"
     ],
     "appNaam": "Ouderschap & Co",
-    "metaTitel": "{{titel}} — Ouderschap & Co"
+    "metaTitel": "{{titel}} — Ouderschap & Co",
+    "laadFout": "Loading didn't work. Pull down to try again.",
+    "opnieuwProberen": "Try again"
   },
   "routes": {
     "root": {
@@ -161,8 +163,8 @@
       "moment": {
         "plek": "{{n}} of {{totaal}}",
         "doen": "What you can do",
-        "zeg": "You could say",
-        "liever": "Best not to say",
+        "zeg": "Say, for example",
+        "liever": "Better not to say",
         "onthoud": "Remember",
         "volgende": "Next question",
         "hulp": "Get help if",
@@ -197,7 +199,7 @@
         "nieuwAria": "New sentence",
         "toevoegen": "+ Sentence",
         "bewaard": "Saved moments",
-        "leeg": "Nothing saved yet. Tap <b>Save</b> on a moment.",
+        "leeg": "You have not saved anything yet. Tap ‘Save’ on a card to find it here quickly.",
         "bewaarIn": "Save to My anchors",
         "bewaardIn": "Saved to My anchors"
       },
@@ -241,7 +243,7 @@
         "start": "Start · 1 minute",
         "terug": "Afterwards you’ll go back to where you were"
       },
-      "hulpregel": "These are general tips and not a replacement for professional help. In immediate danger: call 112. Worried about your child’s safety or your own: Veilig Thuis (the Dutch helpline for abuse and child safety), 0800-2000, or your GP.",
+      "hulpregel": "These are general tips and not a replacement for professional help. Worried about the safety of your child or yourself? Call 112 in an emergency, Veilig Thuis on 0800-2000, or talk to your GP.",
       "komt": {
         "sub": "For a calm handover",
         "volgende": "The next handover",
@@ -303,12 +305,12 @@
         "gevaar": "Was there any danger, or are you worried about your child’s safety or your own? Call 112 in immediate danger, or Veilig Thuis: 0800-2000."
       },
       "schoolTip": {
-        "concept": "Hi Joris, I’ve noticed the handovers are stressful for the children. Shall we try doing the handover via school? I’ll drop them off in the morning and you pick them up after school. What do you think?",
+        "concept": "Hi {{naam}}, I've noticed the handovers are stressful for the children. Shall we try doing the handover via school? I'll drop them off in the morning and you pick them up after school. What do you think?",
         "titel": "The last few handovers were hard.",
         "tekst": "Would handing over via school help? Then you don’t have to see each other, and for the children it just feels like an ordinary school day.",
-        "bericht": "Message Joris",
+        "bericht": "Message {{naam}}",
         "voorstellen": "Propose a handover change",
-        "voetnoot": "On school days. During holidays, a neutral place helps. The calendar only changes once Joris agrees."
+        "voetnoot": "On school days. During holidays, a neutral place helps. The calendar only changes once {{naam}} agrees."
       },
       "pauze": {
         "titel": "A short pause",
@@ -483,7 +485,7 @@
       "titel": "Talk it through with Co",
       "subtitel": "I don't take sides and never send anything on your behalf",
       "overDitMoment": "About this moment",
-      "intro": "Co is your digital thinking partner. Here you can calmly talk about what's on your mind. Co doesn't take sides and doesn't automatically share your conversation with the other parent.",
+      "intro": "Co thinks along with you. Co does not take sides and does not send anything to the other parent.",
       "modusLabel": "What would you like?",
       "toestemming": {
         "vraag": "May I include relevant information from the app?",
@@ -491,7 +493,7 @@
         "ja": "Yes, use relevant information",
         "nee": "No, I just want to talk",
         "eigenGezin": "Permission given, but no shared data is safely available for your own family yet.",
-        "neemtMee": "Includes (example family): {{lijst}}. No messages.",
+        "neemtMee": "Includes: {{lijst}}, only what you're allowed to see in the app. No messages.",
         "geen": "No app data is included.",
         "intrekken": "Withdraw",
         "toestaan": "Allow"
@@ -517,9 +519,9 @@
         "overzicht": "What would you like an overview of?",
         "doen": "What would you like to take a next step on?"
       },
-      "bewaren": "Save for later (only on this device)",
+      "bewaren": "Save for later (only for you)",
       "nieuwGesprek": "Start a new conversation",
-      "privacyVoet": "Not saving means: nothing is kept on this device. Your text is still sent to Co's AI service for this reply. Don't use this for real sensitive family information yet; the privacy review hasn't been completed.",
+      "privacyVoet": "Not saving means: the conversation isn't kept anywhere. If you save it, only you can see it, and you can delete it at any time. Your text is still sent to Co's AI service for this reply. Don't use this for real sensitive family information yet; the privacy review hasn't been completed.",
       "concept": {
         "kop": "Suggested message to {{ander}}",
         "label": "Message to {{ander}}",
@@ -530,25 +532,25 @@
       "start": {
         "praten": {
           "titel": "Just talk",
-          "sub": "Tell me what's on your mind"
+          "sub": "Tell what is on your mind"
         },
         "bericht": {
           "titel": "Write a message",
-          "sub": "I'll help you keep it short and friendly"
+          "sub": "Brief, friendly and clear"
         }
       },
       "lastig": {
         "stoppen": {
-          "titel": "It's happening now",
-          "sub": "Calm down quickly and know what to say"
+          "titel": "Pause for a moment",
+          "sub": "For when you are angry right now"
         },
         "komt": {
           "titel": "It's coming up",
           "sub": "Prepare for a handover, conversation or holiday"
         },
         "na": {
-          "titel": "It just happened",
-          "sub": "Calm down and make things right again"
+          "titel": "After a heated moment",
+          "sub": "Calm down, make amends, intention"
         }
       },
       "costart": {
@@ -906,7 +908,10 @@
       "nieuwDossier": "Compile a new overview",
       "wisselmoment": "Handover",
       "overdrachtGedeeld": "Handover shared",
-      "heleGezin": "Whole family"
+      "heleGezin": "Whole family",
+      "maakFout": "The overview couldn't be created. Please try again.",
+      "geenKinderen": "No children added yet: the overview covers the whole family.",
+      "periodeOngeldig": "The start date is after the end date."
     },
     "professionals": {
       "meta": {
@@ -1272,9 +1277,9 @@
         "nuGedeeld": "The appointment is now shared with the other parent.",
         "aangepast": "Appointment updated.",
         "voorgesteld": "Appointment proposed. Not yet confirmed in the calendar.",
-        "toegevoegdApparaat": "Appointment added on this device.",
+        "toegevoegdApparaat": "Saved to your calendar.",
         "toegevoegdVoorbeeld": "Appointment added in the sample family.",
-        "toegevoegdPrive": "Personal appointment added. Only you can see it.",
+        "toegevoegdPrive": "Saved to your calendar.",
         "ingetrokken": "Proposal withdrawn. The current calendar still applies.",
         "annuleringVoorgesteld": "Cancellation proposed. The appointment stays until the other parent agrees.",
         "geannuleerd": "Appointment cancelled.",
@@ -1286,8 +1291,8 @@
         "meerTijdGevraagd": "You asked for more time. The proposal stays open; nothing changes.",
         "anderVoorstelMaken": "The proposal is closed. Now make your own proposal.",
         "voorgesteldEigen": "Appointment proposed. It is added to the calendar once the other parent agrees.",
-        "toegevoegd": "Appointment added.",
-        "toegevoegdGedeeld": "Appointment added. The other parent can see it too."
+        "toegevoegd": "Saved to your calendar.",
+        "toegevoegdGedeeld": "Saved and shared."
       },
       "audit": {
         "wachtOpAnder": "Waiting for the other parent",
@@ -1435,7 +1440,7 @@
         "totEnMet": "Until (optional)",
         "voorWie": "Who is the appointment for?",
         "beideKinderen": "Both children",
-        "voorMezelf": "For myself",
+        "voorMezelf": "Only for me",
         "priveUitleg": "This stays private and is only for your own overview.",
         "categorie": "Category (optional)",
         "categorieUitleg": "Choose a category to make appointments easier to find later.",
@@ -1443,23 +1448,39 @@
         "toelichtingPlaceholder": "Notes (optional)",
         "herinnering": "Reminder",
         "zichtbaar": "Who can see this appointment?",
-        "delen": "Deliberately share with the other parent",
-        "alleenMij": "Only for me",
+        "delen": "Share",
+        "alleenMij": "Just for me",
         "naOpslaan": "After saving, the other parent will see: title, date, time, location and notes for this appointment.",
         "vanuitBericht": "The original message text is under Notes. Check the date, time, child and description yourself; no missing details have been filled in.",
         "uitleg": {
           "voorstel": "The other parent receives your proposal. The current appointment stays until they agree; no reply means no agreement.",
           "eigen": "No other parent is linked yet: your changes apply straight away.",
           "voorbeeld": "This appointment will be added to the sample family.",
-          "prive": "Only you can see this appointment; your change is saved straight away.",
-          "gedeeld": "The other parent sees this appointment too. Changing or deleting it later goes through a proposal."
+          "prive": "Only you can see this event.",
+          "gedeeld": "The other parent will see this event too."
         },
         "knop": {
           "selectie": "Confirm selection",
           "voorstellen": "Propose appointment",
           "opslaan": "Save appointment",
           "wijzigingOpslaan": "Save change"
-        }
+        },
+        "startdatum": "Start date",
+        "meerdereDagen": "Multiple days",
+        "einddatum": "End date",
+        "einddatumFout": "The end date is before the start date.",
+        "starttijd": "Start time",
+        "eindtijdKort": "End time",
+        "tijdFout": "The end time is before the start time.",
+        "heleDag": "All day",
+        "locatieLabel": "Location (optional)",
+        "locatieHint": "Add a location…",
+        "toelichtingLabel": "Notes (optional)",
+        "toelichtingHint": "Extra information about the appointment…",
+        "neemMee": "Bring along (optional)",
+        "neemMeeHint": "E.g. swimming kit",
+        "neemMeeWeg": "Remove {{item}}",
+        "alleenMaker": "Only the parent who made this appointment can change who it is for and whether it is shared."
       },
       "priveOverlap": {
         "titel": "This seems to overlap",
@@ -1501,7 +1522,7 @@
       },
       "legenda": {
         "label": "Legend",
-        "bijJou": "Children with you",
+        "bijJou": "With you",
         "bijAnder": "With the other parent",
         "wisseldag": "Handover day"
       },
@@ -1529,7 +1550,8 @@
         "taken": "Tasks",
         "bijzonder": "Special",
         "niets": "Nothing planned on this day.",
-        "plusToevoegen": "+ Add"
+        "plusToevoegen": "+ Add",
+        "wijzigingVoorstellen": "Propose a change for this day"
       },
       "bijJou": "With you",
       "bijAnder": "With the other parent",
@@ -1569,7 +1591,7 @@
         "herhaling": "Repeat",
         "herinnering": "Reminder",
         "zichtbaar": "Visible to",
-        "beideOuders": "Both parents",
+        "beideOuders": "Shared",
         "alleenJij": "Only you"
       },
       "vast": {
@@ -1791,7 +1813,7 @@
       },
       "ruilTekst": "Swap {{van}} with {{naar}}",
       "nachtjeTekst": "Could {{kind}} sleep at Joris's on {{dag}}?",
-      "titel": "Prepare the handover",
+      "titel": "Take along at the handover",
       "subtitel": "Everything ready for the handover, without the hassle",
       "volgende": {
         "kop": "Next handover",
@@ -1952,7 +1974,18 @@
           "kleding": "{{kind}} wears clothing size {{maat}}"
         }
       },
-      "laden": "Loading the list…"
+      "laden": "Loading the list…",
+      "meer": "More options",
+      "bewerk": {
+        "titel": "Edit item",
+        "opgeslagen": "Saved.",
+        "verwijderd": "Deleted.",
+        "huidige": "As it is now",
+        "voorDatum": "Needed before (optional)",
+        "verwijderTitel": "Delete item?",
+        "verwijderTekst": "The item disappears from your list.",
+        "verwijderTekstGedeeld": "The item also disappears for the other parent."
+      }
     },
     "abonnement": {
       "meta": {
@@ -2050,7 +2083,9 @@
       "titel": "Tasks",
       "nieuweTaak": "New task",
       "melding": {
-        "toegevoegd": "Task added"
+        "toegevoegd": "Task added",
+        "verwijderd": "Deleted.",
+        "opgeslagen": "Saved."
       },
       "leeg": {
         "titel": "Nothing here yet",
@@ -2076,7 +2111,7 @@
         "later": "Later",
         "afgerond": "Done"
       },
-      "allesGeregeld": "Everything's sorted.",
+      "allesGeregeld": "All taken care of. Nothing is open.",
       "verbergAfgerond": "Hide completed tasks",
       "bekijkAfgerond": "See completed tasks",
       "rij": {
@@ -2093,7 +2128,8 @@
         "overdragen": "Hand over task",
         "gesprek": "View original conversation",
         "gevraagdDoor": "{{naam}} asks whether you can take care of this",
-        "lieverNiet": "Rather not"
+        "lieverNiet": "Rather not",
+        "eerstDelen": "Only you see this task. Share it first if you want to ask the other parent."
       },
       "form": {
         "wat": "What needs to happen?",
@@ -2117,7 +2153,13 @@
         "hoeVaak": "How often",
         "herhalingPlaceholder": "E.g. every six months",
         "toevoegen": "Add task",
-        "heleGezin": "Whole family"
+        "heleGezin": "Whole family",
+        "wijzigen": "Edit task"
+      },
+      "verwijderen": {
+        "titel": "Delete task?",
+        "tekst": "The task disappears from your list.",
+        "tekstGedeeld": "The task also disappears for the other parent. An open request is withdrawn."
       }
     },
     "spullen": {
@@ -2129,7 +2171,8 @@
       "titel": "Belongings",
       "nieuwSpul": "New item",
       "melding": {
-        "toegevoegd": "Item added"
+        "toegevoegd": "Item added",
+        "verwijderd": "Deleted."
       },
       "form": {
         "watIsHet": "What is it?",
@@ -2229,7 +2272,9 @@
       "paklijsten": {
         "titel": "Packing lists for outings",
         "sub": "Weekend, holiday, sports day, school trip",
-        "ingepakt": "{{aantal}} of {{totaal}} packed"
+        "ingepakt": "{{aantal}} of {{totaal}} packed",
+        "opnieuw": "Start over",
+        "alleenJij": "Your ticks are saved and are only for you."
       },
       "samen": "Together",
       "paklijstWissel": "Packing list for the next changeover",
@@ -2249,6 +2294,12 @@
       "detail": {
         "plekAanpassen": "Change place",
         "bijOverdracht": "See at the handover"
+      },
+      "verwijderen": {
+        "titel": "Delete {{naam}}?",
+        "tekst": "It disappears from your list.",
+        "tekstGedeeld": "It also disappears for the other parent.",
+        "label": "Delete {{naam}}"
       }
     },
     "kosten": {
@@ -2291,7 +2342,12 @@
         "toon": "Show amount",
         "verrekenen": "Settle up",
         "afspraak": "Your agreement: you {{jij}}% · the other parent {{joris}}%",
-        "afspraakGrens": "Your agreement: you {{jij}}% · the other parent {{joris}}% · limit {{grens}}"
+        "afspraakGrens": "Your agreement: you {{jij}}% · the other parent {{joris}}% · limit {{grens}}",
+        "totaalOpenstaand": "Total outstanding",
+        "afrekenen": "Settle up",
+        "anderBetaaltJouDeel": "the other parent's share",
+        "jijBetaaltDeel": "your share",
+        "eigenAfspraken": "You keep track of your costs for yourself only."
       },
       "wacht": {
         "titel": "Waiting for you",
@@ -2302,7 +2358,8 @@
         "toonMinder": "Show less",
         "bekijkAlle": "See all open actions",
         "bedragenPas": "You'll only see amounts when you open an item.",
-        "afspraak": "Cost agreement"
+        "afspraak": "Cost agreement",
+        "binnenBudget": "Bought within your agreed budget · {{bedrag}}"
       },
       "budgetten": {
         "titel": "Budgets",
@@ -2311,7 +2368,8 @@
         "nietInSaldo": "These don't count towards your balance.",
         "afgesprokenKop": "Agreed",
         "eerder": "Earlier proposals",
-        "eerderUitleg": "Declined or withdrawn. They're kept."
+        "eerderUitleg": "Declined or withdrawn. They're kept.",
+        "geenAfgesproken": "No agreed budgets yet."
       },
       "uitgavenMaand": "Expenses {{maand}}",
       "eerdereMaanden": "Earlier months, search and settlements",
@@ -2359,7 +2417,8 @@
         "teBetalen": "To be paid by {{van}} to {{aan}}",
         "totaalBedrag": "Total {{bedrag}}",
         "naVerrekening": "After settling",
-        "jou": "you"
+        "jou": "you",
+        "nuOpen": "What is outstanding now"
       },
       "instellingen": {
         "titel": "Split & settling up",
@@ -2386,7 +2445,8 @@
         "leeg": "No settlements yet."
       },
       "melding": {
-        "opgeslagen": "Expense saved"
+        "opgeslagen": "Expense added.",
+        "gedeeld": "Expense shared. Waiting for a response."
       },
       "nieuw": {
         "andereOuder": "Other parent",
@@ -2395,7 +2455,7 @@
         "nieuweUitgave": "New expense",
         "concept": {
           "vraag": "Would you like to save this expense as a draft?",
-          "bewaard": "Draft saved",
+          "bewaard": "Saved as draft.",
           "bewaren": "Save draft",
           "verder": "Keep filling in"
         },
@@ -2415,12 +2475,12 @@
         "eigenNietGekoppeld": "The other parent isn't linked yet. You're tracking this expense for yourself, without a balance or payment request.",
         "betaaldVan": "Paid from",
         "bron": {
-          "eigen": "Own account",
+          "eigen": "My own account",
           "eigenSub": "Settle afterwards",
-          "kind": "Children's account",
+          "kind": "Child account",
           "kindSub": "Nothing to settle"
         },
-        "bonToevoegen": "Add the receipt",
+        "bonToevoegen": "Add receipt",
         "bonUitleg": "That way {{naam}} can see what the money from the children's account was used for.",
         "voor": "For",
         "alleenBijhouden": "You're only tracking this expense, without a split. You can change this under Cost agreements.",
@@ -2444,7 +2504,10 @@
         "opslaan": "Save expense",
         "eerstBudget": "This is more than your approval limit of {{grens}}. A budget proposal comes first.",
         "budgetDoen": "Make a budget proposal",
-        "bonVerplicht": "Above the approval limit a receipt is needed."
+        "bonVerplicht": "Above the approval limit a receipt is needed.",
+        "extraMislukt": "The expense was saved, but the extra part of {{bedrag}} wasn't. Please add that part again.",
+        "alleenJijUitleg": "Only you can see this expense. Choose Shared to settle it with the other parent.",
+        "meerOptiesSubGeen": "Category (optional), receipt or attachment"
       },
       "bon": {
         "bonnetje": "Receipt",
@@ -2485,11 +2548,27 @@
         "voorgesteld": "Other proposal:",
         "meerTijdVastgelegd": "Noted: you'll look at it later. Nothing changes.",
         "anderMeerTijd": "The other parent asked for more time. Nothing changes.",
-        "bijlageOpgeslagen": "Attachment saved"
+        "bijlageOpgeslagen": "Attachment saved",
+        "gewijzigd": "Saved.",
+        "wijzigenGedeeld": "The other parent hasn't responded yet. After saving, they get the new version.",
+        "geenCategorie": "No category",
+        "datum": "Date",
+        "deelAnder": "Other parent's share",
+        "herinnering": "Send a reminder",
+        "herinneringVerstuurd": "Reminder sent.",
+        "wijzigen": "Change expense",
+        "delen": "Share with the other parent",
+        "delenVraag": "The other parent will then also see this expense and can respond to it.",
+        "gedeeldMelding": "Shared.",
+        "intrekken": "Withdraw expense",
+        "intrekkenVraag": "The expense will no longer count in your settlement. The other parent gets a notification.",
+        "ingetrokken": "Withdrawn.",
+        "verwijderenVraag": "Are you sure you want to delete this expense? This can't be undone.",
+        "verwijderd": "Deleted."
       },
       "eigen": {
         "afrekenen": "settle {{moment}}",
-        "leegTekst": "Keep track of the costs for the children. You can set up a split later; it doesn't have to come first.",
+        "leegTekst": "No expenses yet. Add the first one whenever you're ready. You can also scan a receipt.",
         "eersteUitgave": "Add the first expense",
         "afsprakenInstellen": "Set up cost agreements",
         "uitgavenVoor": "Expenses for {{namen}}",
@@ -2525,9 +2604,45 @@
       },
       "laden": "Loading costs…",
       "solo": {
-        "saldo": "You're tracking the costs for yourself for now. Settling up becomes possible once the other parent is linked.",
+        "saldo": "If the other parent joins later, you can share expenses and settle up together.",
         "uitnodigen": "Invite the other parent",
         "eerstUitnodigen": "Budgets are agreed together. Invite the other parent first."
+      },
+      "snel": {
+        "scannen": "Scan receipt",
+        "uitgave": "Add expense",
+        "budget": "Propose budget",
+        "betaalverzoek": "Payment request"
+      },
+      "alle": {
+        "titel": "All expenses",
+        "intro": "Open an expense to see the receipt, amount, date, status and split.",
+        "leeg": "No expenses yet. Add the first one whenever you're ready. The other parent will see it and can respond with Agree.",
+        "bekijk": "View all expenses",
+        "uitleg": "All expenses, with receipts and status"
+      },
+      "partner": {
+        "label": "Costs with",
+        "met": "With {{naam}}",
+        "wacht": "{{aantal}} waiting for you"
+      },
+      "geenDezeMaand": "No expenses this month yet.",
+      "periode": {
+        "titel": "Split per period",
+        "maand": "This month",
+        "vorigeMaand": "Last month",
+        "jaar": "This year",
+        "alles": "All",
+        "leeg": "No shared expenses in this period.",
+        "totaal": "Total shared expenses ({{aantal}})",
+        "betaaldJij": "Paid by you",
+        "betaaldNaam": "Paid by {{naam}}",
+        "deelJij": "Your agreed share",
+        "deelNaam": "Agreed share {{naam}}",
+        "openstaand": "Still outstanding",
+        "afgerekend": "Settled ({{aantal}})",
+        "afTeStemmen": "Still waiting for agreement ({{aantal}})",
+        "uitleg": "Only shared expenses that were agreed count. Private expenses, the child account and fixed costs don't count."
       }
     },
     "activiteiten": {
@@ -2642,7 +2757,7 @@
         "vrijdag": "Friday · 14:30"
       },
       "terugEigen": "Back to my own family",
-      "praatMetCo": "Talk to Co",
+      "praatMetCo": "Talk it through with Co",
       "instellingen": "Settings",
       "fijneDag": "Happy {{dag}}, {{naam}}",
       "kindPagina": "Open a child's page",
@@ -2661,9 +2776,9 @@
         "allesAf": "All ticked off",
         "nietAf_one": "1 thing not ticked off yet",
         "nietAf_other": "{{count}} things not ticked off yet",
-        "linkPijl": "Handover packing list",
+        "linkPijl": "Take along at the handover",
         "allesKlaar": "All set for the handover",
-        "titel": "Handover packing list",
+        "titel": "Take along at the handover",
         "nogMee_one": "1 thing still to pack",
         "nogMee_other": "{{count}} things still to pack"
       },
@@ -2678,8 +2793,8 @@
         "invullen": "Fill in what the other parent needs to know."
       },
       "binnenkort": "Coming up",
-      "alleAfspraken": "All appointments",
-      "nogTeRegelen": "Still to sort out",
+      "alleAfspraken": "Calendar",
+      "nogTeRegelen": "Still to arrange",
       "enAndere_one": "{{titel}} and {{count}} other",
       "enAndere_other": "{{titel}} and {{count}} others",
       "actiesVoorJou_one": "1 action for you",
@@ -2722,7 +2837,7 @@
         "ogTitel": "Welcome to Ouderschap & Co",
         "ogBeschrijving": "Start light and fill in the rest at your own pace from within the app."
       },
-      "fijn": "Glad you're here.",
+      "fijn": "Welcome, we're glad you're here.",
       "naamVraag": "What should we call you?",
       "voornaam": "First name",
       "verder": "Continue",
@@ -2739,9 +2854,9 @@
         "zelfUitleg": "You organise everything for yourself first. You can still invite someone later.",
         "later": "You can change this later."
       },
-      "naarHome": "Go to my Home",
+      "naarHome": "Take me to my overview",
       "voorbeeld": "Look at the example family first",
-      "aanDeSlag": "Get started",
+      "aanDeSlag": "Let's get started",
       "doorgaanAls": "Continue as {{naam}}",
       "nieuwBeginnen": "Start a new family",
       "welkomTerug": "Welcome back",
@@ -2752,7 +2867,8 @@
         "ja": "Start again"
       },
       "alAccount": "I already have an account",
-      "anderAccount": "Sign in with a different account"
+      "anderAccount": "Sign in with a different account",
+      "naarHomeSolo": "Show me around"
     },
     "rondleiding": {
       "meta": {
@@ -2819,8 +2935,8 @@
         "ogBeschrijving": "Log in and confirm your invitation."
       },
       "klaar": {
-        "titel": "Welcome to the circle",
-        "tekst": "Your invitation is confirmed. You only see what the parents share with you.",
+        "titel": "Welcome",
+        "tekst": "{{naam}} would love your help. You only see what {{naam}} shares with you, and nothing is required.",
         "naarApp": "Go to the app"
       },
       "ongeldig": {
@@ -2829,7 +2945,7 @@
       },
       "kop": "Invitation",
       "hoi": "Hi {{naam}}",
-      "uitgenodigd": "You've been invited as {{rol}} for {{kinderen}}.",
+      "uitgenodigd": "{{naam}} would love your help with {{kinderen}}. So nice to have you on board! You only see what {{naam}} shares with you.",
       "en": " and ",
       "privacy": "To protect your privacy and the children's, you first log in or create an account.",
       "inloggen": "Sign in",
@@ -2840,7 +2956,8 @@
       "door": "Invitation from {{naam}}",
       "registreren": "Create an account",
       "ingelogdAls": "You are signed in as {{email}}.",
-      "eigenKind": "You are a parent of this child yourself; a circle invitation is not needed."
+      "eigenKind": "You are a parent of this child yourself; a circle invitation is not needed.",
+      "eenOuder": "A parent"
     },
     "solo": {
       "meta": {
@@ -2909,7 +3026,9 @@
         "klaarzetten": "Prepare invitation",
         "klaargezet": "Invitation prepared. What you chose is only shared once the other parent accepts."
       },
-      "mediator": "Or ask a mediator for help"
+      "mediator": "Or ask a mediator for help",
+      "notitieVerwijderen": "Delete note",
+      "logboekLeeg": "No notes yet. Only you can see your log."
     },
     "veranderd": {
       "meta": {
@@ -3017,9 +3136,10 @@
       "eigen": {
         "titel": "Messages with the other parent",
         "uitgenodigd": "The invitation is ready. As soon as the other parent accepts it and is linked, you can exchange messages here.",
-        "nietUitgenodigd": "You can exchange messages once the other parent has been invited and linked.",
+        "nietUitgenodigd": "Quiet in here. You can talk to the other parent once they join. Until then, Co is happy to think along.",
         "alvast": "You can already prepare a topic and a draft; nothing is sent yet.",
-        "conceptApparaat": "Your draft is saved on this device. You can send it once the other parent has been invited and linked."
+        "conceptApparaat": "Your draft is saved for you only. You can send it once the other parent has been invited and linked.",
+        "conceptKlaar": "Your message is ready. Choose or create a topic; it is saved as a draft that only you can see."
       },
       "uitnodigen": "Invite the other parent",
       "uitnodigenPijl": "Invite the other parent",
@@ -3035,7 +3155,7 @@
         "aanpassen": "Change",
         "instellen": "Set up",
         "titel": "Quiet mode",
-        "beschrijving": "During these times you won't get notifications about messages. Urgent same-day matters and handovers still come through.",
+        "beschrijving": "Choose quiet hours without message notifications. Quick check-ins and handovers still come through.",
         "aanLabel": "Quiet mode on",
         "vanaf": "From",
         "tot": "Until"
@@ -3084,7 +3204,10 @@
         "berichtErbijPlaceholder": "Add a message (can be left empty)",
         "gevenEnAgenda": "Agree and add to calendar",
         "eerstBespreken": "Discuss first",
-        "zietInGesprek": "{{naam}} will see in this conversation that you've agreed. It then goes straight into your shared calendar."
+        "zietInGesprek": "{{naam}} will see in this conversation that you've agreed. It then goes straight into your shared calendar.",
+        "anderGaf": "{{naam}} agreed",
+        "anderGafAgenda": "{{naam}} agreed · in the calendar",
+        "bezig": "One moment…"
       },
       "demoReactie": "I see it differently.",
       "foutAlgemeen": "Something went wrong.",
@@ -3163,7 +3286,7 @@
         "gebruikAntwoord": "Use this reply",
         "gebruikVoorstel": "Use this suggestion",
         "terugMijnTekst": "Back to my text",
-        "nietsVanzelf": "Nothing is sent automatically: the suggestion goes into your message box and you decide. {{wie}} won't see that you used help, and Co doesn't record any agreements. Your draft stays saved on this device.",
+        "nietsVanzelf": "Nothing is sent automatically: the suggestion goes into your message box and you decide. {{wie}} won't see that you used help, and Co doesn't record any agreements. Your draft is saved for you only.",
         "deAndereOuder": "The other parent"
       },
       "ruimte": {
@@ -3191,8 +3314,8 @@
       "conceptBewaard": "Your draft has been saved.",
       "opnieuwBeginnen": "Start again",
       "helpFormuleren": "Help with wording",
-      "conceptBewaardToast": "Draft saved",
-      "bewaardApparaat": "Saved on this device.",
+      "conceptBewaardToast": "Saved as draft.",
+      "bewaardApparaat": "Only you can see this draft.",
       "conceptBewaren": "Save draft",
       "demoKnop": "Demo: quick reply from the other parent",
       "opties": {
@@ -3216,8 +3339,12 @@
         "knop": "Turn it into a proposal"
       },
       "leeg": {
-        "titel": "No conversations yet",
-        "tekst": "Start a topic with the plus button. You read your message first before anything is sent."
+        "titel": "Quiet in here.",
+        "tekst": "Start a conversation, about school or holidays, for example."
+      },
+      "pauzeBanner": {
+        "tekst": "Taking a break until {{tijd}}. Messages still arrive, without notifications.",
+        "stoppen": "Stop"
       }
     },
     "halenBrengen": {
@@ -3252,7 +3379,8 @@
         "vlakVoor": "Just before the handover",
         "na": "After the handover"
       },
-      "geenGepland": "No handover is planned right now."
+      "geenGepland": "No handover is planned right now.",
+      "meldingVerstuurd": "The other parent received one calm notification. No location, route or arrival time."
     },
     "instellingen": {
       "w": {
@@ -3412,7 +3540,7 @@
         "alleenPlaats": "Only this place is used. No GPS, no location history."
       },
       "co": {
-        "titel": "Help from Co",
+        "titel": "Co, the AI companion",
         "verborgen": "Show hidden suggestions again",
         "uitleg": "When a feature is on, AI only reads your message at that moment, via our own server. Nothing is stored and the other parent doesn't see it. Sending always works, even without AI."
       },
@@ -3593,8 +3721,9 @@
         "wijzigingVerstuurd": "Your proposed change has been sent. The current agreement still applies until you've both agreed.",
         "ingetrokken": "Proposal withdrawn. The current agreements still apply.",
         "proNieuw": "Your proposal is ready for both parents. It only applies once they both agree.",
-        "nieuw": "Your proposal has been sent to Joris. It only applies once he agrees.",
-        "vastgelegd": "Saved. Once the other parent joins, they will see it too."
+        "nieuw": "Your proposal has been sent to {{naam}}. It only applies once they agree.",
+        "vastgelegd": "Saved. Once the other parent joins, they will see it too.",
+        "nieuwAnder": "Proposal sent."
       },
       "terugNaarAfspraken": "Agreements",
       "houvastTip": "Rather put something on record? Have a look at Extra support.",
@@ -3667,7 +3796,9 @@
         "tekstPlaceholder": "Write in plain words what you'd like to agree.",
         "geldtPas": "This is a proposal. The agreement only applies once the required consent has been given.",
         "geldtPasPro": "This is a proposal. The agreement only applies once both parents have given the required consent.",
-        "versturen": "Send proposal"
+        "versturen": "Send proposal",
+        "voorWie": "For whom?",
+        "metWie": "With which other parent?"
       },
       "toegang": {
         "titel": "Lotte's access",
@@ -3749,7 +3880,17 @@
       "nogNietGekoppeld": "Nobody linked yet: you are recording this for yourself. After you invite the other parent, they will see it too.",
       "voorstellenAan": "Propose to {{naam}}",
       "delenMet": "Share with {{naam}}",
-      "leeg": "No decisions recorded yet."
+      "leeg": "No decisions recorded yet.",
+      "ingetrokken": "Withdrawn",
+      "vastleggen": "Record",
+      "alleenVoorJezelf": "You don't share this child with anyone: you are recording it for yourself.",
+      "melding": {
+        "vastgelegd": "Saved.",
+        "voorgesteld": "Proposal sent.",
+        "gedeeld": "Shared.",
+        "ingetrokken": "Proposal withdrawn.",
+        "beantwoord": "Answer sent."
+      }
     },
     "gezag": {
       "meta": {
@@ -3822,7 +3963,17 @@
       "goedOmTeWeten": "Good to know",
       "algemeneInfo": "General information about the Dutch system — not personal legal advice.",
       "geenKind": "Add a child first; then you can record parental authority per child here.",
-      "wachtOpAndere": "Filled in by you · waiting for the other parent to confirm"
+      "wachtOpAndere": "Filled in by you · waiting for the other parent to confirm",
+      "kloptNiet": "Not right",
+      "wieMagWatEcht": "This is the access in the app as it applies now, per child. Parental authority does not change it.",
+      "toegangAanpassen": "Edit access",
+      "herkomst": {
+        "verified": "Independently verified",
+        "betwistDoorAnder": "The other parent said this is not right. Change it or talk it through together.",
+        "betwistDoorJou": "You said this is not right. The other parent can change it.",
+        "soloIngevuld": "Filled in by you. No other parent is linked yet who can confirm.",
+        "uitleg": "Filled in by a parent; confirmed by both parents is not a legal verification."
+      }
     },
     "juridisch": {
       "meta": {
@@ -3961,7 +4112,8 @@
         "zelf": "What you're going to do differently yourself",
         "co": "Would you like to talk to Co about it?",
         "home": "Back to Home"
-      }
+      },
+      "opgeslagen": "Saved."
     },
     "ondersteuning": {
       "meta": {
@@ -3983,7 +4135,7 @@
       "subtitel": "Who is helping you, and what can they see?",
       "eigenLeeg": "There are no securely linked and confirmed professionals available yet. Professionals involved only appear here once their access for your family has been checked.",
       "eigenCo": "Conversations with Co are not shared automatically.",
-      "toegangAanpassen": "Change access",
+      "toegangAanpassen": "Edit access",
       "intro": "Who is helping you, and what can {{naam}} see?",
       "betrokkenSinds": "Involved since {{datum}}",
       "gezamenlijkBericht": "Joint message",
@@ -4002,7 +4154,7 @@
       "meta": {
         "titel": "Extra support",
         "beschrijving": "Calmly sort your thoughts with Co, record agreements together and look back.",
-        "ogBeschrijving": "Discover optional support for communication, agreements and professional guidance."
+        "ogBeschrijving": "Discover optional support for communication, agreements and help from a professional."
       },
       "mogelijkheid": {
         "berichten": {
@@ -4130,8 +4282,8 @@
       "geldtPas": "A joint agreement only applies once you both agree.",
       "gezamenlijkLabel": "Joint agreement · shared with both parents",
       "actiefSinds": "Active since {{datum}}",
-      "wachtJoris": "Waiting for Joris to respond",
-      "voorstellenJoris": "Propose to Joris",
+      "wachtJoris": "Waiting for the other parent to respond",
+      "voorstellenJoris": "Propose to the other parent",
       "alleenJou": "Just for you",
       "nachtDempen": "Mute notifications at night",
       "nachtrustAanpassen": "Change quiet hours",
@@ -4140,7 +4292,10 @@
       "vanaf": "From",
       "tot": "Until",
       "nietsVoorJoris": "This changes nothing for the other parent.",
-      "voetnoot": "A professional involved doesn't automatically see conversations or recordings. That's only possible if you've shared them separately."
+      "voetnoot": "A professional involved doesn't automatically see conversations or recordings. That's only possible if you've shared them separately.",
+      "actief": "Active",
+      "metWie": "With whom?",
+      "met": "With {{naam}}"
     },
     "samenRegelen": {
       "meta": {
@@ -4176,7 +4331,8 @@
       "melding": {
         "haal": "{{dag}} you're picking up {{namen}} at {{tijd}}",
         "breng": "{{dag}} you're dropping off {{namen}} at {{tijd}}",
-        "nieuwMoment": "New moment shared"
+        "nieuwMoment": "New moment shared",
+        "hulp": "Help requested: {{wat}}"
       },
       "hoi": "Hi {{naam}}",
       "voorbeeldSluiten": "Close example",
@@ -4189,7 +4345,8 @@
       "hulp": {
         "jij": "You're taking care of this. The parents can see you're on it.",
         "iemandAnders": "Someone else is already taking care of this. Thank you!",
-        "nietNodig": "This request is no longer needed."
+        "nietNodig": "This request is no longer needed.",
+        "kanNiet": "You let them know you can't."
       },
       "nieuwMoment": "New moment",
       "bekijkMoment": "View moment",
@@ -4203,7 +4360,7 @@
       "mee": "To bring",
       "nogTeDoen": "· {{n}} still to do",
       "daarna": "Afterwards",
-      "ikRegel": "I'll sort this",
+      "ikRegel": "I'll take care of it!",
       "ikBenEr": "I'll be there",
       "nood": {
         "titel": "Emergency card {{naam}}",
@@ -4215,7 +4372,22 @@
         "medicatie": "Medication",
         "goedOmTeWeten": "Good to know",
         "ouder": "parent"
-      }
+      },
+      "nietBeschikbaar": "This page isn't available to you.",
+      "geenToegang": {
+        "titel": "Nothing is shared with you right now"
+      },
+      "uitloggen": "Log out",
+      "kanNiet": "Sorry, I can't make it",
+      "redenOptioneel": "Reason (optional, only for the parents)",
+      "kanNietVersturen": "Send",
+      "komendeMomenten": "Upcoming moments",
+      "ouderOnderweg": "{{naam}} is on the way",
+      "jijKanNiet": "You let them know you can't. The parents know.",
+      "tochRegelen": "I can after all",
+      "jijBentEr": "You're there. The parents can see it.",
+      "bevestigdDoorJou": "You confirmed. The parents can see it.",
+      "ikBenOnderweg": "I'm on the way"
     },
     "kringKindId": {
       "meta": {
@@ -4241,7 +4413,7 @@
         "beperkteToegang": "Limited professional access",
         "professionalsUitleg": "Professionals have their own, separate access. You manage it via Involve a professional.",
         "noodcontact": "Emergency contact: {{namen}}",
-        "toevoegen": "Add someone",
+        "toevoegen": "Add a person",
         "wieHaalt": "Who picks up or drops off?",
         "wieHaaltUitleg": "Whoever you choose only sees what's needed for that moment.",
         "isEr": "Is there",
@@ -4259,7 +4431,8 @@
         "onderdelenGedeeld_other": "{{count}} items shared",
         "bekijkKring": "See how the circle sees it (example)",
         "uitgenodigdNogNiet": "Invited · sees nothing until the invitation is confirmed",
-        "geenMomenten": "There are no pick-up or drop-off moments yet."
+        "geenMomenten": "There are no pick-up or drop-off moments yet.",
+        "intrekken": "Withdraw"
       },
       "toevoegen": {
         "professionalTitel": "Involve a professional",
@@ -4287,9 +4460,9 @@
         "hoeLang": "How long may {{wie}} have access?",
         "tijdelijk": "Give temporary access",
         "tijdelijkUitleg": "Handy when someone babysits or helps out for a while. What information does {{wie}} need?",
-        "volgendeStap": "In the next step you confirm what will be shared.",
+        "volgendeStap": "In the next step, you decide what this person can see.",
         "uitnodigingVersturen": "Send invitation",
-        "watMag": "What may {{wie}} see and do?",
+        "watMag": "What can {{wie}} see?",
         "standaardGeen": "Everything is set to no access by default. Private messages between parents, costs, decisions, file exports, full documents and the full change history can never be shared.",
         "bonusouder": "A bonus parent doesn't automatically get the same rights as a parent and has no parental authority in the app. Below, you choose what {{wie}} may see."
       },
@@ -4319,12 +4492,12 @@
         "toegang": "Access",
         "nooitZichtbaar": "Never visible: messages between parents, costs, the full weekly schedule, change requests, agreements between parents, parental authority, reports, professional notes and legal documents.",
         "rechtenAanpassen": "Change permissions",
-        "intrekken": "Revoke access",
+        "intrekken": "Stop access",
         "bekijkWat": "See what {{naam}} sees",
-        "intrekkenUitleg": "{{naam}} will then no longer be able to see the shared information about {{kinderen}}.",
+        "intrekkenUitleg": "{{naam}} will no longer see anything.",
         "doorJouToegevoegd": "Added by you",
         "toegevoegdDoorAndere": "Added by the other parent",
-        "ingetrokken": "Access was withdrawn. This person no longer sees anything."
+        "ingetrokken": "Access stopped."
       },
       "nood": {
         "titel": "Emergency card {{naam}}",
@@ -4501,6 +4674,25 @@
         "school": "School or childcare",
         "zorg": "Healthcare",
         "anders": "Other"
+      },
+      "toegang": {
+        "titel": "Authority & access · {{naam}}",
+        "geenToegangKort": "No access",
+        "geenToegang": "This page isn't available to you.",
+        "samenvattingSamen": "What you and the other parent may do",
+        "samenvattingSolo": "Only you"
+      },
+      "verwijderen": {
+        "knop": "Delete {{naam}}",
+        "knopGedeeld": "Remove link with {{naam}}",
+        "titel": "Delete {{naam}}?",
+        "titelGedeeld": "Remove link with {{naam}}?",
+        "uitleg": "{{naam}} and everything that belongs to {{naam}} will be deleted. This cannot be undone.",
+        "uitlegGedeeld": "{{naam}} is linked to the other parent. Only your link and your private note are removed; the other parent keeps {{naam}} and what you shared.",
+        "ja": "Delete",
+        "jaGedeeld": "Remove link",
+        "verwijderd": "Deleted.",
+        "ontkoppeld": "Link removed."
       }
     },
     "kinderenIndex": {
@@ -4513,7 +4705,7 @@
       "subtitel": "The same information, in both homes",
       "leeg": "You haven't added a child yet.",
       "beheren": "Manage",
-      "kindToevoegen": "Add child",
+      "kindToevoegen": "Add a child",
       "familieToevoegen": "Add a family member or someone involved",
       "leeftijdSchool": "{{leeftijd}} years old · {{school}}",
       "kinderenKop": "Children",
@@ -4522,7 +4714,9 @@
       "leegTekst": "Add your child. Planning, agreements and practical information will then fall into place automatically.",
       "betrokkenenKop": "Family and people involved",
       "betrokkenenLeeg": "Grandparents, a babysitter or another regular carer? Add them and choose per child what they can see.",
-      "alleVerbonden": "All connected people"
+      "alleVerbonden": "All connected people",
+      "samen": "Together",
+      "solo": "Only you"
     },
     "momentjes": {
       "meta": {
@@ -4542,7 +4736,7 @@
         "welkKind": "Which child?",
         "bewaren": "Save",
         "rustig": "Nothing here yet",
-        "leegUitleg": "This is where you keep the children's special and important moments.",
+        "leegUitleg": "Want to keep a lovely moment? Keep it for yourself or share it with family, whichever feels right.",
         "eerste": "Save the first moment",
         "terugMenu": "Back to Menu"
       },
@@ -4550,7 +4744,7 @@
         "samen": "Together",
         "mijlpalen": "Milestones"
       },
-      "leeg": "No moments here yet.",
+      "leeg": "Share a lovely moment with the other parent or family, whenever you like.",
       "privacyKop": "Privacy and reminders",
       "herinnering": {
         "label": "A gentle reminder now and then",
@@ -4609,7 +4803,8 @@
         "toevoegen": "Add to overview",
         "categorie": "Type of document",
         "veilig": "The file is stored securely and only visible to the parents of this child.",
-        "teGroot": "This file is larger than 10 MB. Please choose a smaller file."
+        "teGroot": "This file is larger than 10 MB. Please choose a smaller file.",
+        "veiligKeuze": "The file is stored securely."
       },
       "export": {
         "titel": "Save or share an overview",
@@ -4630,7 +4825,17 @@
       "veiligGedeeldMet": "Safely shared between you and {{naam}}",
       "veiligSolo": "Stored securely. Only you can see them until you invite the other parent.",
       "openen": "Open {{naam}}",
-      "vanNaam": " · from {{naam}}"
+      "vanNaam": " · from {{naam}}",
+      "veiligKeuze": "Stored securely. You choose per document whether the other parent sees it.",
+      "beheer": {
+        "label": "Edit {{naam}}",
+        "titel": "Edit document",
+        "opgeslagen": "Saved.",
+        "verwijderd": "Deleted.",
+        "verwijderTitel": "Delete document?",
+        "verwijderTekst": "The document disappears from your overview.",
+        "verwijderTekstGedeeld": "The document also disappears for the other parent."
+      }
     },
     "meer": {
       "meta": {
@@ -4683,7 +4888,7 @@
           "tekst": "Every six months: what's going well, what could be different"
         },
         "begeleiding": {
-          "titel": "Guidance",
+          "titel": "Professionals",
           "tekst": "Who's helping you, and what they can see"
         },
         "instellingen": {
@@ -4723,7 +4928,7 @@
       },
       "titel": "Menu",
       "profielVan": "{{naam}}'s profile and settings",
-      "zoek": "Search the menu",
+      "zoek": "Search, for example ‘swimming lesson’ or ‘passport’",
       "snelNaar": "Quick links",
       "wachtOpJou": "{{n}} waiting for you",
       "nogWachten_one": "{{count}} more item is waiting for you: ",
@@ -4771,24 +4976,25 @@
         "titel": "Create account",
         "beschrijving": "Create your Ouderschap & Co account."
       },
-      "titel": "Create account",
-      "uitleg": "With an account your details are safe, on another device too.",
+      "titel": "Create your account",
+      "uitleg": "It only takes a moment.",
       "uitnodiging": "Once your account is created, we'll link your invitation to it.",
       "naam": "What should we call you?",
       "naamPlaceholder": "First name",
       "email": "Email address",
       "emailPlaceholder": "name@example.com",
       "wachtwoord": "Password",
-      "knop": "Create account",
+      "knop": "Create my account",
       "bezig": "Creating account…",
       "alAccount": "I already have an account",
       "naarInloggen": "Go to sign in",
       "fout": {
         "naam": "Please enter your name.",
         "emailLeeg": "Please enter your email address.",
-        "emailOngeldig": "This doesn't look like a valid email address.",
+        "emailOngeldig": "This email address doesn't look right.",
         "wachtwoord": "Your password doesn't meet the requirements below yet."
-      }
+      },
+      "emailVast": "This is the address your invitation was sent to. Your account will be linked to it."
     },
     "verifieren": {
       "meta": {
@@ -4809,6 +5015,15 @@
       "naarRegistreren": "Create account",
       "fout": {
         "lengte": "Enter all 6 digits."
+      },
+      "wachtwoord": {
+        "titel": "Choose your password",
+        "uitleg": "Your email address {{email}} is confirmed. Choose a password to continue.",
+        "label": "New password",
+        "knop": "Save password",
+        "bezig": "Saving…",
+        "fout": "Your password doesn't meet the requirements below yet.",
+        "uitloggen": "Log out"
       }
     },
     "inloggen": {
@@ -4821,13 +5036,13 @@
       "uitnodiging": "Once you're signed in, we'll link your invitation.",
       "email": "Email address",
       "wachtwoord": "Password",
-      "vergeten": "Forgot your password?",
+      "vergeten": "Forgot your password? No worries.",
       "knop": "Sign in",
       "bezig": "Signing in…",
       "geenAccount": "No account yet? Create one",
       "fout": {
         "emailLeeg": "Please enter your email address.",
-        "emailOngeldig": "This doesn't look like a valid email address.",
+        "emailOngeldig": "This email address doesn't look right.",
         "wachtwoordLeeg": "Please enter your password."
       }
     },
@@ -4881,12 +5096,12 @@
         "geenKinderen": "No children shared yet",
         "sinds": "since {{datum}}",
         "ontkoppelen": "Disconnect",
-        "leeg": "No other parent is connected yet. You can also use the app on your own."
+        "leeg": "The other parent hasn't joined (yet). No problem, you can simply carry on on your own."
       },
       "status": {
         "contact": "Contact · no app",
-        "uitgenodigd": "Invited · waiting for confirmation",
-        "actief": "Has access",
+        "uitgenodigd": "Invited",
+        "actief": "Active",
         "verlopen": "Access expired"
       },
       "kring": {
@@ -5184,7 +5399,7 @@
       "reactieDatum": "Requested reply date: {{datum}}. This is a request, not an obligation.",
       "herinneringVastgelegd": "Reminder recorded in the example. No real notification has been sent.",
       "herinneringSturen": "Send reminder",
-      "leeg": "There are no proposals here."
+      "leeg": "No open proposals. Swap a day or ask for something else? Make a proposal."
     },
     "ZorgAfstemmen": {
       "prefill": "Proposal for a different regular care split: ",
@@ -5285,6 +5500,11 @@
         "watVerandert": "What changes as a result?",
         "raaktOok": "This also affects",
         "spullen": "· Belongings: "
+      },
+      "knop": {
+        "ja": "Yes, that works",
+        "anderVoorstel": "Make another proposal",
+        "afwijzen": "Decline"
       }
     },
     "KostenTabs": {
@@ -5388,7 +5608,8 @@
         "toelichting": "Any explanation",
         "reactieDatum": "Please respond before (optional)",
         "verzoek": "This is a request, not a hard limit. Nothing ever changes automatically without a response.",
-        "versturen": "Send proposal"
+        "versturen": "Send proposal",
+        "geenAndereOuder": "You propose a budget to the other parent of this child. They are not connected in the app yet."
       },
       "andereOuder": "The other parent"
     },
@@ -5401,7 +5622,8 @@
         "fout": "This action couldn't be saved. Please check the current status.",
         "verzoekOpgeslagen": "Payment request shared with the other parent.",
         "linkFout": "The link couldn't be saved.",
-        "bankGedeeld": "Your bank details are now with this payment request."
+        "bankGedeeld": "Your bank details are now with this payment request.",
+        "verzoekGevraagd": "Sent."
       },
       "betaalverzoek": "Payment request",
       "bedragVerzoek": "Payment request amount",
@@ -5435,7 +5657,8 @@
         "ibanOngeldig": "This IBAN isn't right. Please check the number.",
         "delen": "Share bank details",
         "gedeeldDoorAnder": "The other parent shared this account. Pay in your own banking app.",
-        "nogNiet": "The other parent hasn't shared bank details yet."
+        "nogNiet": "The other parent hasn't shared bank details yet.",
+        "opslag": "Your IBAN and name are kept only with this settlement and are visible only to the two of you. They are deleted once the settlement is finished."
       },
       "geenBewijs": "A message from the payer isn't proof of receipt. Only the receiving parent confirms that the money has arrived.",
       "ikHebBetaald": "I've paid {{bedrag}}",
@@ -5460,7 +5683,10 @@
       },
       "andereOuder": "the other parent",
       "anderBetaaltJou": "The other parent pays you",
-      "jijBetaaltAnder": "You pay the other parent"
+      "jijBetaaltAnder": "You pay the other parent",
+      "vraagVerzoek": "Ask the other parent for a payment request",
+      "verzoekGevraagd": "The other parent got a notification and can share a payment request or account number.",
+      "nietsOpen": "There is nothing to settle right now."
     },
     "BonScanner": {
       "docCategorie": {
@@ -5504,7 +5730,8 @@
       "jaKoppelen": "Yes, link it",
       "andereKostenpost": "Different cost item",
       "opnieuw": "Start again",
-      "controleren": "Check & save"
+      "controleren": "Check & save",
+      "kind": "For which child"
     },
     "VasteLasten": {
       "titel": "Regular costs",
@@ -5515,7 +5742,33 @@
       "opslaan": "Save regular cost",
       "mnd": "/month",
       "samen": "{{totaal}} a month in total · your share {{deel}}",
-      "voor": "For whom"
+      "voor": "For whom",
+      "zekerVerwijderen": "Are you sure?",
+      "opgeslagen": "Saved.",
+      "verwijderd": "Deleted.",
+      "jouwDeel": "Your share",
+      "jouwPct": "Your percentage",
+      "andereOuderPct": "% · the other parent {{pct}}%",
+      "leeg": "No fixed costs yet.",
+      "nietInSaldo": "Fixed costs are an overview and don't count in the settlement.",
+      "potje": {
+        "titel": "Savings pots",
+        "sub": "{{aantal}} savings pots · {{totaal}} saved in total",
+        "toevoegen": "+ Savings pot",
+        "leeg": "No savings pots yet.",
+        "watPlaceholder": "What for (e.g. Noah's driving licence)",
+        "doel": "Target amount (optional)",
+        "begin": "Already saved (optional)",
+        "opslaan": "Save savings pot",
+        "opgeslagen": "Saved.",
+        "vanDoel": "of {{doel}}",
+        "voortgang": "{{pct}}% of the target",
+        "storten": "Amount to deposit",
+        "stortKnop": "Deposit",
+        "gestort": "Saved.",
+        "nogNiets": "No deposits yet.",
+        "uitleg": "A savings pot is an overview of what you put aside. No money goes through the app."
+      }
     },
     "VerdeelHulp": {
       "titel": "Help with dividing",
@@ -5690,27 +5943,28 @@
           "familie": "Family member or other person involved",
           "klaar": "All done!"
         },
-        "voornaam": "First name",
+        "voornaam": "First name or nickname",
         "geboortedatum": "Date of birth (handy for birthdays, can be added later)",
         "foto": "Photo or avatar (optional, can be added later)",
         "geenAfbeelding": "No image, show the first letter",
         "nogIemand": "Would you like to add another child or family member, or are you done for now?",
         "later": "You can always add someone or change details later via Menu → Children or Settings → Manage family.",
-        "afronden": "Finish for now",
+        "afronden": "Done adding",
         "nogEenKind": "Add another child",
         "familielid": "Add family member",
         "naam": "Name",
         "rol": "Role",
         "contact": "Phone or email (optional)",
         "contactUitleg": "Saved as a contact, without access to the app and without parental responsibility. You set up access separately later under Important people.",
-        "opslagFout": "Saving on this device didn't work. Your details are still filled in; please try again."
+        "opslagFout": "Saving on this device didn't work. Your details are still filled in; please try again.",
+        "voegToe": "Add"
       },
       "opnieuw": "Try again",
       "verder": "Continue",
       "regeling": {
-        "titel": "How do you usually divide the week?",
-        "uitleg": "Choose what's closest to your situation. You'll fine-tune the days and handover time next.",
-        "later": "Not agreed yet — set up later",
+        "titel": "What does your week look like?",
+        "uitleg": "Who's where, and when? Set it up the way it works now. It's your overview, and you can change it in a snap.",
+        "later": "Set up later",
         "aanpassen": "Change the weekly schedule",
         "instellen": "Set up the weekly schedule",
         "tik": "Tap a day to switch it.",
@@ -5722,25 +5976,29 @@
         "uitzonderingen": "You add exceptions such as holidays and public holidays later.",
         "blijftStaan": "Your existing schedule stays in place. You can confirm a change together once the other parent is actually linked.",
         "opslaan": "Save schedule",
-        "anderPatroon": "Choose another pattern"
+        "anderPatroon": "Choose another pattern",
+        "voorWie": "For which child",
+        "andereBevestigt": "The other parent will be asked whether the schedule is correct.",
+        "vastgezet": "This schedule is confirmed or waiting for the other parent's answer. Propose a change in the calendar.",
+        "uitlegSamen": "Set the schedule and handover time. The other parent will see this too. Does something change later? Then make a proposal."
       },
       "profielOpenen": "Open {{naam}}'s profile",
       "weeklijn": "This week's line according to your schedule",
       "vandaag": {
         "aanpassen": "Change schedule",
-        "voorWie": "Who would you like to use the app for?",
-        "voegToe": "Add your child. Then planning, appointments and practical information go straight to the right place.",
-        "kindToevoegen": "Add child",
-        "bijJou_one": "{{namen}} is with you today",
-        "bijJou_other": "{{namen}} are with you today",
+        "voorWie": "Who is this for?",
+        "voegToe": "Add your child. A first name or nickname is enough, the rest can come later.",
+        "kindToevoegen": "Add a child",
+        "bijJou_one": "{{namen}} is with you",
+        "bijJou_other": "{{namen}} are with you",
         "bijAnder_one": "{{namen}} is with the other parent today",
         "bijAnder_other": "{{namen}} are with the other parent today",
-        "volgende": "Next handover · {{datum}} · {{tijd}}",
+        "volgende": "Next handover · {{datum}} {{tijd}}",
         "verbergen": "Hide weekly schedule",
         "bekijken": "View weekly schedule",
         "geenSchema": "Your planning doesn't follow a fixed schedule",
         "prima": "That's fine. Just put handovers in the calendar; they'll show up here automatically.",
-        "wisselmoment": "Changeover",
+        "wisselmoment": "Handover",
         "wisselToevoegen": "Add handover",
         "tochPatroon": "Use a fixed pattern after all",
         "wanneer": "When is the next handover?",
@@ -5777,10 +6035,21 @@
         "inklappen": "Collapse",
         "klaar": " — done",
         "nogTeDoen": " — still to do",
-        "nietMeer": "Don't show again"
+        "nietMeer": "Hide this"
       },
-      "aanvullen": "You can always fill in the rest via the Menu.",
-      "voorbeeldgezin": "View the example family"
+      "aanvullen": "You can always add more, also later.",
+      "voorbeeldgezin": "View the example family",
+      "bevestigen": {
+        "titel": "Is the fixed schedule for {{naam}} correct?",
+        "uitleg": "The other parent filled in the schedule. Handover at {{tijd}}, {{plek}}.",
+        "geenPlek": "location not filled in yet",
+        "watAnders": "What is different?",
+        "versturen": "Send",
+        "kloptNiet": "Not right",
+        "klopt": "Correct",
+        "kloptNietTitel": "The other parent says the schedule for {{naam}} is not right",
+        "aanpassen": "Adjust schedule"
+      }
     },
     "IkBenLater": {
       "voorstelTekst": "I'm running late for the handover {{dag}} at {{plek}}. Expected arrival: {{tijd}} instead of {{oud}}. Does that work?",
@@ -5910,7 +6179,8 @@
         "nietsGekozen": "Nothing selected = both",
         "watIsEr": "What's happening?",
         "placeholder": "E.g. Can't make the 15:00 pick-up",
-        "reactieGewenst": "Reply wanted"
+        "reactieGewenst": "Reply wanted",
+        "kiesKind": "Your children belong to different parents. Choose the child this question is about."
       }
     },
     "SpoedScherm": {
@@ -6045,8 +6315,8 @@
       "andereOuder": "Other parent",
       "jaGebruik": "Yes, use this conversation",
       "neeZonder": "No, without messages",
-      "geselecteerd_one": "{{count}} fictional example message selected.",
-      "geselecteerd_other": "{{count}} fictional example messages selected.",
+      "geselecteerd_one": "{{count}} recent message from this conversation selected.",
+      "geselecteerd_other": "{{count}} recent messages from this conversation selected.",
       "geenMeegenomen": "No conversation messages included.",
       "gebruikFictief": "Use recorded agreements and holiday planning",
       "jijAanCo": "You to Co",
@@ -6063,22 +6333,22 @@
       "bekijkVakantie": "View holiday planning",
       "crisis": "This app isn't a crisis service. In immediate danger: 112. If you're having thoughts of suicide: <link>113 · 0800-0113</link>.",
       "jouwBericht": "Your message to Co",
-      "placeholderReactie": "What do you want to say? Only use fictional details…",
-      "placeholder": "Tell or ask something using fictional details…",
+      "placeholderReactie": "What do you want to say?",
+      "placeholder": "Tell or ask something…",
       "terugGesprek": "Back to conversation",
       "vraagCo": "Ask Co",
       "alleenFictief": "Your text is only processed for the answer and not stored in the app. Co never sends anything."
     },
     "HulpVragen": {
-      "bevestig": "Help request prepared for the chosen people.",
+      "bevestig": "Request sent.",
       "voorWie": "For whom",
       "welkeHulp": "What help",
-      "placeholder": "E.g. pick Emma up from school",
+      "placeholder": "E.g. pick the children up from school",
       "datum": "Date",
       "tijd": "Time",
       "aanWie": "Ask whom",
       "niemand": "Nobody has access to handovers or tasks for {{kind}} yet. You can set this up under Important people.",
-      "eerstAccepteert": "Whoever accepts first gets the task. This doesn't change the care arrangement.",
+      "eerstAccepteert": "The first person to accept takes care of it. The care schedule does not change.",
       "klaarzetten": "Prepare request",
       "vragenNetwerk": "Ask your network for help",
       "hulpVragen": "Ask for help",
@@ -6088,10 +6358,15 @@
       "ingetrokken": "Withdrawn",
       "intrekken": "Withdraw",
       "voorbeeldgezin": "Example family · no real notifications are sent",
-      "nogLokaal": "Help requests are only on this device for now · no notifications are sent yet"
+      "nogLokaal": "Help requests are only on this device for now · no notifications are sent yet",
+      "niemandKan": "Nobody can",
+      "kanNiet": "{{naam}} can't",
+      "kanNietReden": "{{naam}} can't: {{reden}}"
     },
     "OnderwegStatus": {
-      "onderweg": "{{wie}} is on the way"
+      "onderweg": "{{wie}} is on the way",
+      "jij": "You are on the way",
+      "andereOuder": "The other parent is on the way"
     },
     "Onveilig": {
       "hulpNodig": "Need help?",
@@ -6102,9 +6377,9 @@
       "logboekDelen": "You can share your log with a support worker or lawyer yourself if you want to.",
       "knop": "Make a note about this conversation",
       "vastgelegd": "Saved in your personal log",
-      "alleenJij": "Only you can see this. Joris won't be notified.",
+      "alleenJij": "Only you can see this. The other parent won't be notified.",
       "vraag": "Would you like to make a private note about this conversation?",
-      "wieZiet": "<b>Who can see this?</b> Only you. Joris, professionals and organisations won't see or hear anything about it.",
+      "wieZiet": "<b>Who can see this?</b> Only you. The other parent, professionals and organisations won't see or hear anything about it.",
       "uitleg": "The date and time are recorded automatically. Write down what was said as factually as possible. Nobody is informed automatically.",
       "placeholder": "E.g. exact words, time, who was there (optional)",
       "vastleggen": "Save note"
@@ -6175,7 +6450,9 @@
       "betalenKindrekening": "Pay from the child account",
       "ongeveerBedrag": " · roughly € {{bedrag}}",
       "gekochtToevoegen": "Bought it? Add the expense and the receipt",
-      "verzoekKies": "If it's a request, you decide: Yes, I'll do it or I'd rather not."
+      "verzoekKies": "If it's a request, you decide: Yes, I'll do it or I'd rather not.",
+      "perOuder": "You write a separate note for each other parent.",
+      "notitieVoor": "Note for"
     },
     "SlimmeMeeLijst": {
       "meeMetWissel": "Handover packing list",
@@ -6225,7 +6502,8 @@
         "vast": "Fixed",
         "verzoek": "Request from the other parent",
         "jouwVerzoek": "Your request",
-        "nietMeegekomen": "Didn't arrive last time"
+        "nietMeegekomen": "Didn't arrive last time",
+        "afspraak": "Appointment"
       },
       "geenTijd": "Handover",
       "naarJou": "to you",
@@ -6285,7 +6563,10 @@
       "aanpassen": "Edit",
       "controleerSelectie": "Check the selected text. These parts go into Our agreements; your weekly schedule and calendar stay unchanged.",
       "selectieToevoegen": "Add selection",
-      "naarAfspraken": "Go to Our agreements"
+      "naarAfspraken": "Go to Our agreements",
+      "metWie": "Which other parent are these agreements with?",
+      "nietOpgeslagen": "The document was not saved. Please try again.",
+      "bezigOpslaan": "Saving document…"
     },
     "Geschiedenis": {
       "bekijken": "View change history",
@@ -6342,7 +6623,11 @@
       "bewaar": "Save",
       "aantal_one": "{{count}} milestone",
       "aantal_other": "{{count}} milestones",
-      "momentjes": " · {{n}} moments"
+      "momentjes": " · {{n}} moments",
+      "opgeslagen": "Saved.",
+      "verwijderd": "Deleted.",
+      "verwijderLabel": "Delete {{tekst}}",
+      "verwijderTitel": "Delete milestone?"
     },
     "Momentjes": {
       "kaart": {
@@ -6353,7 +6638,15 @@
         "gedeeldMetJou": "Shared with you",
         "alleenVoorJou": "Just for you",
         "gedeeldMetOuders": "Shared with the parents",
-        "gedeeldMet": "Shared with {{wie}}"
+        "gedeeldMet": "Shared with {{wie}}",
+        "nuGedeeld": "Shared.",
+        "nuPrive": "Only you see this now.",
+        "verwijderd": "Deleted.",
+        "maakPrive": "Just for me",
+        "deelMet": "Share with {{naam}}",
+        "verwijderTitel": "Delete moment?",
+        "verwijderTekst": "The moment disappears from your overview.",
+        "verwijderTekstGedeeld": "The moment also disappears for the other parent."
       },
       "deel": {
         "wanneerVandaag": "Today · {{tijd}}",
@@ -6403,8 +6696,8 @@
     "CoOuderUitnodiging": {
       "kop": "Invitation",
       "titel": "{{naam}} is inviting you",
-      "uitleg_one": "To organise the care for {{kinderen}} together in Ouderschap & Co: one shared schedule, agreements and practical matters.",
-      "uitleg_other": "To organise the care for {{kinderen}} together in Ouderschap & Co: one shared schedule, agreements and practical matters.",
+      "uitleg_one": "{{naam}} invites you to Ouderschap & Co, to arrange together what's needed for {{kinderen}}. Create an account and start at your own pace.",
+      "uitleg_other": "{{naam}} invites you to Ouderschap & Co, to arrange together what's needed for {{kinderen}}. Create an account and start at your own pace.",
       "kinderen": "Children in this invitation",
       "voor": "This invitation was sent to {{email}}.",
       "privacy": "You only see any details after accepting the invitation. Your own private notes always stay private.",
@@ -6458,7 +6751,7 @@
       "welkeKinderen": "For which children?",
       "uitleg": "The other parent receives an email with a link. Only after accepting will you both see the chosen children; private notes stay private.",
       "versturen": "Send invitation",
-      "verstuurdKort": "Invitation sent",
+      "verstuurdKort": "Invitation sent. Until the other parent joins, everything stays yours.",
       "verstuurd": "Invitation sent to {{email}}. The link is valid for 14 days.",
       "kopieer": "Copy link",
       "gekopieerd": "Link copied",
@@ -6469,11 +6762,89 @@
       "deelt": "Together for {{kinderen}}",
       "sinds": "Linked since {{datum}}",
       "eerstKind": "Add a child first; then you can invite the other parent.",
-      "nogEen": "Invite someone else"
+      "nogEen": "Invite someone else",
+      "nietVerstuurd": "E-mail not sent",
+      "opnieuw": "Send again",
+      "opnieuwBezig": "Sending…",
+      "opnieuwVerstuurd": "Invitation sent again.",
+      "mailMislukt": "The invitation is ready, but the e-mail couldn't be sent. Try again or share the link yourself.",
+      "mailMisluktLink": "The e-mail to {{email}} couldn't be sent. Copy the link and share it yourself, or try again later.",
+      "geslotenKop": "Earlier invitations",
+      "afgewezen": "Declined",
+      "verlopen": "Expired",
+      "opnieuwUitnodigen": "Invite again"
     },
     "TelefoonInvoer": {
       "ongeldig": "This number isn’t valid for the selected country.",
       "ongeldigVoorbeeld": "This number isn’t valid for the selected country. Example: {{voorbeeld}}"
+    },
+    "DelenKeuze": {
+      "wieZiet": "Who sees this?",
+      "alleenJij": "Only you",
+      "gedeeld": "Shared",
+      "metWie": "With which other parent?",
+      "andereOuderN": "Other parent {{n}}",
+      "uitlegPrive": "Only you see this. The other parent is not notified.",
+      "uitlegGedeeld": "The other parent of this child sees this too.",
+      "uitlegVast": "You are asking the other parent, so it is shared.",
+      "verwijderTitel": "Delete?",
+      "verwijderTekst": "This cannot be undone."
+    },
+    "DeelKeuze": {
+      "label": "Who can see this?",
+      "alleenJij": "Only you",
+      "gedeeld": "Shared",
+      "alleenJijUitleg": "Only you can see this. The other parent doesn't get a notification.",
+      "gedeeldUitleg": "The other parent of this child can see this too and gets a notification.",
+      "kanNiet": "You can share once the other parent of this child is connected in the app."
+    },
+    "GezagToegang": {
+      "titel": "Parental authority & access",
+      "samenvatting": "Who can see and do what",
+      "intro": "What you and the other parent can view, propose and edit in the app for {{naam}}. This is separate from parental authority: what you fill in about authority changes nothing here.",
+      "sectie": {
+        "basis": "Basic details",
+        "school": "School and childcare",
+        "gezondheid": "Health",
+        "praktisch": "Sizes and practical",
+        "personen": "Contacts",
+        "noodkaart": "Emergency card"
+      },
+      "niveau": {
+        "alles": "Everything",
+        "voorstellen": "View and propose",
+        "bekijken": "View only",
+        "geen": "No access"
+      },
+      "celLabel": "{{sectie}}, {{wie}}: {{niveau}}",
+      "sterUitleg": "* A request is open for this section. Until it is answered, nothing changes.",
+      "verzoek": {
+        "titel": "Request from the other parent",
+        "voorJou": "{{sectie}} for you: {{niveau}}.",
+        "voorAnder": "{{sectie}} for the other parent: {{niveau}}.",
+        "akkoord": "Agree",
+        "nietAkkoord": "Don't agree",
+        "akkoordKlaar": "Saved.",
+        "nietAkkoordKlaar": "Answer sent."
+      },
+      "wacht": {
+        "voorJou": "Waiting for the other parent: {{sectie}} for you, {{niveau}}.",
+        "voorAnder": "Waiting for the other parent: {{sectie}} for the other parent, {{niveau}}.",
+        "intrekken": "Withdraw",
+        "ingetrokken": "Withdrawn."
+      },
+      "wijzig": {
+        "label": "Choose what is allowed",
+        "voorJou": "Your access",
+        "voorAnder": "The other parent's access",
+        "uitlegJij": "Less access for yourself takes effect at once. More access after an agreed restriction needs the other parent's agreement.",
+        "uitlegAnder": "The other parent gets a request. Nothing changes until they agree.",
+        "vragen": "Send request"
+      },
+      "opgeslagen": "Saved.",
+      "verzoekVerstuurd": "Request sent.",
+      "solo": "No other parent is linked to this child yet. You have full access.",
+      "juridisch": "Parental authority is filled in by the parents and not legally verified. A legal review of this access has not been done yet; by default both parents keep the access they already had."
     }
   },
   "lib": {
@@ -6491,26 +6862,26 @@
       "onderwerpen": {
         "overdracht": {
           "titel": "Handover",
-          "sub": "The moment you swap over"
+          "sub": "The moment of handover"
         },
         "kindVertelt": {
           "titel": "My child tells me something",
-          "sub": "When your child brings something back from the other home"
+          "sub": "When your child brings something home from the other house"
         },
         "boos": {
-          "titel": "When I’m angry",
-          "sub": "It’s okay to be angry. Where do you put it?"
+          "titel": "When I am angry",
+          "sub": "You are allowed to be angry. Where do you put it?"
         },
         "praten": {
-          "titel": "Talking to the other parent",
-          "sub": "A difficult conversation or a silent reply"
+          "titel": "Talking with the other parent",
+          "sub": "A difficult conversation or no reply"
         },
         "mezelf": {
-          "titel": "For me",
-          "sub": "When it all gets a bit much"
+          "titel": "For myself",
+          "sub": "When it all gets too much for you"
         },
         "bijzonder": {
-          "titel": "Special days and big changes",
+          "titel": "Special moments",
           "sub": "Holidays, new partners and other big moments"
         }
       },
@@ -9139,7 +9510,9 @@
         "samen": "Go together",
         "een": "One of us goes",
         "afzonderlijk": "Attend separately",
-        "later": "Agree later"
+        "later": "Agree later",
+        "halen": "Who picks up",
+        "brengen": "Who drops off"
       },
       "wie": {
         "jij": "You",
@@ -9150,7 +9523,11 @@
         "een": "one of you goes",
         "eenWie": "one of you goes ({{wie}})",
         "afzonderlijk": "attend separately",
-        "later": "agree later"
+        "later": "agree later",
+        "halen": "pick-up: still to agree who",
+        "halenWie": "{{wie}} picks up",
+        "brengen": "drop-off: still to agree who",
+        "brengenWie": "{{wie}} drops off"
       },
       "geschiedenis": {
         "steldeVoor": "{{wie}} suggested: {{wat}}.",
@@ -9681,7 +10058,7 @@
         "ochtend": "Good morning, {{naam}}",
         "middag": "Good afternoon, {{naam}}",
         "avond": "Good evening, {{naam}}",
-        "nacht": "A quiet evening, {{naam}}"
+        "nacht": "Hi, {{naam}}"
       },
       "verjaardag": "It's {{naam}}'s birthday today",
       "wisseldag": "Today · handover at {{tijd}}"
@@ -10667,7 +11044,7 @@
       "rol": {
         "opa": "Grandpa",
         "oma": "Grandma",
-        "stiefouder": "Step-parent / bonus parent",
+        "stiefouder": "Stepparent",
         "familielid": "Family member",
         "oppas": "Babysitter",
         "andereVerzorger": "Other carer",
@@ -10724,7 +11101,11 @@
         "andereOuder": "Taken care of by the other parent",
         "geregistreerd": "{{naam}} · registered by you, no digital confirmation",
         "bevestigd": "{{naam}} has confirmed",
-        "gevraagd": "{{naam}} asked · waiting for confirmation"
+        "gevraagd": "{{naam}} asked · waiting for confirmation",
+        "kanNiet": "{{naam}} can't",
+        "kanNietReden": "{{naam}} can't: {{reden}}",
+        "isEr": "{{naam}} is there",
+        "onderweg": "{{naam}} is on the way"
       },
       "veld": {
         "verantwoordelijke": "person responsible",
@@ -10785,28 +11166,30 @@
     "api": {
       "fout": {
         "VALIDATION": "Please check what you entered.",
-        "WEAK_PASSWORD": "Choose a stronger password: at least 8 characters, with a capital letter and a number or symbol.",
+        "WEAK_PASSWORD": "Choose a stronger password: at least {{minimum}} characters.",
         "EMAIL_TAKEN": "There is already an account with this email address.",
-        "INVALID_CREDENTIALS": "This email address and password don't match.",
+        "INVALID_CREDENTIALS": "Hmm, that email or password doesn't look right. Please try once more.",
         "NOT_VERIFIED": "Your email address hasn't been confirmed yet. We've sent you a new code.",
         "CODE_INVALID": "This code isn't right. Check it and try again.",
         "CODE_EXPIRED": "This code has expired. Request a new one.",
         "TOO_MANY_ATTEMPTS": "Too many attempts. Request a new code.",
-        "UNAUTHORIZED": "Your session has expired. Please sign in again.",
+        "UNAUTHORIZED": "You've been logged out to protect your information. Please log in again.",
         "FORBIDDEN": "You're not allowed to change this.",
-        "NOT_FOUND": "We can't find this (any more).",
-        "INVITE_EXPIRED": "This invitation has expired.",
+        "NOT_FOUND": "This page isn't available to you.",
+        "INVITE_EXPIRED": "This invitation no longer works. Ask for a new one.",
         "INVITE_USED": "This invitation has already been used.",
-        "INVITE_CANCELLED": "This invitation has been withdrawn.",
+        "INVITE_CANCELLED": "This invitation no longer works. Ask for a new one.",
         "INVITE_DECLINED": "This invitation has been declined.",
         "INVITE_OWN": "You can't invite yourself.",
         "INVITE_EMAIL_MISMATCH": "This invitation is for a different email address.",
         "CHILD_LIMIT": "A child can be linked to at most two parents.",
         "RATE_LIMITED": "Please wait: you've requested this too often. Try again in an hour.",
-        "SERVER": "Something went wrong. Please try again shortly.",
+        "SERVER": "Something went wrong. Please try again in a moment.",
         "NETWORK": "No connection. Check your internet and try again.",
         "NOT_CONFIGURED": "The app isn't connected to the server yet.",
-        "GONE": "This feature no longer exists. Please refresh the app."
+        "GONE": "This feature no longer exists. Please refresh the app.",
+        "MIXED_CHILDREN": "You share these children with different parents. Create it separately per child or per other parent.",
+        "NOT_OPEN": "This request is no longer open."
       }
     },
     "overdrachtStore": {
@@ -10891,6 +11274,334 @@
       "documentToegevoegd": {
         "titel": "New document",
         "uitleg": "{{naam}} added: {{titel}}"
+      },
+      "kostAkkoordGevraagd": {
+        "titel": "New expense",
+        "uitleg": "New expense for {{kind}}: {{titel}}, {{bedrag}}. Waiting for your response."
+      },
+      "kostToegevoegd": {
+        "titel": "New expense",
+        "uitleg": "New expense for {{kind}}: {{titel}}, {{bedrag}}."
+      },
+      "kostReactie": {
+        "titel": "Response to an expense",
+        "uitleg": "The other parent responded to: {{titel}}."
+      },
+      "kostOpmerking": {
+        "titel": "Comment on an expense",
+        "uitleg": "The other parent added a comment to: {{titel}}."
+      },
+      "budgetVoorstel": {
+        "titel": "Proposal",
+        "uitleg": "A proposal is waiting for you: budget {{titel}}, {{bedrag}}."
+      },
+      "budgetReactie": {
+        "titel": "Response to a budget",
+        "uitleg": "The other parent responded to the budget: {{titel}}."
+      },
+      "budgetGewijzigd": {
+        "titel": "Proposal",
+        "uitleg": "A proposal is waiting for you: budget {{titel}} was changed."
+      },
+      "budgetIngetrokken": {
+        "titel": "Proposal withdrawn",
+        "uitleg": "The budget proposal {{titel}} was withdrawn."
+      },
+      "budgetHerinnering": {
+        "titel": "Reminder",
+        "uitleg": "Reminder: the budget proposal {{titel}} is still waiting for your response."
+      },
+      "verrekeningGestart": {
+        "titel": "Settle up",
+        "uitleg": "The other parent would like to settle up: {{bedrag}}."
+      },
+      "betaalverzoek": {
+        "titel": "Payment request",
+        "uitleg": "A payment request is waiting for you: {{bedrag}}."
+      },
+      "betalingGemeld": {
+        "titel": "Payment reported",
+        "uitleg": "The other parent reports that {{bedrag}} has been paid. Can you confirm receipt?"
+      },
+      "ontvangstBevestigd": {
+        "titel": "Receipt confirmed",
+        "uitleg": "Receipt of {{bedrag}} has been confirmed."
+      },
+      "verrekeningAfgerond": {
+        "titel": "Completed",
+        "uitleg": "The settlement of {{bedrag}} is complete."
+      },
+      "kostenAfspraakVoorstel": {
+        "titel": "Proposal",
+        "uitleg": "A proposal is waiting for you: how you handle costs."
+      },
+      "kostenAfspraakReactie": {
+        "titel": "Response to the cost agreement",
+        "uitleg": "The other parent responded to the cost agreement."
+      },
+      "afspraakNieuw": {
+        "titel": "New event",
+        "uitleg": "New event for {{kind}}: {{titel}}, {{datum}}."
+      },
+      "agendaVoorstel": {
+        "titel": "Proposal",
+        "uitleg": "A proposal is waiting for you."
+      },
+      "agendaAkkoord": {
+        "titel": "Agreed",
+        "uitleg": "The other parent agreed to: {{titel}}. The calendar has been updated."
+      },
+      "agendaNietAkkoord": {
+        "titel": "Not agreed",
+        "uitleg": "The other parent did not agree to: {{titel}}. Nothing changes."
+      },
+      "agendaAnderVoorstel": {
+        "titel": "Another proposal",
+        "uitleg": "The other parent made another proposal for: {{titel}}."
+      },
+      "agendaMeerTijd": {
+        "titel": "More time requested",
+        "uitleg": "The other parent needs more time for: {{titel}}. Nothing changes."
+      },
+      "zorgVoorstel": {
+        "titel": "Change request",
+        "uitleg": "A proposal to change the schedule is waiting for you: {{titel}}."
+      },
+      "zorgAkkoord": {
+        "titel": "Agreed",
+        "uitleg": "The other parent agreed to the change: {{titel}}. The calendar has been updated."
+      },
+      "zorgNietAkkoord": {
+        "titel": "Declined",
+        "uitleg": "The other parent declined the change: {{titel}}. The schedule stays as it was."
+      },
+      "zorgAnderVoorstel": {
+        "titel": "Another proposal",
+        "uitleg": "The other parent made another proposal for: {{titel}}."
+      },
+      "zorgMeerTijd": {
+        "titel": "More time requested",
+        "uitleg": "The other parent needs more time for: {{titel}}. Nothing changes."
+      },
+      "zorgHerinnering": {
+        "titel": "Reminder",
+        "uitleg": "Reminder: the proposal {{titel}} is still waiting for your response."
+      },
+      "aanwezigheidVraag": {
+        "titel": "Coordinate attendance",
+        "uitleg": "The other parent would like to agree who attends {{titel}} ({{datum}})."
+      },
+      "aanwezigheidAkkoord": {
+        "titel": "Agreed",
+        "uitleg": "The other parent agreed: {{titel}}."
+      },
+      "aanwezigheidNiet": {
+        "titel": "Not agreed yet",
+        "uitleg": "The other parent can't do it as proposed: {{titel}}."
+      },
+      "nuAfstemmenVraag": {
+        "titel": "Question for today",
+        "uitleg": "The other parent has a question for today: {{titel}}."
+      },
+      "nuAfstemmenAntwoord": {
+        "titel": "Answer",
+        "uitleg": "The other parent answered: {{titel}}."
+      },
+      "ophaalGevraagd": {
+        "titel": "Asked to pick up or drop off",
+        "uitleg": "{{naam}} asks if you can pick up or drop off on {{datum}}."
+      },
+      "ophaalVoorJou": {
+        "titel": "Pick-up or drop-off",
+        "uitleg": "{{naam}} chose you to pick up or drop off on {{datum}}."
+      },
+      "ophaalToegewezen": {
+        "titel": "Pick-up or drop-off arranged",
+        "uitleg": "{{naam}} chose who picks up or drops off on {{datum}}."
+      },
+      "ophaalGeaccepteerd": {
+        "titel": "Pick-up or drop-off confirmed",
+        "uitleg": "{{naam}} will take care of {{datum}}."
+      },
+      "ophaalGeweigerd": {
+        "titel": "Can't pick up or drop off",
+        "uitleg": "{{naam}} can't on {{datum}}. Choose someone else."
+      },
+      "ophaalIngetrokken": {
+        "titel": "No longer needed",
+        "uitleg": "{{naam}} withdrew the request for {{datum}}."
+      },
+      "ophaalGewist": {
+        "titel": "Pick-up or drop-off changed",
+        "uitleg": "{{naam}} withdrew the choice for {{datum}}."
+      },
+      "onderweg": {
+        "titel": "On the way",
+        "uitleg": "{{naam}} is on the way for the {{tijd}} handover."
+      },
+      "aangekomen": {
+        "titel": "Arrived",
+        "uitleg": "{{naam}} is there for the {{tijd}} handover."
+      },
+      "hulpGevraagd": {
+        "titel": "Help requested",
+        "uitleg": "{{naam}} asks: \"{{taak}}\"."
+      },
+      "hulpVerstuurd": {
+        "titel": "Help requested from the circle",
+        "uitleg": "{{naam}} asked the circle: \"{{taak}}\"."
+      },
+      "hulpGeaccepteerd": {
+        "titel": "{{naam}} will take care of \"{{taak}}\".",
+        "uitleg": "{{naam}} will take care of \"{{taak}}\"."
+      },
+      "hulpAfgewezen": {
+        "titel": "{{naam}} can't make it: \"{{taak}}\".",
+        "uitleg": "{{naam}} can't make it: \"{{taak}}\"."
+      },
+      "hulpIngetrokken": {
+        "titel": "No longer needed",
+        "uitleg": "{{naam}} withdrew the request: \"{{taak}}\"."
+      },
+      "taakGewijzigd": {
+        "titel": "Task changed",
+        "uitleg": "{{naam}} changed a task: {{titel}}"
+      },
+      "taakGedeeld": {
+        "titel": "Task shared",
+        "uitleg": "{{naam}} shared a task with you: {{titel}}"
+      },
+      "taakVerwijderd": {
+        "titel": "Task deleted",
+        "uitleg": "{{naam}} deleted a task: {{titel}}"
+      },
+      "besluitIngetrokken": {
+        "titel": "Proposal withdrawn",
+        "uitleg": "{{naam}} withdrew the proposal: {{titel}}"
+      },
+      "kostGewijzigd": {
+        "titel": "Expense changed",
+        "uitleg": "The expense {{titel}} for {{kind}} was changed: {{bedrag}}."
+      },
+      "kostIngetrokken": {
+        "titel": "Expense withdrawn",
+        "uitleg": "The expense {{titel}} ({{bedrag}}) was withdrawn and no longer counts."
+      },
+      "kostVerwijderd": {
+        "titel": "Expense deleted",
+        "uitleg": "The expense {{titel}} ({{bedrag}}) was deleted."
+      },
+      "kostHerinnering": {
+        "titel": "Reminder",
+        "uitleg": "Reminder: the expense {{titel}} ({{bedrag}}) is still waiting for your response."
+      },
+      "vasteLastToegevoegd": {
+        "titel": "Fixed cost shared",
+        "uitleg": "New fixed cost: {{titel}}, {{bedrag}} per month."
+      },
+      "vasteLastGewijzigd": {
+        "titel": "Fixed cost changed",
+        "uitleg": "The fixed cost {{titel}} was changed: {{bedrag}} per month."
+      },
+      "vasteLastVerwijderd": {
+        "titel": "Fixed cost deleted",
+        "uitleg": "The fixed cost {{titel}} was deleted."
+      },
+      "potToegevoegd": {
+        "titel": "Savings pot shared",
+        "uitleg": "New savings pot: {{titel}}."
+      },
+      "potGewijzigd": {
+        "titel": "Savings pot changed",
+        "uitleg": "The savings pot {{titel}} was changed."
+      },
+      "potVerwijderd": {
+        "titel": "Savings pot deleted",
+        "uitleg": "The savings pot {{titel}} was deleted."
+      },
+      "potStorting": {
+        "titel": "Deposit in savings pot",
+        "uitleg": "{{storting}} was deposited in the savings pot {{titel}}."
+      },
+      "potStortingVerwijderd": {
+        "titel": "Deposit removed",
+        "uitleg": "A deposit was removed from the savings pot {{titel}}."
+      },
+      "kindOntkoppeld": {
+        "titel": "Link with a child removed",
+        "uitleg": "The other parent removed their link with {{kind}}. {{kind}} stays with you."
+      },
+      "regelingBevestigen": {
+        "titel": "Is the fixed schedule correct?",
+        "uitleg": "The other parent filled in the fixed schedule for {{kind}}. Is it correct?"
+      },
+      "regelingKlopt": {
+        "titel": "Fixed schedule confirmed",
+        "uitleg": "The other parent confirmed the fixed schedule for {{kind}}."
+      },
+      "regelingKloptNiet": {
+        "titel": "Fixed schedule not right",
+        "uitleg": "The other parent says the schedule for {{kind}} is not right. See what is different."
+      },
+      "gezagBevestigen": {
+        "titel": "Parental authority filled in",
+        "uitleg": "The other parent filled in parental authority for {{kind}}. Is it correct?"
+      },
+      "gezagBevestigd": {
+        "titel": "Parental authority confirmed",
+        "uitleg": "The other parent confirmed what you filled in about parental authority for {{kind}}."
+      },
+      "gezagBetwist": {
+        "titel": "Parental authority not right",
+        "uitleg": "The other parent says what you filled in about parental authority for {{kind}} is not right."
+      },
+      "toegangVerzoek": {
+        "titel": "Request about access",
+        "uitleg": "The other parent asks for a change in access for {{kind}}."
+      },
+      "toegangAkkoord": {
+        "titel": "Access changed",
+        "uitleg": "The other parent agreed to your request about access for {{kind}}."
+      },
+      "toegangNietAkkoord": {
+        "titel": "Not agreed",
+        "uitleg": "The other parent did not agree to your request about access for {{kind}}. Nothing changed."
+      },
+      "overdrachtVerzoek": {
+        "titel": "Request for the handover",
+        "uitleg": "The other parent asks to send along: {{item}}."
+      },
+      "overdrachtNietMeegekomen": {
+        "titel": "Not everything arrived",
+        "uitleg": "Didn't arrive: {{items}}. It is on the list for the next handover."
+      },
+      "overdrachtAllesOntvangen": {
+        "titel": "Everything arrived",
+        "uitleg": "The other parent confirmed that everything arrived."
+      },
+      "vasteSpullenGewijzigd": {
+        "titel": "Fixed items changed",
+        "uitleg": "The other parent changed the fixed items: {{item}}."
+      },
+      "overdrachtLijstKlaar": {
+        "titel": "{{day}}'s list is ready",
+        "uitleg": "Packing list: {{totaal}} items on the list."
+      },
+      "overdrachtMorgen": {
+        "titel": "Handover tomorrow. Is the list right?",
+        "uitleg": "{{ingepakt}} of {{totaal}} packed."
+      },
+      "overdrachtAllesMeegekomen": {
+        "titel": "Did everything arrive?",
+        "uitleg": "Go through the list: Received or Didn't arrive."
+      },
+      "uitnodigingAfgewezen": {
+        "titel": "Invitation declined",
+        "uitleg": "{{email}} declined your invitation. You can simply keep using the app on your own."
+      },
+      "uitnodigingGeaccepteerd": {
+        "titel": "Invitation accepted",
+        "uitleg": "{{naam}} accepted your invitation. You are now connected."
       }
     }
   },
@@ -11479,6 +12190,359 @@
       "eerderGedeeld": "Shared earlier · {{n}}",
       "alleenBewust": "Only what has deliberately been shared with you. You will never see internal notes here.",
       "voorbeeldBanner": "Preview — you are viewing what parents can see. You cannot change anything on a parent's behalf here."
+    }
+  },
+  "standaard": {
+    "welkom": {
+      "title": "Living apart. Parenting together.",
+      "subtitle": "Calendar, expenses and messages for your parenting, in one place. So you have room left for what matters most."
+    },
+    "registreren": {
+      "termsLine": "I agree to the [terms] and the [privacy policy]."
+    },
+    "onboarding": {
+      "step1AfterEachAddedChildConfirmation": "{{kind}} has been added.",
+      "step2IntroLine": "Nice, that's done. Just a few short steps left.",
+      "step2Title": "Is the other parent joining too?",
+      "step2Body": "Invite the other parent to share events, expenses and messages. Not joining, or not yet? The app works perfectly well for you alone. You can always invite them later.",
+      "step2Button1": "Send invitation",
+      "step2Button2": "I'll start on my own",
+      "step4Title": "Time for a little peace and quiet",
+      "step5TitleSolo": "That's all it takes!",
+      "step5BodySolo": "This is your place for your calendar, expenses and everything about {{kinderen}}. Only you see what you add here. Take your time: you don't have to sort everything out at once.",
+      "step5TitleSamen": "You can both get started!",
+      "step5BodySamen": "Your calendar, expenses and messages are ready. You choose what you share. Take your time: you don't have to sort everything out at once."
+    },
+    "concepten": {
+      "emptyState": "No drafts. Everything is neatly finished."
+    },
+    "bevestigingen": {
+      "expenseConfirmed": "Expense confirmed. The balance is updated.",
+      "replySent": "Your reply has been sent. Thank you!",
+      "invitationSent": "Invitation sent."
+    },
+    "uitnodigingen": {
+      "professional": "{{naam}} invites you as a professional. You only see what both parents have shared with you."
+    },
+    "co": {
+      "title": "Want to get something off your chest, with Co?",
+      "explanation": "Take your time and share what's on your mind. Nothing goes to the other parent. Co is a digital companion powered by AI: not a counselor, and Co doesn't take sides.",
+      "privacy": "What you type and the names you use are sent to an external AI service to create a reply.",
+      "safety": "Is there immediate danger? Call 112. Struggling? Also talk to your GP or a counselor. You don't have to do this alone."
+    },
+    "home": {
+      "firstTimeOnHomeTitle": "Your overview is ready",
+      "firstTimeOnHomeBody": "Here's what you've filled in so far. You can add the rest whenever it suits you.",
+      "checklistTitle": "So far",
+      "filled": "Children: {{kinderen}}",
+      "filled2": "Weekly schedule: set",
+      "checklistWeekverdelingOpen": "Weekly schedule: not set yet",
+      "filled3": "Quiet mode: set",
+      "checklistRustmodusOpen": "Quiet mode: not set yet",
+      "connected": "Other parent: connected",
+      "invited": "Other parent: invited",
+      "notInvited": "Other parent: not invited yet",
+      "eventsOpen": "Events: no events yet",
+      "importantPeopleOpen": "Important people: nobody added yet",
+      "linksInTheChecklist": "Edit / Set up / Invite / Add / View",
+      "softLineUnderTheDate1": "A calm overview of your day.",
+      "softLineUnderTheDate2": "Everything in one place, so you can take a breath.",
+      "softLineUnderTheDate3": "One step at a time. You don't have to sort everything out today.",
+      "allDone": "All done for today. Enjoy your day.",
+      "inviteCardTitleSolo": "Would you like the other parent to join?",
+      "inviteCardBodySolo": "Then you can share events, expenses and messages. You don't have to: the app works for you alone too.",
+      "inviteCardButtonsSolo": "Send invitation / Maybe later"
+    },
+    "welkomNaUitnodiging": {
+      "otherParentTitle": "You can start at your own pace here",
+      "otherParentBody": "{{naam}} has invited you to arrange together what's needed for {{kinderen}}. You choose what you share.",
+      "title": "Welcome",
+      "body": "{{naam}} has invited you as a professional. You only see what both parents have shared with you."
+    },
+    "coToestemming": {
+      "title": "Before you start with Co",
+      "body1": "Co is a digital companion powered by AI. What you type and the names you use are sent to an external AI service to create a reply.",
+      "body2": "Nothing goes to the other parent. Co is not a counselor and doesn't take sides.",
+      "body3": "You can turn Co off at any time.",
+      "button1": "I understand, continue",
+      "button2": "Rather not",
+      "afterRatherNot": "No problem. You can turn Co on later."
+    },
+    "instellingen": {
+      "coSwitchDescription": "Turn Co on or off."
+    },
+    "belangrijkePersonen": {
+      "description": "A parent's partner, who helps out.",
+      "description2": "For pickups, babysitting or following along.",
+      "roleOtherFamily": "Other family",
+      "description3": "Such as an aunt, uncle or older sibling.",
+      "roleFriend": "Friend",
+      "description4": "Someone who helps now and then.",
+      "description5": "Such as a mediator or counselor.",
+      "permissionsHint": "By default {{naam}} sees nothing. You turn on what you want to share.",
+      "hintForAllRolesExceptProfessional": "{{naam}} only sees what you share. Agreements about the schedule and decisions stay with the parents.",
+      "hintForProfessional": "A professional can only follow along once both parents give permission.",
+      "alwaysAdjustable": "You can change, pause or stop this at any time.",
+      "confirmationAfterInviting": "{{naam}} has been invited.",
+      "displayInList": "{{naam}} · {{rol}}",
+      "paused": "Paused",
+      "actionPause": "Pause access",
+      "stopTitle": "Stop access for {{naam}}?",
+      "stopButtons": "Stop / Cancel"
+    },
+    "email": {
+      "invitationOtherParentSubject": "{{naam}} invites you to Ouderschap & Co",
+      "invitationOtherParentBody": "Hi,\n\n{{naam}} invites you to Ouderschap & Co, to arrange together what's needed for {{kinderen}}. Create an account and start at your own pace.\n\nWith Ouderschap & Co you see your calendar, expenses and messages in one place. You choose what you share.\n\n[Create account]\n\nButton not working? Copy this link: {{link}}\n\nNot meant for you? You can ignore this message.\n\nKind regards,\nOuderschap & Co",
+      "invitationFamilyOrFriendSubject": "{{naam}} would love your help with {{kinderen}}",
+      "invitationFamilyOrFriendBody": "Hi,\n\n{{naam}} would love your help with {{kinderen}}. You only see what {{naam}} shares with you.\n\n[View invitation]\n\nButton not working? Copy this link: {{link}}\n\nNot meant for you? You can ignore this message.\n\nKind regards,\nOuderschap & Co",
+      "invitationProfessionalSubject": "{{naam}} invites you as a professional",
+      "invitationProfessionalBody": "Hi,\n\n{{naam}} invites you as a professional at Ouderschap & Co. You only see what both parents have shared with you.\n\n[View invitation]\n\nButton not working? Copy this link: {{link}}\n\nNot meant for you? You can ignore this message.\n\nKind regards,\nOuderschap & Co",
+      "forgotPasswordSubject": "Set a new password",
+      "forgotPasswordBody": "Hi,\n\nYou asked for a new password. Choose it below. The link is valid for {{geldigheid}}.\n\n[Set a new password]\n\nButton not working? Copy this link: {{link}}\n\nDidn't ask for this? You don't need to do anything. Your password stays the same.\n\nKind regards,\nOuderschap & Co",
+      "confirmEmailSubject": "Confirm your email address",
+      "confirmEmailBody": "Hi,\n\nConfirm your email address to finish your account.\n\n[Confirm email address]\n\nButton not working? Copy this link: {{link}}\n\nDidn't create an account? You can ignore this message.\n\nKind regards,\nOuderschap & Co",
+      "footerInEveryEmail": "You are receiving this message because an account or invitation was created with this email address. Questions? Email {{supportemail}}."
+    },
+    "fout": {
+      "savingFailed": "Saving didn't work. Please try again.",
+      "parentsOnly": "Only a parent can do this.",
+      "requiredField": "This field is needed to continue."
+    },
+    "toestemmingen": {
+      "title": "Use the camera?",
+      "body": "Take a photo of a receipt. Where possible, the app recognizes the amount, date and shop. You confirm.",
+      "buttons": "Allow / Not now",
+      "denied": "The camera is off. You can also upload a receipt, or turn on the camera in your phone settings.",
+      "title2": "Access to your photos?",
+      "body2": "Choose a photo or receipt from your library to upload, or share a moment. Only what you choose is used.",
+      "buttons2": "Allow / Not now",
+      "denied2": "No access to your photos. You can turn this on in your phone settings.",
+      "title3": "Turn on notifications?",
+      "body3": "This way you won't miss a proposal or handover. With Quiet mode you decide when you don't want message notifications.",
+      "buttons3": "Turn on notifications / Not now",
+      "denied3": "Notifications are off. You will only see proposals and handovers in the app. You can turn them on in your phone settings."
+    },
+    "agenda": {
+      "subtitleSolo": "Your calendar. Only you can see this.",
+      "emptyStateSolo": "Plenty of room here. Add an event. Only you see what you put here.",
+      "subtitleSamen": "Your calendar, and what you share.",
+      "emptyStateSamen": "Plenty of room here. Add an event and choose: just for you, or share it with the other parent."
+    },
+    "voorstellen": {
+      "teaserSolo": "Proposals are made together. Once the other parent joins, you can swap a day or ask for an extra overnight stay here.",
+      "proposalReceivedSamen": "You've received a proposal."
+    },
+    "professionals": {
+      "explanationSolo": "Invite a professional, such as a mediator. You decide what they can see.",
+      "explanationSamen": "Bring in whoever helps you, such as a mediator. A professional only sees what you both have shared."
+    },
+    "meldingen": {
+      "reminderSolo": "Reminder: {{titel}} {{dag}} at {{tijd}}.",
+      "handoverSamen": "Reminder: handover {{dag}} at {{tijd}}."
+    },
+    "overgang": {
+      "otherParentJoined": "The other parent has joined! From now on you can share events, expenses and messages. What you've made so far stays yours until you share it."
+    },
+    "homeNieuw": {
+      "coButton": "Co"
+    },
+    "agendaNieuw": {
+      "legend2Samen": "With {{naam}}"
+    },
+    "sparrenMetCo": {
+      "label": "AI",
+      "textFieldLabel": "What is going on?",
+      "textFieldPlaceholder": "For example: the handover did not go well today",
+      "microphoneActive": "Co is listening",
+      "button": "Send",
+      "choicesTitle": "Or choose what you need help with"
+    },
+    "coPrivacy": {
+      "subtitle": "What happens to what you tell Co, in plain language.",
+      "aiExplanation": "Co is a digital thinking partner using AI. Co is not a care provider, gives no legal advice and does not take sides.",
+      "heading": "Who sees what?",
+      "otherParent": "The other parent never sees your conversations with Co and does not know whether you use Co.",
+      "mediator": "Only what you choose to share. You can always withdraw it.",
+      "admins": "Cannot read your conversations.",
+      "heading2": "What happens to what you type?",
+      "explanation1": "What you type or say and the names you use are sent to an external AI service to create a reply.",
+      "explanation2": "Co does not read your messages to the other parent and does not score anyone.",
+      "retention": "Retention period: [to be decided]",
+      "heading3": "You decide",
+      "toggle1": "Use app data",
+      "help": "Co may use the calendar and agreements to think along better.",
+      "toggle2": "Keep conversations",
+      "help2": "Only on this device, so you can continue later.",
+      "toggle3": "Tips from Co",
+      "help3": "At most one a week, never during quiet hours.",
+      "button": "Delete all conversations with Co",
+      "link": "Full privacy statement"
+    },
+    "wijzigingVoorstellen": {
+      "titleSamen": "Propose a change",
+      "infoTitleSamen": "Good to know",
+      "infoTextSamen": "A change only applies if you both agree. If the other parent says no, the arrangement from your parenting plan stays in place. The other parent does not have to give a reason.",
+      "choiceTitleSamen": "What would you like to propose?",
+      "choice1Samen": "A one-off change",
+      "choice2Samen": "Swap days",
+      "choice3Samen": "Holiday or special day",
+      "comparison1Samen": "Now, according to the plan",
+      "comparison2Samen": "Your proposal",
+      "noteLabelSamen": "Note (optional)",
+      "notePlaceholderSamen": "For example: I have a wedding that day.",
+      "explanationBelowSamen": "{{naam}} sees your proposal and can say yes or no. Until {{naam}} agrees, nothing changes in the calendar.",
+      "button1Samen": "Send proposal",
+      "button2Samen": "Phrase it with Co first"
+    },
+    "voorstelStatus": {
+      "status1Samen": "Not agreed",
+      "status2Samen": "Awaiting response",
+      "proposalLabelSamen": "YOUR PROPOSAL",
+      "responseSamen": "Response from {{naam}}",
+      "footnoteTitleSamen": "The parenting plan remains leading",
+      "footnoteWhenNotAgreedSamen": "{{naam}} has not agreed. So {{onderwerp}} stays as stated in your plan.",
+      "footnoteWhenWaitingSamen": "Until {{naam}} agrees, {{onderwerp}} stays as stated in your plan.",
+      "infoI1Samen": "A change only applies once you both agree. Until then, the agreement from your parenting plan applies.",
+      "infoI2Samen": "Ouderschap & Co does not change the plan and does not decide who is right.",
+      "linkSamen": "View parenting plan",
+      "textBelowSamen": "You can make another proposal or leave it as it is.",
+      "button1Samen": "Make another proposal",
+      "button2Samen": "Think it through with Co",
+      "buttonWhenWaitingSamen": "Withdraw proposal"
+    },
+    "kostenInstellen": {
+      "titleSamen": "How do you handle costs?",
+      "subtitleSamen": "Many parents cover almost everything through alimony and the child account. Others also share extra costs. Choose what fits your agreements.",
+      "choice1Samen": "Through alimony and the child account",
+      "helpSamen": "Costs go through the child account. The app shows what is paid from it. Nothing is settled between you.",
+      "choice2Samen": "Child account, large expenses shared",
+      "helpSamen2": "Regular costs through the child account. You share large extra expenses above an amount you agree on.",
+      "choice3Samen": "Share extra costs",
+      "helpSamen3": "You share extra costs, such as sports or school trips. The app calculates who gets what back.",
+      "thresholdSamen": "Share from",
+      "overviewTitleSamen": "This is what you will see in Costs",
+      "infoSamen": "{{naam}} will be asked to confirm this. If your parenting plan or agreement says otherwise, that applies.",
+      "buttonSamen": "Save and send to {{naam}}"
+    },
+    "uitgaveToevoegen": {
+      "agreementLine": "Your agreement: {{afspraak}}",
+      "agreementLink": "Change",
+      "help": "Joint account for {{kinderen}}",
+      "help2": "Large expense? You share it from {{bedrag}}",
+      "resultChildAccount": "Paid from the child account, so nothing needs to be settled. {{naam}} will still see the expense in the overview.",
+      "resultShared": "Above {{bedrag}}, so you share this. {{naam}} pays you back {{terug}} after confirming."
+    },
+    "meeMetDeWissel": {
+      "subtitleSamen": "{{dag}} · {{tijd}} · to {{naam}}",
+      "templatesSamen": "Templates",
+      "sharedSamen": "{{naam}} can see this list too",
+      "filterSamen": "Both",
+      "suggestedTitleSamen": "SUGGESTED",
+      "buttonSamen": "Add",
+      "recurringTitleSamen": "RECURRING ITEMS",
+      "recurringHelpSamen": "Comes back every week automatically",
+      "thisTimeTitleSamen": "THIS TIME",
+      "returnTitleSamen": "COMING BACK TO YOU",
+      "returnHelpSamen": "{{naam}} gets a reminder",
+      "linkToStillToBuyTitleSamen": "Is something too small or missing?",
+      "textSamen": "Put it on Still to buy, in Costs",
+      "inputPlaceholderSamen": "Add something, e.g. ‘swimming gear’"
+    },
+    "nogKopen": {
+      "tab": "Still to buy",
+      "tab2": "Expenses",
+      "intro": "What the children need. Tick it off once bought, then sort out the rest straight away.",
+      "budgetButton": "Propose a budget",
+      "afterBuyingTitle": "Bought. What else would you like to arrange?",
+      "choice1": "Add as expense",
+      "choice2": "Take along at the next handover",
+      "choice2Active": "On the list for {{dag}}",
+      "link": "Bought earlier ({{aantal}})",
+      "inputPlaceholder": "What is needed? E.g. ‘winter coat size 128’"
+    },
+    "houvastInstellen": {
+      "title": "Support settings",
+      "subtitle": "Co-parenting is sometimes hard for every parent. That is why support is always available. Here you choose what the app offers on its own.",
+      "heading1": "ALWAYS AVAILABLE",
+      "heading2": "The app offers on its own",
+      "toggle": "Pause on a sharp message",
+      "help": "Asks once whether you would like to send it later.",
+      "toggle2": "Messages once a day",
+      "help2": "Notifications from the other parent bundled at 18:00. Urgent messages always come through right away.",
+      "toggle3": "Prepare for the handover",
+      "help3": "A calm moment an hour before, and what needs to go along.",
+      "toggle4": "Look back after the handover",
+      "help4": "One question an hour later: how did it go? Only for you.",
+      "toggle5": "Special days of the other parent",
+      "help5": "A reminder a week before Mother's Day, Father's Day or a birthday, so your child can make something.",
+      "toggle6": "Difficult moments on Home",
+      "help6": "A fixed card, so you find it quickly.",
+      "toggle7": "Tips from Co",
+      "help7": "At most one a week, never during quiet hours.",
+      "toggle8": "Prepare for a conversation",
+      "help8": "Before a meeting with school or a mediator, four short questions to organise your thoughts.",
+      "toggle9": "Calm screen in the evening",
+      "help9": "After 21:00 a dark, calm screen without counters and notifications.",
+      "privacy": "Private. The other parent does not see what you choose here."
+    },
+    "lastigeMomenten": {
+      "searchPlaceholder": "What are you struggling with?",
+      "searchHelp": "Type or say what is going on. You do not have to search through the lists.",
+      "micAccessibility": "Say what is going on",
+      "listeningTitle": "I am listening",
+      "listeningText": "Say in a few words what is going on. For example: my child does not want to go.",
+      "listeningButton": "Done",
+      "heading": "FREQUENTLY SEARCHED",
+      "results": "BEST MATCHES",
+      "angerTitle": "Pause first",
+      "angerText": "You do not have to decide or send anything now",
+      "noResult": "Nothing found. Try another word, or tell Co.",
+      "noResultButton": "Tell Co",
+      "tile1Text": "I am really angry right now",
+      "tile2": "After a heated moment",
+      "tile2Text": "Calm down and make amends",
+      "topicsHeading": "WHAT IS IT ABOUT?",
+      "count": "{{aantal}} cards",
+      "saved": "Saved ({{aantal}})"
+    },
+    "naEenHeftigMoment": {
+      "progress": "After a heated moment · step {{stap}} of 3",
+      "step1Title": "First, land for a moment",
+      "step1Text": "Did things escalate at the handover, in a message or in front of the children? It happens. What counts is how you continue afterwards.",
+      "step1Question": "What is your mind telling you now?",
+      "choice1": "I am a bad parent",
+      "choice2": "It is the other parent’s fault",
+      "choice3": "I have ruined it for the children",
+      "choice4": "I don’t know right now",
+      "step1Breathe": "Breathe along first",
+      "help": "Five calm breaths, about a minute",
+      "safety": "Did it go too far physically, or do you not feel safe? Then this is bigger than an app.",
+      "safetyLink": "See where to find help",
+      "step1Button": "Next: make amends",
+      "step2Title": "Make amends",
+      "step2Text": "Repair does not have to be big. A few calm sentences at an ordinary moment are enough.",
+      "tab1": "With your child",
+      "tab2": "With the other parent",
+      "step2Button": "Next: one small intention",
+      "step3Title": "One small intention",
+      "step3Text": "What would you like to do differently next time? Choose one. Small is good.",
+      "reminder": "Co will ask in 3 days how it went",
+      "privacy": "Only for you. Not visible to the other parent or professionals.",
+      "step3Button": "Save my intention",
+      "doneTitle": "Good that you did this",
+      "doneText": "Repairing after a heated moment is not easy. You took the time for it."
+    },
+    "menuNieuw": {
+      "heading": "Your shortcuts",
+      "link": "Edit",
+      "group1": "ARRANGING TOGETHER",
+      "group2": "OUR FAMILY",
+      "group3": "SUPPORT",
+      "item": "Care schedule & holidays",
+      "item2": "Agreements & documents",
+      "item3": "Talk it through with Co",
+      "item4": "Support settings",
+      "item5": "Safety & help"
     }
   }
 }

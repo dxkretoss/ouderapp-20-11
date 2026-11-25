@@ -17,10 +17,14 @@ export const gezagLabels = {
 };
 /**
  * Gezag per kind = children.custody + custody_meta op de server (manage-children). Altijd door ouders zelf
- * ingevuld en alleen informatie: het geeft of ontneemt nooit toegang. "Bevestigd" = de andere ouder heeft
- * bevestigd wat de één invulde (confirm-custody); elke wijziging vraagt opnieuw om bevestiging.
+ * ingevuld en alleen informatie: het geeft of ontneemt nooit toegang (dat staat apart per kind in
+ * "Gezag en toegang"). "Bevestigd" = de andere ouder heeft bevestigd wat de één invulde (confirm-custody);
+ * "Klopt niet" (dispute-custody) zet het op betwist; elke wijziging vraagt opnieuw om bevestiging.
+ * Per kind: `afwijkend` (er is een afwijkende regeling, ook zonder gekozen afwijkingen) staat op de server,
+ * `samen` zegt of er een andere ouder gekoppeld is (zonder andere ouder valt er niets te bevestigen),
+ * `herkomst` = reported | acknowledged | verified | disputed.
  */
-const leeg = { gezag: {}, bevestigd: {}, meta: {}, afwijkend: false, afwijkingen: {}, extraSteun: false, gebruikt: [], geladen: false, voor: null };
+const leeg = { gezag: {}, bevestigd: {}, meta: {}, afwijkend: {}, afwijkingen: {}, samen: {}, herkomst: {}, extraSteun: false, gebruikt: [], geladen: false, voor: null };
 let state = leeg;
 const listeners = new Set();
 export function setGezagState(patch) {
@@ -59,14 +63,18 @@ export function laadGezag() {
     if (bezig)
         return bezig;
     bezig = api("manage-children", "list").then((r) => {
-        const gezag = {}, bevestigd = {}, meta = {}, afwijkingen = {};
+        const gezag = {}, bevestigd = {}, meta = {}, afwijkingen = {}, afwijkend = {}, samen = {}, herkomst = {};
         for (const c of r.children ?? []) {
             gezag[c.id] = c.custody ? gezagSleutel(c.custody, c.custody_meta, a.gebruiker.id) : "onbekend";
             bevestigd[c.id] = !!c.custody_meta?.bevestigdDoorAnder;
             meta[c.id] = c.custody ? { ...(c.custody_meta ?? {}), doorMij: c.custody_meta?.ingevuldDoor === a.gebruiker.id } : null;
             afwijkingen[c.id] = Array.isArray(c.custody_meta?.afwijkingen) ? c.custody_meta.afwijkingen : [];
+            afwijkend[c.id] = afwijkingen[c.id].length > 0 || c.custody_meta?.afwijkend === true;
+            // Samen = er is een andere ouder die kan bevestigen (gekoppeld aan dit kind)
+            samen[c.id] = !!c.samen || (c.linked_parents ?? []).length > 0;
+            herkomst[c.id] = c.custody_record?.provenance ?? (c.custody ? (c.custody_meta?.bevestigdDoorAnder ? "acknowledged" : c.custody_meta?.betwist ? "disputed" : "reported") : null);
         }
-        setGezagState({ gezag, bevestigd, meta, afwijkingen, geladen: true, voor: a.gebruiker.id });
+        setGezagState({ gezag, bevestigd, meta, afwijkingen, afwijkend, samen, herkomst, geladen: true, voor: a.gebruiker.id });
     }).catch(meldFout).finally(() => { bezig = null; });
     return bezig;
 }
@@ -95,36 +103,62 @@ export function useGezagState() {
         return () => listeners.delete(l);
     }, () => state, () => state);
 }
-/** Gezag van één kind vastleggen (optimistisch). Afwijkingen blijven staan tenzij meegegeven. */
-export async function zetGezag(kindId, sleutel, afwijkingen) {
+/**
+ * Gezag van één kind vastleggen (optimistisch). Afwijkingen en de vlag "afwijkend" blijven staan tenzij
+ * meegegeven. Geeft true bij succes.
+ */
+export async function zetGezag(kindId, sleutel, afwijkingen, afwijkend) {
     const vorig = state;
+    const vlag = typeof afwijkend === "boolean" ? afwijkend : afwijkingen ? afwijkingen.length > 0 || !!state.afwijkend[kindId] : undefined;
     setGezagState({
         gezag: { ...state.gezag, [kindId]: sleutel },
         bevestigd: { ...state.bevestigd, [kindId]: false },
-        meta: { ...state.meta, [kindId]: { ...(state.meta[kindId] ?? {}), doorMij: true, bevestigdDoorAnder: false } },
+        herkomst: { ...state.herkomst, [kindId]: "reported" },
+        meta: { ...state.meta, [kindId]: { ...(state.meta[kindId] ?? {}), doorMij: true, bevestigdDoorAnder: false, betwist: false } },
         ...(afwijkingen ? { afwijkingen: { ...state.afwijkingen, [kindId]: afwijkingen } } : {}),
+        ...(typeof vlag === "boolean" ? { afwijkend: { ...state.afwijkend, [kindId]: vlag } } : {}),
     });
     try {
-        await api("manage-children", "save-custody", { child_id: kindId, ...naarServer(sleutel), ...(afwijkingen ? { deviations: afwijkingen } : {}) });
+        await api("manage-children", "save-custody", { child_id: kindId, ...naarServer(sleutel), ...(afwijkingen ? { deviations: afwijkingen } : {}), ...(typeof vlag === "boolean" ? { afwijkend: vlag } : {}) });
+        await laadGezag();
+        start.hydrateer();
+        return true;
+    }
+    catch (e) {
+        setGezagState({ gezag: vorig.gezag, bevestigd: vorig.bevestigd, meta: vorig.meta, afwijkingen: vorig.afwijkingen, afwijkend: vorig.afwijkend, herkomst: vorig.herkomst });
+        meldFout(e);
+        return false;
+    }
+}
+/** "Er is een afwijkende regeling" aan/uit (op de server per kind). Uit = ook de gekozen afwijkingen weg. */
+export function zetAfwijkend(kindId, aan) {
+    return zetGezag(kindId, state.gezag[kindId] ?? "onbekend", aan ? state.afwijkingen[kindId] ?? [] : [], aan);
+}
+/** De andere ouder: wat ingevuld is klopt niet (betwist). Geeft of ontneemt nog steeds geen toegang. */
+export async function betwistGezag(kindId) {
+    const vorig = state;
+    setGezagState({ bevestigd: { ...state.bevestigd, [kindId]: false }, herkomst: { ...state.herkomst, [kindId]: "disputed" } });
+    try {
+        await api("manage-children", "dispute-custody", { child_id: kindId });
         await laadGezag();
         start.hydrateer();
     }
     catch (e) {
-        setGezagState({ gezag: vorig.gezag, bevestigd: vorig.bevestigd, meta: vorig.meta, afwijkingen: vorig.afwijkingen });
+        setGezagState({ bevestigd: vorig.bevestigd, herkomst: vorig.herkomst });
         meldFout(e);
     }
 }
 /** De andere ouder bevestigt wat ingevuld is (nog steeds zelf opgegeven, alleen informatie). */
 export async function bevestigGezag(kindId) {
-    const vorig = state.bevestigd;
-    setGezagState({ bevestigd: { ...state.bevestigd, [kindId]: true } });
+    const vorig = state;
+    setGezagState({ bevestigd: { ...state.bevestigd, [kindId]: true }, herkomst: { ...state.herkomst, [kindId]: "acknowledged" } });
     try {
         await api("manage-children", "confirm-custody", { child_id: kindId });
         await laadGezag();
         start.hydrateer();
     }
     catch (e) {
-        setGezagState({ bevestigd: vorig });
+        setGezagState({ bevestigd: vorig.bevestigd, herkomst: vorig.herkomst });
         meldFout(e);
     }
 }

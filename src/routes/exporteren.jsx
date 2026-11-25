@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { meldFout } from "@/lib/feedback";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import i18n, { taalLocale } from "@/i18n";
@@ -20,9 +21,10 @@ import { iso, voorkomens } from "@/lib/agenda-datum";
 import { laadBerichten, laadGesprekken, useBerichten } from "@/lib/berichten-store";
 import { leg, soortLabel, useAudit } from "@/lib/audit-store";
 import { geschiedenisDatum, useAfspraken, useBesluiten } from "@/lib/afspraken-store";
-import { magAudit, magBron, magKind, proKijkers, vroegste } from "@/lib/export-rechten";
+import { magAudit, magBron, magKind, vroegste } from "@/lib/export-rechten";
 export const Route = createFileRoute("/exporteren")({
-    validateSearch: z.object({ pro: z.string().optional() }),
+    // Professionals (Milestone 3) zijn in deze fase verborgen: alleen de ouderweergave.
+    validateSearch: z.object({}),
     head: () => ({
         meta: [
             { title: i18n.t("routes.exporteren.meta.titel") },
@@ -77,7 +79,7 @@ function naam(id) {
     return startState().coOuders?.find((c) => c.id === id)?.name || i18n.t("common.deAndereOuder");
 }
 /** Kijker-relatieve code uit de agendabronnen ("sanne" = jij, "joris" = de andere ouder) → naam. */
-const ouderNaam = (code) => (code === "sanne" ? authState().gebruiker?.name || i18n.t("common.jij") : code === "joris" ? startState().coOuders?.[0]?.name || i18n.t("common.deAndereOuder") : "");
+const ouderNaam = (code) => (code === "sanne" ? authState().gebruiker?.name || i18n.t("common.jij") : code === "joris" ? ((startState().coOuders ?? []).length === 1 && startState().coOuders[0]?.name) || i18n.t("common.deAndereOuder") : "");
 const euro = (n) => (taalLocale() === "nl-NL" ? `€ ${n.toFixed(2).replace(".", ",")}` : `€${n.toFixed(2)}`);
 /** Auditacties (enum) → weergave. */
 const actieNl = {};
@@ -90,8 +92,8 @@ const besluitRegel = (type) => (type === "voorstel" ? i18n.t("routes.beslissinge
 const V = (k) => i18n.t(`routes.exporteren.veld.${k}`);
 function Exporteren() {
     const { t } = useTranslation();
-    const { pro } = Route.useSearch();
-    const kijker = (pro && proKijkers[pro]) || { type: "ouder", id: authState().gebruiker?.id };
+    const pro = undefined;
+    const kijker = { type: "ouder", id: authState().gebruiker?.id };
     const kosten = useKosten();
     const audit = useAudit();
     const onzeAfspraken = useAfspraken();
@@ -110,9 +112,12 @@ function Exporteren() {
     const kindIdsNaarNamen = (ids) => (ids?.length ? ids.map(naamVanKind).filter(Boolean) : kindNamen);
     const [stap, setStap] = useState("kies");
     const [periode, setPeriode] = useState("1j");
-    const [van, setVan] = useState("2026-01-01");
+    // Eigen periode: standaard het afgelopen jaar tot vandaag.
+    const [van, setVan] = useState(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().slice(0, 10); });
     const [tot, setTot] = useState(new Date().toISOString().slice(0, 10));
     const toegestaneKinderen = kindNamen.filter((k) => magKind(kijker, k));
+    // Zonder kinderen (nog geen kind toegevoegd): het hele gezin, zonder kindfilter.
+    const zonderKinderen = !kindNamen.length;
     const [kids, setKids] = useState(toegestaneKinderen);
     // Kinderen komen na het inloggen van de server.
     useEffect(() => { if (!kids.length && toegestaneKinderen.length)
@@ -151,7 +156,7 @@ function Exporteren() {
     /** Verzamelt uitsluitend feiten, gefilterd via de centrale rechtencheck. Geen interpretatie of oordeel. */
     const data = useMemo(() => {
         const [s, e] = bereik();
-        const ok = (i) => !Number.isNaN(i.wanneer.getTime()) && i.wanneer >= s && i.wanneer <= e && i.kinderen.some((k) => kids.includes(k) && magKind(kijker, k));
+        const ok = (i) => !Number.isNaN(i.wanneer.getTime()) && i.wanneer >= s && i.wanneer <= e && (zonderKinderen || !i.kinderen.length || i.kinderen.some((k) => kids.includes(k) && magKind(kijker, k)));
         const sorteer = (l) => l.filter(ok).sort((a, b) => a.wanneer.getTime() - b.wanneer.getTime());
         const evs = audit.filter((g) => magAudit(kijker, g.soort));
         const evKids = (g) => (g.kinderen.length ? [...g.kinderen] : kindNamen);
@@ -216,12 +221,24 @@ function Exporteren() {
             }))),
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [audit, onzeAfspraken, besluiten, documenten, kosten, agendaSt, zorg, vakanties, overdracht, berichten, kids, periode, van, tot, pro, st]);
+    }, [audit, onzeAfspraken, besluiten, documenten, kosten, agendaSt, zorg, vakanties, overdracht, berichten, kids, periode, van, tot, pro, st, zonderKinderen]);
     const [s, e] = bereik();
     const periodeTekst = `${d2(s)} – ${d2(e)}`;
-    const kidsTekst = kids.length === kindNamen.length ? kids.join(" & ") : kids.join(", ");
+    const kidsTekst = zonderKinderen ? t("routes.exporteren.heleGezin") : kids.length === kindNamen.length ? kids.join(" & ") : kids.join(", ");
     async function maak() {
         setBezig(true);
+        try {
+            await maakPdf();
+        }
+        catch (e) {
+            console.error("[exporteren]", e);
+            meldFout(t("routes.exporteren.maakFout"));
+        }
+        finally {
+            setBezig(false);
+        }
+    }
+    async function maakPdf() {
         const { jsPDF } = await import("jspdf");
         const exportId = `DX-${Date.now().toString(36).toUpperCase().slice(-6)}`;
         const nu = new Date();
@@ -290,7 +307,7 @@ function Exporteren() {
         // 3. Samenvatting (alleen feitelijke aantallen)
         let nr = 1;
         hoofdstuk(t("routes.exporteren.pdf.samenvatting"), nr++);
-        const regels = [[t("routes.exporteren.pdf.periode"), periodeTekst], [t("routes.exporteren.pdf.kinderen"), kids.join(", ")], ...gekozen.map((d) => [d.label, t("routes.exporteren.pdf.registraties", { count: data[d.id].length })])];
+        const regels = [[t("routes.exporteren.pdf.periode"), periodeTekst], [t("routes.exporteren.pdf.kinderen"), kidsTekst], ...gekozen.map((d) => [d.label, t("routes.exporteren.pdf.registraties", { count: data[d.id].length })])];
         regels.forEach(([l, w]) => { ruimte(8); doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(...inkt).text(l, M, y); doc.setFont("helvetica", "normal").setTextColor(...grijs).text(w, M + 75, y); y += 7; });
         y += 4;
         doc.setFontSize(9).text(doc.splitTextToSize(t("routes.exporteren.pdf.samenvattingUitleg"), B), M, y);
@@ -367,7 +384,6 @@ function Exporteren() {
         leg("dossier", exportId, t("routes.exporteren.dossierGegenereerd"), "EXPORTED", undefined, kijker.type === "ouder" ? naam(kijker.id) : kijker.naam, {
             kinderen: kids, meta: { periode: periodeTekst, onderdelen: gekozen.map((d) => d.label).join(", "), "export-ID": exportId },
         });
-        setBezig(false);
         setStap("gereed");
         setDeelCheck(false);
     }
@@ -416,6 +432,7 @@ function Exporteren() {
                   <input type="checkbox" checked={kids.length === toegestaneKinderen.length} onChange={() => setKids(kids.length === toegestaneKinderen.length ? [] : toegestaneKinderen)} className="size-4 accent-[var(--color-brand)]"/>{t("routes.exporteren.beideKinderen")}
                 </label>) : null}
             </div>
+            {zonderKinderen ? <p className="py-3 text-sm text-ink-soft">{t("routes.exporteren.geenKinderen")}</p> : null}
             <p className="mt-2 text-[11px] text-ink-soft">{t("routes.exporteren.kinderenUitleg")}</p>
           </section>
 
@@ -433,14 +450,15 @@ function Exporteren() {
             <p className="mt-2 text-[11px] text-ink-soft">{t("routes.exporteren.nooitPrive")}</p>
           </section>
 
-          <button onClick={() => setStap("overzicht")} disabled={!gekozen.length || !kids.length} className={`mt-8 ${primair}`}>{t("routes.exporteren.verder")}</button>
+          {periode === "eigen" && van > tot ? <p role="alert" className="mt-4 text-xs text-destructive">{t("routes.exporteren.periodeOngeldig")}</p> : null}
+          <button onClick={() => setStap("overzicht")} disabled={!gekozen.length || (!kids.length && !zonderKinderen) || (periode === "eigen" && (!van || !tot || van > tot))} className={`mt-8 ${primair}`}>{t("routes.exporteren.verder")}</button>
         </>) : null}
 
       {stap === "overzicht" ? (<section className="mt-8">
           <p className="font-display text-xl">{t("routes.exporteren.samenstellen")}</p>
           <dl className="mt-4 space-y-3 text-sm">
             <div><dt className={kop}>{t("routes.exporteren.pdf.periode")}</dt><dd className="mt-0.5">{periodeTekst}</dd></div>
-            <div><dt className={kop}>{t("routes.exporteren.pdf.kinderen")}</dt><dd className="mt-0.5">{kids.join(", ")}</dd></div>
+            <div><dt className={kop}>{t("routes.exporteren.pdf.kinderen")}</dt><dd className="mt-0.5">{kidsTekst}</dd></div>
           </dl>
           <p className={`mt-5 ${kop}`}>{t("routes.exporteren.opgenomen")}</p>
           <ul className="mt-1 divide-y divide-border border-y border-border">

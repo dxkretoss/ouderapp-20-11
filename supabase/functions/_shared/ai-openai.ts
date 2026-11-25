@@ -38,21 +38,25 @@ export async function requireAiUser(req: Request, feature: string): Promise<Sess
   const perMinute = intEnv("AI_RATE_PER_MINUTE", 20);
   const perDay = intEnv("AI_RATE_PER_DAY", 300);
   const now = Date.now();
-  const rows = check(
-    await db()
+  // Insert first, then count (own row included): parallel requests cannot all slip under the
+  // limit. A rejected request removes its own row again so it does not count.
+  const mine = check(
+    await db().from("ai_requests").insert({ user_id: user.id, feature: feature.slice(0, 40) }).select("id").single(),
+    "ai rate insert",
+  ) as { id: number } | null;
+  const countSince = async (ms: number) => {
+    const res = await db()
       .from("ai_requests")
-      .select("created_at")
+      .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .gte("created_at", new Date(now - 24 * 3600 * 1000).toISOString())
-      .order("created_at", { ascending: false })
-      .limit(perDay),
-    "ai rate window",
-  ) as Array<{ created_at: string }> | null;
-  const list = rows ?? [];
-  if (list.length >= perDay) throw rateLimited();
-  const lastMinute = list.filter((r) => new Date(r.created_at).getTime() > now - 60_000).length;
-  if (lastMinute >= perMinute) throw rateLimited();
-  check(await db().from("ai_requests").insert({ user_id: user.id, feature: feature.slice(0, 40) }), "ai rate insert");
+      .gte("created_at", new Date(now - ms).toISOString());
+    if (res.error) throw new HttpError(500, "SERVER", "AI rate check failed");
+    return res.count ?? 0;
+  };
+  if ((await countSince(60_000)) > perMinute || (await countSince(24 * 3600 * 1000)) > perDay) {
+    if (mine?.id) await db().from("ai_requests").delete().eq("id", mine.id);
+    throw rateLimited();
+  }
   if (Math.random() < 0.02) {
     const { error } = await db()
       .from("ai_requests")

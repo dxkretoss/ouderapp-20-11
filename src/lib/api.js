@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabase";
  */
 export const TOKEN_SLEUTEL = "onzeapp-sessie-token";
 /** Codes waarvoor een vertaling bestaat; al het andere toont de algemene fout. */
-export const FOUT_CODES = ["VALIDATION", "WEAK_PASSWORD", "EMAIL_TAKEN", "INVALID_CREDENTIALS", "NOT_VERIFIED", "CODE_INVALID", "CODE_EXPIRED", "TOO_MANY_ATTEMPTS", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "INVITE_EXPIRED", "INVITE_USED", "INVITE_CANCELLED", "INVITE_DECLINED", "INVITE_OWN", "INVITE_EMAIL_MISMATCH", "CHILD_LIMIT", "RATE_LIMITED", "SERVER", "NETWORK", "NOT_CONFIGURED", "GONE"];
+export const FOUT_CODES = ["VALIDATION", "WEAK_PASSWORD", "EMAIL_TAKEN", "INVALID_CREDENTIALS", "NOT_VERIFIED", "CODE_INVALID", "CODE_EXPIRED", "TOO_MANY_ATTEMPTS", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "INVITE_EXPIRED", "INVITE_USED", "INVITE_CANCELLED", "INVITE_DECLINED", "INVITE_OWN", "INVITE_EMAIL_MISMATCH", "CHILD_LIMIT", "MIXED_CHILDREN", "NOT_OPEN", "RATE_LIMITED", "SERVER", "NETWORK", "NOT_CONFIGURED", "GONE"];
 export class ApiFout extends Error {
     constructor(code, bericht, status) {
         super(bericht || code);
@@ -22,7 +22,7 @@ export class ApiFout extends Error {
 /** Vertaalde, rustige foutmelding bij een code (of een ApiFout). */
 export function foutTekst(fout) {
     const code = typeof fout === "string" ? fout : fout?.code;
-    return i18n.t(`lib.api.fout.${FOUT_CODES.includes(code) ? code : "SERVER"}`);
+    return i18n.t(`lib.api.fout.${FOUT_CODES.includes(code) ? code : "SERVER"}`, { minimum: 8 });
 }
 export function leesToken() {
     try {

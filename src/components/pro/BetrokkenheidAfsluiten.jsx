@@ -50,7 +50,7 @@ export function BetrokkenheidAfsluiten({ professional, gezin, doelen, onSluit, o
     };
     return <Sheet open onOpenChange={(open) => { if (!open)
         onSluit(); }}>
-    <SheetContent side="bottom" className="pro-cockpit left-1/2 max-h-[90vh] w-full max-w-xl -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background p-5">
+    <SheetContent side="bottom" className="pro-cockpit left-1/2 max-h-[90dvh] w-full max-w-xl -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background p-5">
       <SheetHeader className="pr-8 text-left"><SheetTitle className="font-display text-xl">{t("pro.BetrokkenheidAfsluiten.titel")}</SheetTitle><SheetDescription>{gezin} · {professional.naam}</SheetDescription></SheetHeader>
       <p className="mt-3 text-xs text-ink-soft">{t("pro.BetrokkenheidAfsluiten.intern")}</p>
       {samenvatting === null ? <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); if (kan)

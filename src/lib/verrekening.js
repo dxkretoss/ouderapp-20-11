@@ -106,3 +106,43 @@ export function afrekenWeergave(modus, vandaagIso) {
     }
     return "direct";
 }
+/** Begin- en einddatum (JJJJ-MM-DD, inclusief) van een periodekeuze: "maand" | "vorigeMaand" | "jaar" | "alles". */
+export function periodeGrenzen(periode, vandaagIso) {
+    const d = new Date(`${vandaagIso}T12:00:00`);
+    const iso = (x) => x.toLocaleDateString("sv-SE");
+    if (periode === "maand")
+        return { van: iso(new Date(d.getFullYear(), d.getMonth(), 1)), tot: iso(new Date(d.getFullYear(), d.getMonth() + 1, 0)) };
+    if (periode === "vorigeMaand")
+        return { van: iso(new Date(d.getFullYear(), d.getMonth() - 1, 1)), tot: iso(new Date(d.getFullYear(), d.getMonth(), 0)) };
+    if (periode === "jaar")
+        return { van: `${d.getFullYear()}-01-01`, tot: `${d.getFullYear()}-12-31` };
+    return { van: null, tot: null };
+}
+/**
+ * Totalen van gedeelde uitgaven in een periode (vanuit de kijker): totaal, wat ieder voorschoot, ieders
+ * afgesproken deel, wat nog openstaat (netto saldo van niet-afgerekende posten) en afgeronde afrekeningen.
+ * Alleen afgesproken posten tellen (bevestigd, afgerekend, of volledig binnen een afgesproken budget);
+ * posten die nog op een reactie wachten staan apart. Privé, kindrekening, ingetrokken en betwist tellen niet.
+ */
+export function periodeTotalen(kosten, historie, budgetten, { van, tot }) {
+    const binnen = (d) => !!d && (!van || d >= van) && (!tot || d <= tot);
+    const beoordeling = beoordeelKosten(kosten, budgetten);
+    const gedeeld = kosten.filter((k) => k.gedeeld && k.bron !== "kindrekening" && binnen(k.datum));
+    const telt = gedeeld.filter((k) => k.status === "bevestigd" || k.status === "openstaand" || k.status === "verrekend" || k.status === "betaald" || (k.status === "wacht" && beoordeling.get(k.id)?.soort === "gedekt"));
+    const som = (lijst, f) => r2(lijst.reduce((n, k) => n + f(k), 0));
+    const open = telt.filter((k) => k.status !== "verrekend" && k.status !== "betaald");
+    const saldo = berekenSaldo(open, budgetten);
+    const klaar = (historie ?? []).filter((v) => (v.status === "afgerond" || v.status === "ontvangst-bevestigd") && binnen((v.afgerondOp ?? v.gemaakt ?? "").slice(0, 10)));
+    const afTeStemmen = gedeeld.filter((k) => k.status === "wacht" && beoordeling.get(k.id)?.soort !== "gedekt");
+    return {
+        aantal: telt.length,
+        totaal: som(telt, (k) => k.bedrag),
+        betaaldIk: som(telt.filter((k) => k.betaaldDoor === "ik"), (k) => k.bedrag),
+        betaaldAnder: som(telt.filter((k) => k.betaaldDoor !== "ik"), (k) => k.bedrag),
+        deelIk: som(telt, (k) => k.aandeelIk),
+        deelAnder: som(telt, (k) => k.bedrag - k.aandeelIk),
+        netto: saldo.netto,
+        afgerekend: { aantal: klaar.length, bedrag: som(klaar, (v) => v.bedrag) },
+        afTeStemmen: { aantal: afTeStemmen.length, bedrag: som(afTeStemmen, (k) => k.bedrag) },
+    };
+}

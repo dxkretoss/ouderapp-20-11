@@ -4,7 +4,7 @@ import { api, bijOnbevoegd, leesToken, zetToken } from "@/lib/api";
  * Account en sessie (custom auth via edge function `custom-auth`).
  * - token: localStorage["onzeapp-sessie-token"] (alleen het token; nooit wachtwoord of code)
  * - status: "laden" (token wordt gecontroleerd) | "uit" | "onboarding" (wel sessie, welkomstappen nog niet af) | "aan"
- * - gebruiker: { id, email, name, avatar, usage_mode, is_verified, onboarding_completed, preferences, role }
+ * - gebruiker: { id, email, name, avatar, usage_mode, is_verified, onboarding_completed, needs_password_reset, preferences, role }
  * Gezinsgegevens staan in start-store; die hydrateert zodra de status "onboarding" of "aan" wordt.
  */
 const GEBRUIKER_SLEUTEL = "onzeapp-gebruiker";
@@ -22,7 +22,7 @@ function bewaarGebruiker(g) {
     // Alleen voor snel en offline opstarten; de server blijft de bron (me bij elke start).
     try {
         if (g)
-            localStorage.setItem(GEBRUIKER_SLEUTEL, JSON.stringify({ id: g.id, email: g.email, name: g.name, avatar: g.avatar?.startsWith("avatar:") ? g.avatar : null, usage_mode: g.usage_mode, onboarding_completed: g.onboarding_completed, preferences: g.preferences ?? {} }));
+            localStorage.setItem(GEBRUIKER_SLEUTEL, JSON.stringify({ id: g.id, email: g.email, name: g.name, avatar: g.avatar?.startsWith("avatar:") ? g.avatar : null, usage_mode: g.usage_mode, onboarding_completed: g.onboarding_completed, needs_password_reset: g.needs_password_reset === true, preferences: g.preferences ?? {} }));
         else
             localStorage.removeItem(GEBRUIKER_SLEUTEL);
     }
@@ -93,16 +93,47 @@ export function wisGezinsCache() {
     }
     catch { /* geen opslag */ }
 }
+/**
+ * Wachtwoord dat bij registreren (of inloggen op een nog niet bevestigd account) is getypt.
+ * Alleen in het geheugen, nooit opgeslagen: verify-email zet precies dit wachtwoord, zodat wie
+ * de mailbox bewijst ook het wachtwoord kiest.
+ */
+let wachtwoordInAfwachting = null;
 export const auth = {
-    register: (email, password, name) => api("custom-auth", "register", { email: email.trim().toLowerCase(), password, name: name.trim() }),
+    register: async (email, password, name) => {
+        const r = await api("custom-auth", "register", { email: email.trim().toLowerCase(), password, name: name.trim() });
+        wachtwoordInAfwachting = { email: email.trim().toLowerCase(), password };
+        return r;
+    },
     verifyEmail: async (email, code) => {
-        const r = await api("custom-auth", "verify-email", { email: email.trim().toLowerCase(), code });
-        zetSessie(r.session_token, r.user);
-        return r.user;
+        const e = email.trim().toLowerCase();
+        const password = wachtwoordInAfwachting?.email === e ? wachtwoordInAfwachting.password : undefined;
+        const r = await api("custom-auth", "verify-email", { email: e, code, password });
+        wachtwoordInAfwachting = null;
+        // Zonder wachtwoord (bv. bevestigd in een andere browser) is het oude wachtwoord onbruikbaar gemaakt:
+        // de gebruiker moet nu eerst een wachtwoord kiezen (setPassword).
+        const g = { ...r.user, needs_password_reset: r.needs_password_reset === true || r.user?.needs_password_reset === true };
+        zetSessie(r.session_token, g);
+        return g;
+    },
+    /** Eenmalig wachtwoord kiezen na verify-email met needs_password_reset (sessie vereist). */
+    setPassword: async (password) => {
+        await api("custom-auth", "set-password", { password });
+        const g = { ...state.gebruiker, needs_password_reset: false };
+        zetGebruiker(g);
+        return g;
     },
     resendCode: (email, purpose = "verify") => api("custom-auth", "resend-code", { email: email.trim().toLowerCase(), purpose }),
     login: async (email, password) => {
-        const r = await api("custom-auth", "login", { email: email.trim().toLowerCase(), password });
+        let r;
+        try {
+            r = await api("custom-auth", "login", { email: email.trim().toLowerCase(), password });
+        }
+        catch (e) {
+            if (e?.code === "NOT_VERIFIED")
+                wachtwoordInAfwachting = { email: email.trim().toLowerCase(), password };
+            throw e;
+        }
         zetSessie(r.session_token, r.user);
         return r.user;
     },
@@ -178,6 +209,26 @@ export function leesUitnodiging() {
     }
     catch {
         return null;
+    }
+}
+/**
+ * Het e-mailadres waar de bewaarde uitnodiging naartoe is gestuurd (andere ouder of kring), of null.
+ * Registreren vult dit vast in: de uitnodiging hoort bij dat adres (anders lukt accepteren niet).
+ */
+export async function uitnodigingEmail() {
+    const token = leesUitnodiging();
+    if (!token)
+        return null;
+    try {
+        const kring = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+        const r = kring
+            ? await api("manage-caregivers", "get-by-token", { token }, { stil: true })
+            : await api("accept-invitation", "inspect", { token }, { stil: true });
+        const adres = kring ? r?.invitation?.email : r?.invitation?.to_email;
+        return typeof adres === "string" && adres.includes("@") ? adres : null;
+    }
+    catch {
+        return null; // uitnodiging verlopen/ongeldig: gewoon vrij registreren
     }
 }
 export function wisUitnodiging() {

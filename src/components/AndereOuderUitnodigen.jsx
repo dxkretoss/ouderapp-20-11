@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Copy, Loader2, Mail, UserCheck } from "lucide-react";
+import { Copy, Loader2, Mail, Send, UserCheck } from "lucide-react";
 import { taalLocale } from "@/i18n";
 import { start, useStart } from "@/lib/start-store";
 import { foutTekst } from "@/lib/api";
-import { bevestig } from "@/lib/feedback";
+import { bevestig, meldFout } from "@/lib/feedback";
 import { ProfielBeeld } from "@/components/ProfielBeeld";
 import { Vinkje } from "@/components/Tekens";
 const N = "components.AndereOuderUitnodigen.";
@@ -31,6 +31,35 @@ export function AndereOuderUitnodigen({ zonderGekoppeld = false } = {}) {
     const kinderen = st.kinderen.filter((k) => !String(k.id).startsWith("tmp-") && k.kanBewerken !== false);
     const gekozen = kindIds ?? kinderen.map((k) => k.id);
     const openUitnodigingen = st.uitnodigingen.filter((u) => OPEN.includes(u.status) && new Date(u.expires_at) > new Date());
+    // Afgewezen of verlopen (laatste 60 dagen) blijven zichtbaar, zodat je weet wat er gebeurde en
+    // opnieuw kunt uitnodigen. Niet als er voor hetzelfde adres al een nieuwe uitnodiging open staat.
+    const sinds = Date.now() - 60 * 864e5;
+    const openAdressen = new Set(openUitnodigingen.map((u) => u.to_email));
+    const geslotenUitnodigingen = st.uitnodigingen.filter((u) => {
+        const afgewezen = u.status === "declined" || u.status === "rejected";
+        const verlopen = u.status === "expired" || (OPEN.includes(u.status) && new Date(u.expires_at) <= new Date());
+        return (afgewezen || verlopen) && !openAdressen.has(u.to_email) && new Date(u.created_at ?? u.expires_at).getTime() > sinds;
+    }).filter((u, i, l) => l.findIndex((x) => x.to_email === u.to_email) === i);
+    const [opnieuwUitnodigenBezig, setOpnieuwUitnodigenBezig] = useState(null);
+    const opnieuwUitnodigen = async (u) => {
+        if (opnieuwUitnodigenBezig)
+            return;
+        setOpnieuwUitnodigenBezig(u.id);
+        try {
+            const kids = (u.child_ids ?? []).filter((id) => kinderen.some((k) => k.id === id));
+            const r = await start.uitnodigen(u.to_email, kids.length ? kids : kinderen.map((k) => k.id));
+            if (r.email_sent === false)
+                meldFout(t(N + "mailMislukt"));
+            else
+                bevestig(t(N + "verstuurdKort"));
+        }
+        catch (e) {
+            meldFout(foutTekst(e));
+        }
+        finally {
+            setOpnieuwUitnodigenBezig(null);
+        }
+    };
     const geldig = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
     const naam = (id) => st.kinderen.find((k) => k.id === id)?.naam;
     const namen = (ids) => ids.map(naam).filter(Boolean).join(", ");
@@ -42,8 +71,11 @@ export function AndereOuderUitnodigen({ zonderGekoppeld = false } = {}) {
         setFout(null);
         try {
             const r = await start.uitnodigen(email, gekozen);
-            setVerstuurd({ email: r.invitation.to_email, link: r.invite_link });
-            bevestig(t(N + "verstuurdKort"));
+            setVerstuurd({ email: r.invitation.to_email, link: r.invite_link, mislukt: r.email_sent === false });
+            if (r.email_sent === false)
+                meldFout(t(N + "mailMislukt"));
+            else
+                bevestig(t(N + "verstuurdKort"));
             setEmail("");
             setOpen(false);
         }
@@ -51,6 +83,26 @@ export function AndereOuderUitnodigen({ zonderGekoppeld = false } = {}) {
             setFout(e.code ?? "SERVER");
         }
         setBezig(false);
+    };
+    // Opnieuw versturen (bijv. als de e-mail niet aankwam of niet verstuurd kon worden).
+    const [opnieuwBezig, setOpnieuwBezig] = useState(null);
+    const opnieuw = async (u) => {
+        if (opnieuwBezig)
+            return;
+        setOpnieuwBezig(u.id);
+        try {
+            const r = await start.opnieuwUitnodigen(u.id);
+            if (r.email_sent === false)
+                meldFout(t(N + "mailMislukt"));
+            else
+                bevestig(t(N + "opnieuwVerstuurd"));
+        }
+        catch (e) {
+            meldFout(foutTekst(e));
+        }
+        finally {
+            setOpnieuwBezig(null);
+        }
     };
     const kopieer = async (link) => {
         try {
@@ -69,22 +121,58 @@ export function AndereOuderUitnodigen({ zonderGekoppeld = false } = {}) {
           </div>
         </div>))}
 
+      {geslotenUitnodigingen.length ? (<div>
+          <p className="text-xs font-semibold text-ink-soft">{t(N + "geslotenKop")}</p>
+          <ul className="mt-1 divide-y divide-border border-y border-border">
+            {geslotenUitnodigingen.map((u) => {
+                const afgewezen = u.status === "declined" || u.status === "rejected";
+                return (<li key={u.id} className="py-3">
+                <div className="flex items-start gap-3">
+                  <Mail className="mt-0.5 size-4 shrink-0 text-ink-soft" strokeWidth={1.6} aria-hidden="true"/>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{u.to_email}</p>
+                    <p className={`mt-1 text-xs font-semibold leading-snug ${afgewezen ? "text-destructive" : "text-ink-soft"}`}>{afgewezen ? t(N + "afgewezen") : t(N + "verlopen")}{u.child_ids?.length ? ` · ${namen(u.child_ids)}` : ""}</p>
+                  </div>
+                </div>
+                {kinderen.length ? (<div className="mt-3">
+                    <button type="button" onClick={() => opnieuwUitnodigen(u)} disabled={opnieuwUitnodigenBezig === u.id} className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-full border border-brand/40 bg-brand-soft px-3 text-xs font-semibold text-brand disabled:opacity-60">
+                      {opnieuwUitnodigenBezig === u.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true"/> : <Send className="size-3.5" strokeWidth={1.8} aria-hidden="true"/>}
+                      {opnieuwUitnodigenBezig === u.id ? t(N + "opnieuwBezig") : t(N + "opnieuwUitnodigen")}
+                    </button>
+                  </div>) : null}
+              </li>);
+            })}
+          </ul>
+        </div>) : null}
+
       {openUitnodigingen.length ? (<div>
           <p className="text-xs font-semibold text-ink-soft">{t(N + "openKop")}</p>
           <ul className="mt-1 divide-y divide-border border-y border-border">
-            {openUitnodigingen.map((u) => (<li key={u.id} className="flex items-center gap-3 py-2.5">
-                <Mail className="size-4 shrink-0 text-brand" strokeWidth={1.6} aria-hidden="true"/>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{u.to_email}</p>
-                  <p className="text-xs text-ink-soft">{t(N + "wacht", { datum: datum(u.expires_at) })}{u.child_ids?.length ? ` · ${namen(u.child_ids)}` : ""}</p>
+            {openUitnodigingen.map((u) => (<li key={u.id} className="py-3">
+                <div className="flex items-start gap-3">
+                  <Mail className="mt-0.5 size-4 shrink-0 text-brand" strokeWidth={1.6} aria-hidden="true"/>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{u.to_email}</p>
+                    {u.email_status === "failed"
+                    ? <p className="mt-1 text-xs font-semibold leading-snug text-destructive">{t(N + "nietVerstuurd")}{u.child_ids?.length ? ` · ${namen(u.child_ids)}` : ""}</p>
+                    : <p className="mt-1 text-xs leading-snug text-ink-soft">{t(N + "wacht", { datum: datum(u.expires_at) })}{u.child_ids?.length ? ` · ${namen(u.child_ids)}` : ""}</p>}
+                  </div>
                 </div>
-                <button type="button" onClick={() => start.annuleerUitnodiging(u.id)} className="min-h-11 shrink-0 text-xs font-semibold text-ink-soft">{t(N + "intrekken")}</button>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => opnieuw(u)} disabled={opnieuwBezig === u.id} className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-full border border-brand/40 bg-brand-soft px-3 text-xs font-semibold text-brand disabled:opacity-60">
+                    {opnieuwBezig === u.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true"/> : <Send className="size-3.5" strokeWidth={1.8} aria-hidden="true"/>}
+                    {opnieuwBezig === u.id ? t(N + "opnieuwBezig") : t(N + "opnieuw")}
+                  </button>
+                  <button type="button" onClick={() => start.annuleerUitnodiging(u.id)} disabled={opnieuwBezig === u.id} className="inline-flex min-h-10 w-full items-center justify-center rounded-full border border-border bg-card px-3 text-xs font-semibold text-ink-soft disabled:opacity-60">{t(N + "intrekken")}</button>
+                </div>
               </li>))}
           </ul>
         </div>) : null}
 
       {verstuurd ? (<div role="status" className="rounded-md bg-card px-3 py-2.5 text-xs">
-          <p className="flex items-start gap-1 text-brand"><Vinkje className="mt-px size-3.5 shrink-0"/><span>{t(N + "verstuurd", { email: verstuurd.email })}</span></p>
+          {verstuurd.mislukt
+                ? <p className="text-destructive">{t(N + "mailMisluktLink", { email: verstuurd.email })}</p>
+                : <p className="flex items-start gap-1 text-brand"><Vinkje className="mt-px size-3.5 shrink-0"/><span>{t(N + "verstuurd", { email: verstuurd.email })}</span></p>}
           {verstuurd.link ? <button type="button" onClick={() => kopieer(verstuurd.link)} className="mt-1 flex min-h-10 items-center gap-2 font-semibold text-brand"><Copy className="size-4" strokeWidth={1.6} aria-hidden="true"/>{gekopieerd ? t(N + "gekopieerd") : t(N + "kopieer")}</button> : null}
         </div>) : null}
 

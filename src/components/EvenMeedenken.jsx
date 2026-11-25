@@ -13,11 +13,14 @@ import { useAfspraken } from "@/lib/afspraken-store";
 import { useVakanties } from "@/lib/vakantie-store";
 import { bouwVerhaalContext, zorgSignaal } from "@/lib/verhaal";
 import { conceptBruikbaar, meedenkKeuzes, overnameKeuze, voorbeeldContext } from "@/lib/meedenken";
+import { useVoorkeuren, zetVoorkeur } from "@/lib/voorkeuren-store";
 /** De keuzes blijven Nederlandse ids (logica); alleen het label wordt vertaald. */
 const keuzeSleutel = { "Even ventileren": "ventileren", "Gesprek begrijpen": "begrijpen", "Reactie opstellen": "reactie", "Wat is afgesproken?": "afgesproken" };
 /**
  * Even sparren met Co vanuit een gesprek. Met toestemming gaan hooguit zes recente berichten van dít gesprek mee
  * (nooit het schrijfvak); de server voegt alleen de minimale GEZIN-regel toe. Co verstuurt nooit iets zelf.
+ * De keuze (wel/geen berichten meenemen) is een voorkeur van je account (`meedenkenToestemming`); "Wijzigen" vraagt opnieuw.
+ * Het gesprek met Co hier wordt niet bewaard.
  */
 export function EvenMeedenken({ gesprekId, berichten = [], huidigConcept, onOvernemen, alsKnop = false }) {
     const eigen = false;
@@ -29,7 +32,9 @@ export function EvenMeedenken({ gesprekId, berichten = [], huidigConcept, onOver
     const vakanties = useVakanties();
     const [open, setOpen] = useState(false);
     const [keuze, setKeuze] = useState(null);
-    const [toestemming, setToestemming] = useState(null);
+    const vk = useVoorkeuren();
+    const toestemming = vk.meedenkenToestemming === true || vk.meedenkenToestemming === false ? vk.meedenkenToestemming : null;
+    const setToestemming = (v) => zetVoorkeur("meedenkenToestemming", v === true || v === false ? v : null);
     const [gegevens, setGegevens] = useState(false);
     const [invoer, setInvoer] = useState("");
     const [sessie, setSessie] = useState([]);
@@ -51,7 +56,6 @@ export function EvenMeedenken({ gesprekId, berichten = [], huidigConcept, onOver
         setSessie([]);
         setConcept("");
         setInvoer("");
-        setToestemming(null);
         setGegevens(false);
         setKeuze(null);
         setFout("");

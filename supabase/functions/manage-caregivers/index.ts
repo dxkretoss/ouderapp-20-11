@@ -5,7 +5,7 @@
 import { db } from "../_shared/db.ts";
 import { check, err, HttpError, ok, serveActions } from "../_shared/respond.ts";
 import { requireUser } from "../_shared/session.ts";
-import { assertChildAccess, childIdsFor } from "../_shared/access.ts";
+import { assertChildAccess, childIdsFor, coParentIdsFor } from "../_shared/access.ts";
 import { resolveAvatars, removeStored, uploadImage } from "../_shared/storage.ts";
 import { sendEmail } from "../_shared/mail.ts";
 import { appOrigin } from "../_shared/origin.ts";
@@ -42,7 +42,8 @@ async function audit(actorId: string | null, entityId: string, action: string, d
     entity_type: "caregiver",
     entity_id: entityId,
     action,
-    details,
+    // log-audit reads the children from details.kinderen: without it the event is family-wide
+    details: Array.isArray(details.child_ids) && !Array.isArray(details.kinderen) ? { ...details, kinderen: details.child_ids } : details,
   });
   if (error) console.warn("[manage-caregivers] audit insert failed:", error);
 }
@@ -85,7 +86,29 @@ async function assertMemberAccess(userId: string, row: Row): Promise<string[]> {
   return visible;
 }
 
-/** API shape of a member for a parent. Only children the caller can access; token only while invited. */
+/**
+ * May the caller change the member as a whole (contact details, period, invitation, e-mail)? Only with edit
+ * access to EVERY child on the row: the person may carry the other parent's grants for a child the caller
+ * does not share, so redirecting the invitation (another e-mail) must not be possible for one parent alone.
+ */
+async function canEditWhole(userId: string, row: Row): Promise<boolean> {
+  const kids = (row.child_ids ?? []) as string[];
+  if (!kids.length) return row.created_by === userId;
+  for (const c of kids) {
+    try {
+      await assertChildAccess(userId, c, { edit: true });
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+async function assertEditWhole(userId: string, row: Row): Promise<void> {
+  if (!(await canEditWhole(userId, row))) throw err.forbidden("Only a parent of every child of this person can change this");
+}
+
+/** API shape of a member for a parent. Only children the caller can access; token only for its creator while invited. */
 async function toMembers(userId: string, rows: Row[]): Promise<Row[]> {
   if (!rows.length) return [];
   const mine = new Set(await childIdsFor(userId));
@@ -118,7 +141,7 @@ async function toMembers(userId: string, rows: Row[]): Promise<Row[]> {
       created_by: r.created_by,
       added_by_me: r.created_by === userId,
       added_by_name: creators.find((c) => c.id === r.created_by)?.name ?? null,
-      invite_token: status === "invited" ? r.invite_token : null,
+      invite_token: status === "invited" && r.created_by === userId ? r.invite_token : null,
       invited_at: r.invited_at ?? null,
       accepted_at: r.accepted_at ?? null,
       created_at: r.created_at,
@@ -355,7 +378,12 @@ Deno.serve(serveActions("manage-caregivers", {
     await assertMemberAccess(me.id, row);
     if (statusOf(row) === "revoked") throw err.validation("Access was withdrawn; add the person again");
     const mine = new Set(await childIdsFor(me.id));
-    const patch: Row = { ...contactFields(body, true), updated_by: me.id };
+    const contact = contactFields(body, true);
+    const patch: Row = { ...contact, updated_by: me.id };
+    // Contact details, photo, period and the invitation belong to the whole member: see canEditWhole.
+    const wholeChange = Object.keys(contact).length > 0 || body.image_base64 || body.photo === null ||
+      body.valid_from !== undefined || body.valid_to !== undefined || body.invite === true;
+    if (wholeChange) await assertEditWhole(me.id, row);
 
     let childIds: string[] = row.child_ids ?? [];
     if (body.child_ids !== undefined) {
@@ -432,6 +460,13 @@ Deno.serve(serveActions("manage-caregivers", {
         }).eq("id", id),
         "revoke caregiver",
       );
+      // open pick-ups and help requests of this person end with the access
+      const now = new Date().toISOString();
+      check(
+        await db().from("pickup_assignments").update({ status: "withdrawn", withdrawn_by: me.id, withdrawn_at: now, updated_at: now }).eq("caregiver_id", id).in("status", ["requested", "accepted"]),
+        "withdraw pick-ups",
+      );
+      check(await db().from("help_request_recipients").update({ status: "closed" }).eq("caregiver_id", id).eq("status", "requested"), "close help requests");
       await audit(me.id, id, "REVOKED", { child_ids: row.child_ids ?? [] });
     }
     return ok({ member: await toMember(me.id, id) });
@@ -456,6 +491,7 @@ Deno.serve(serveActions("manage-caregivers", {
     await assertMemberAccess(me.id, row);
     if (statusOf(row) !== "invited") throw err.validation("Only an open invitation can be e-mailed");
     if (!row.email) throw err.validation("No e-mail address");
+    await assertEditWhole(me.id, row);
     return ok({ email_sent: await mailInvite(me, row, body.redirect_origin, isEn) });
   },
 
@@ -474,7 +510,26 @@ Deno.serve(serveActions("manage-caregivers", {
     const rows = await liveCaregiverRows(me.id);
     const views: Row[] = [];
     for (const r of rows) views.push(await buildView(r));
-    return ok({ views });
+    const [kids, coParents] = await Promise.all([childIdsFor(me.id), coParentIdsFor(me.id)]);
+    const only = !kids.length && !coParents.length && rows.length > 0;
+    return ok({ views, role: only ? "caregiver" : "parent", is_caregiver_only: only });
+  },
+
+  /**
+   * Which app this account should see. "caregiver" = only circle access: no own children, no co-parent
+   * links, and at least one accepted circle record (also when its period has ended or it was withdrawn
+   * later, so the account never falls back into an empty parent app). Otherwise "parent".
+   */
+  async role(req) {
+    const me = await requireUser(req);
+    const [kids, coParents] = await Promise.all([childIdsFor(me.id), coParentIdsFor(me.id)]);
+    if (kids.length || coParents.length) return ok({ role: "parent", is_caregiver_only: false });
+    const rows = (check(
+      await db().from("family_caregivers").select("id").eq("connected_user_id", me.id).in("status", ["active", "revoked"]).limit(1),
+      "caregiver role",
+    ) ?? []) as Row[];
+    const only = rows.length > 0;
+    return ok({ role: only ? "caregiver" : "parent", is_caregiver_only: only });
   },
 
   /** Public: what the invitation is about — names only, no contact or health details. */
@@ -489,6 +544,8 @@ Deno.serve(serveActions("manage-caregivers", {
       invitation: {
         name: row.name,
         role: row.role,
+        // The address this invitation was sent to (only while it is open): pre-filled at registration.
+        email: row.email ? String(row.email).trim().toLowerCase() : null,
         from_parent: { name: sender?.name ?? "" },
         children: (row.child_ids ?? []).filter((c: string) => names.has(c)).map((c: string) => ({ id: c, name: names.get(c) })),
         permissions: perms,

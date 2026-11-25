@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell, Card, PageHeader } from "@/components/AppShell";
 import { AppIcon } from "@/components/AppIcon";
 import { Chevron, MetChevron, MetVinkje, Vinkje } from "@/components/Tekens";
 import { IkBenLater } from "@/components/IkBenLater";
 import { useWisselMomenten, volgendeVan } from "@/lib/overdracht-store";
-import { useGezin } from "@/lib/gezin";
-import { useGesprekken, voegCheckInToe, zetModule, zetOnderweg } from "@/lib/gesprekken-store";
+import { meldCheckIn, mijnCheckIn, onderwegVoor, useKring, useOphalen } from "@/lib/kring-store";
+import { uur } from "@/lib/tijd-tekst";
 import { markeerGebruikt } from "@/lib/gezag-store";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
@@ -23,9 +23,15 @@ export const Route = createFileRoute("/halen-brengen")({
     }),
     component: HalenBrengen,
 });
-const nu = () => new Date().toTimeString().slice(0, 5);
 const UUR = 3600_000;
-/** Fase t.o.v. het echte overdrachtsmoment; acties tonen we alleen als je er nu iets mee kunt. */
+const UITLEG = "halen-brengen-uitleg-gezien";
+/** Alleen een weergavevoorkeur op dit apparaat: de uitleg over aankomst bevestigen is gelezen. */
+const leesUitleg = () => { try {
+    return localStorage.getItem(UITLEG) === "1";
+}
+catch {
+    return false;
+} };
 function faseVan(datum, tijd, nuMs) {
     const t = new Date(`${datum}T${tijd}:00`).getTime();
     if (!Number.isFinite(t))
@@ -40,25 +46,37 @@ function faseVan(datum, tijd, nuMs) {
 }
 function HalenBrengen() {
     const { t } = useTranslation();
-    const s = useGesprekken();
-    const { ik } = useGezin();
-    const mijnNaam = ik?.naam || t("common.jij");
+    useKring();
+    const s = useOphalen();
     // Dezelfde overdracht als op Home en Overdracht: het eerstvolgende wisselmoment uit de eigen zorgverdeling.
     const { moment: m } = volgendeVan(useWisselMomenten(21));
-    const bevestigd = m ? s.checkins.find((c) => c.momentId === m.id && c.wie === mijnNaam) : undefined;
-    // Voorbeeld: bekijk hoe het er op de overdrachtsdag uitziet, zonder iets aan de planning te veranderen.
-    const [demoMinuten, setDemoMinuten] = useState(null);
-    const overdrachtMs = m ? new Date(`${m.datum}T${m.tijd}:00`).getTime() : 0;
-    const nuMs = demoMinuten === null ? Date.now() : overdrachtMs - demoMinuten * 60_000;
-    const fase = m && m.datum ? faseVan(m.datum, m.tijd, nuMs) : "later";
+    // De fase hangt af van de klok: elke halve minuut opnieuw bekijken.
+    const [nuMs, setNuMs] = useState(() => Date.now());
+    useEffect(() => { const i = window.setInterval(() => setNuMs(Date.now()), 30_000); return () => window.clearInterval(i); }, []);
+    const [uitlegGezien, setUitlegGezien] = useState(leesUitleg);
+    const [bezig, setBezig] = useState(false);
+    const aankomst = m ? mijnCheckIn(m.id, "aangekomen", s) : undefined;
+    const bevestigd = aankomst ? { tijd: new Date(aankomst.op).toTimeString().slice(0, 5) } : undefined;
+    const overdrachtMs = m ? new Date(`${m.datum}T${m.tijd || "12:00"}:00`).getTime() : 0;
+    const fase = m && m.datum ? faseVan(m.datum, m.tijd || "12:00", nuMs) : "later";
     const aankomstMogelijk = fase === "vandaag" && Math.abs(overdrachtMs - nuMs) <= 45 * 60_000;
-    const onderweg = m ? s.onderweg[m.id] : undefined;
-    const bevestig = () => {
-        if (!m)
+    const o = m ? onderwegVoor(m.id, s) : null;
+    const onderweg = o?.naam;
+    const zelfOnderweg = m ? !!mijnCheckIn(m.id, "onderweg", s) : false;
+    const melden = async (soort) => {
+        if (!m || bezig)
             return;
+        setBezig(true);
         markeerGebruikt("/halen-brengen");
-        voegCheckInToe({ id: Date.now(), wie: mijnNaam, moment: t("routes.halenBrengen.checkinMoment", { dag: m.dag.toLowerCase(), tijd: m.tijd }), momentId: m.id, datum: m.dag, tijd: nu() });
-        zetOnderweg(m.id, null);
+        await meldCheckIn(m, soort);
+        setBezig(false);
+    };
+    const uitlegGelezen = () => {
+        try {
+            localStorage.setItem(UITLEG, "1");
+        }
+        catch { /* alleen deze sessie */ }
+        setUitlegGezien(true);
     };
     return (<AppShell>
       <PageHeader titel={t("routes.halenBrengen.meta.titel")} subtitel={t("routes.halenBrengen.meta.beschrijving")} terug="/extra-ondersteuning"/>
@@ -80,9 +98,9 @@ function HalenBrengen() {
               {fase !== "later" ? <Link to="/overdracht" className="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-brand"><MetChevron>{t("routes.halenBrengen.voorbereiden")}</MetChevron></Link> : null}
             </div>
 
-            {fase === "vandaag" && onderweg ? <p role="status" className="rounded-md bg-brand-soft px-3 py-2 text-sm font-semibold">{t("routes.halenBrengen.onderweg", { wie: onderweg })}</p> : null}
+            {fase === "vandaag" && o ? <p role="status" className="rounded-md bg-brand-soft px-3 py-2 text-sm font-semibold">{o.soort === "ik" ? t("components.OnderwegStatus.jij") : o.soort === "ander" ? t("components.OnderwegStatus.andereOuder") : t("routes.halenBrengen.onderweg", { wie: onderweg })}</p> : null}
 
-            {bevestigd ? (<p role="status" className="rounded-md bg-brand-soft px-3 py-2 text-sm font-semibold"><MetVinkje>{t("routes.halenBrengen.bevestigd", { tijd: bevestigd.tijd })}</MetVinkje></p>) : aankomstMogelijk ? (!s.aan.gps ? (<div className="space-y-2 rounded-md border border-border p-3 text-sm">
+            {bevestigd ? (<p role="status" className="rounded-md bg-brand-soft px-3 py-2 text-sm font-semibold"><MetVinkje>{t("routes.halenBrengen.bevestigd", { tijd: bevestigd.tijd })}</MetVinkje></p>) : aankomstMogelijk ? (!uitlegGezien ? (<div className="space-y-2 rounded-md border border-border p-3 text-sm">
                   <p className="font-semibold">{t("routes.halenBrengen.aankomstBevestigen")}</p>
                   <p className="text-xs font-semibold">{t("routes.halenBrengen.watGebeurt")}</p>
                   <ul className="space-y-1 text-xs text-ink-soft">
@@ -91,24 +109,18 @@ function HalenBrengen() {
                     <li className="flex items-start gap-1.5"><Vinkje className="mt-0.5 size-3.5 text-brand"/><span>{t("routes.halenBrengen.uitleg3")}</span></li>
                     <li className="flex items-start gap-1.5"><Vinkje className="mt-0.5 size-3.5 text-brand"/><span>{t("routes.halenBrengen.uitleg4")}</span></li>
                   </ul>
-                  <button onClick={() => zetModule("gps", true)} className="min-h-11 w-full rounded-full border border-border text-sm font-semibold">{t("routes.halenBrengen.duidelijk")}</button>
+                  <button onClick={uitlegGelezen} className="min-h-11 w-full rounded-full border border-border text-sm font-semibold">{t("routes.halenBrengen.duidelijk")}</button>
                 </div>) : (<div className="space-y-1">
-                  <button onClick={bevestig} className="min-h-12 w-full rounded-full bg-brand font-semibold text-primary-foreground">{t("routes.halenBrengen.aankomstBevestigen")}</button>
+                  <button disabled={bezig} onClick={() => melden("aangekomen")} className="min-h-12 w-full rounded-full bg-brand font-semibold text-primary-foreground disabled:opacity-40">{t("routes.halenBrengen.aankomstBevestigen")}</button>
                   <p className="text-[11px] text-ink-soft">{t("routes.halenBrengen.zelfBevestigen")}</p>
                 </div>)) : null}
 
             {!bevestigd && (fase === "vandaag" || fase === "binnen24") ? (<div className="flex flex-wrap items-center gap-x-4 border-t border-border pt-2">
                 <IkBenLater moment={m}/>
-                {fase === "vandaag" && !onderweg ? (<button onClick={() => { zetOnderweg(m.id, mijnNaam, m.tijd); markeerGebruikt("/halen-brengen"); }} className="min-h-11 text-sm font-semibold text-brand">{t("routes.halenBrengen.ikBenOnderweg")}</button>) : null}
+                {fase === "vandaag" && !zelfOnderweg ? (<button disabled={bezig} onClick={() => melden("onderweg")} className="min-h-11 text-sm font-semibold text-brand disabled:opacity-40">{t("routes.halenBrengen.ikBenOnderweg")}</button>) : null}
               </div>) : null}
-            {fase === "vandaag" && onderweg && !bevestigd ? <p className="text-[11px] text-ink-soft">{t("routes.halenBrengen.melding", { wie: onderweg, tijd: m.tijd })}</p> : null}
+            {fase === "vandaag" && zelfOnderweg && !bevestigd ? <p className="text-[11px] text-ink-soft">{t("routes.halenBrengen.meldingVerstuurd", { tijd: m.tijd ? uur(m.tijd) : "" })}</p> : null}
           </Card>
-          {import.meta.env.DEV ? (<details className="group mt-3 text-xs text-ink-soft">
-            <summary className="flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden min-h-11 cursor-pointer"><Chevron className="size-4 shrink-0 group-open:rotate-90"/>{t("routes.halenBrengen.demo.titel")}</summary>
-            <div className="flex flex-wrap gap-2">
-              {[[null, t("routes.halenBrengen.demo.nu")], [20 * 60, t("routes.halenBrengen.demo.dagErvoor")], [3 * 60, t("routes.halenBrengen.demo.ochtend")], [10, t("routes.halenBrengen.demo.vlakVoor")], [-180, t("routes.halenBrengen.demo.na")]].map(([v, l]) => (<button key={l} onClick={() => setDemoMinuten(v)} className={`min-h-11 rounded-full border px-3 ${demoMinuten === v ? "border-brand text-ink" : "border-border"}`}>{l}</button>))}
-            </div>
-          </details>) : null}
         </section>) : (<p className="mt-6 text-sm text-ink-soft">{t("routes.halenBrengen.geenGepland")}</p>)}
     </AppShell>);
 }

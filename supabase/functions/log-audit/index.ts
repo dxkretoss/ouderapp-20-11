@@ -7,7 +7,7 @@ import { db } from "../_shared/db.ts";
 import { check, err, ok, serveActions } from "../_shared/respond.ts";
 import { requireUser } from "../_shared/session.ts";
 import { optText, reqText } from "../_shared/util.ts";
-import { assertChildren, canSee, familyFor, familyMembers, namesFor } from "../_shared/practical-scope.ts";
+import { assertChildren, canSee, caregiverProfilesFor, familyFor, familyMembers, namesFor } from "../_shared/practical-scope.ts";
 import { logAudit } from "../_shared/practical-audit.ts";
 
 const ACTIONS = ["CREATED", "UPDATED", "DELETED", "ACCEPTED", "DECLINED", "CANCELLED", "EXPORTED"];
@@ -69,12 +69,19 @@ Deno.serve(serveActions("log-audit", {
     const me = await requireUser(req);
     const f = await familyFor(me.id);
     const limit = Math.min(Math.max(Number(body.limit) || 500, 1), 1000);
-    let q = db().from("audit_events").select(COLS).in("actor_id", familyMembers(f)).order("created_at", { ascending: false }).limit(limit);
-    if (typeof body.since === "string" && !Number.isNaN(Date.parse(body.since))) q = q.gte("created_at", body.since);
-    const rows = ((check(await q, "list audit") ?? []) as Row[]).map(normalize).filter((r) =>
-      canSee(f, r.actor_id, r.child_ids) && (r.child_ids ?? []).every((id: string) => f.childIds.includes(id) || r.actor_id === me.id) &&
-      // cost events carry their parent pair: only those two parents see them
-      (!r.family_ids || r.family_ids.includes(me.id)));
+    // Circle members (caregivers) may write history about my children (accept / decline a pick-up);
+    // those events are only shown when they are addressed to me (family_ids).
+    const circle = await caregiverProfilesFor(f.childIds);
+    let q = db().from("audit_events").select(COLS).in("actor_id", [...familyMembers(f), ...circle]).order("created_at", { ascending: false }).limit(limit);
+    if (typeof body.since === "string" && body.since.length <= 40 && !Number.isNaN(Date.parse(body.since))) q = q.gte("created_at", new Date(body.since).toISOString());
+    const rows = ((check(await q, "list audit") ?? []) as Row[]).map(normalize).filter((r) => {
+      // Events that carry their parent pair are visible to those two parents only; events without a
+      // pair and without children stay with the actor (canSee).
+      const addressed = r.family_ids ? (r.family_ids.includes(me.id) ? me.id : null) : undefined;
+      if (circle.has(r.actor_id) && !familyMembers(f).includes(r.actor_id))
+        return addressed === me.id && (r.child_ids ?? []).every((id: string) => f.childIds.includes(id));
+      return canSee(f, r.actor_id, r.child_ids, false, addressed);
+    });
     const names = await namesFor(rows.map((r) => r.actor_id));
     return ok({ events: rows.map((r) => out(r, names)) });
   },

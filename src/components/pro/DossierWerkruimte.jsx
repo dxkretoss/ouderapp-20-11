@@ -367,7 +367,7 @@ function CommunicatieExport({ open, onSluit, dossier }) {
     };
     return (<Sheet open={open} onOpenChange={(o) => { if (!o)
         onSluit(); }}>
-      <SheetContent side="bottom" className="pro-cockpit left-1/2 max-h-[90vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8 pt-4">
+      <SheetContent side="bottom" className="pro-cockpit left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8 pt-4">
         <SheetHeader className="pr-8 text-left"><SheetTitle className="font-display text-xl font-medium">{t("pro.DossierWerkruimte.exporterenPdf")}</SheetTitle><SheetDescription className="text-xs">{dossier.gezin} · {t("pro.DossierWerkruimte.alleenToegang")}</SheetDescription></SheetHeader>
         <div className="mt-4 space-y-4">
           <div className="grid grid-cols-2 gap-2">
@@ -422,7 +422,7 @@ function DossierExport({ open, onSluit, dossier, rechten, afspraken }) {
     };
     return (<Sheet open={open} onOpenChange={(o) => { if (!o)
         onSluit(); }}>
-      <SheetContent side="bottom" className="pro-cockpit left-1/2 max-h-[90vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8 pt-4">
+      <SheetContent side="bottom" className="pro-cockpit left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8 pt-4">
         <SheetHeader className="pr-8 text-left"><SheetTitle className="font-display text-xl font-medium">{t("pro.DossierWerkruimte.dossierExporteren")}</SheetTitle><SheetDescription className="text-xs">{t("pro.DossierWerkruimte.exportUitleg")}</SheetDescription></SheetHeader>
         <div className="mt-4 divide-y divide-border border-y border-border">
           {beschikbaar.map((d) => (<label key={d} className="flex items-center gap-3 py-2.5 text-sm">
@@ -593,7 +593,7 @@ function ToevoegSheet({ modus, dossier, onSluit }) {
     const tekstLabel = ["document", "afspraak", "actie", "bericht", "gezamenlijk", "veilig", "journaal"].includes(modus) ? t(`pro.DossierWerkruimte.toevoeg.tekstLabel.${modus}`) : t("pro.DossierWerkruimte.toevoeg.tekstLabel.notitie");
     return (<Sheet open={modus !== null} onOpenChange={(o) => { if (!o)
         sluit(); }}>
-      <SheetContent side="bottom" className="pro-cockpit left-1/2 max-h-[90vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8 pt-4">
+      <SheetContent side="bottom" className="pro-cockpit left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8 pt-4">
         <SheetHeader className="pr-8 text-left">
           <SheetTitle className="font-display text-xl font-medium">{titel}</SheetTitle>
           <SheetDescription className="text-xs">{dossier.gezin}</SheetDescription>

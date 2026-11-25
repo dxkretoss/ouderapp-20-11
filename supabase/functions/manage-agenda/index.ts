@@ -9,9 +9,10 @@ import { check, err, HttpError, ok, serveActions } from "../_shared/respond.ts";
 import { requireUser } from "../_shared/session.ts";
 import { requireUuid } from "../_shared/util.ts";
 import {
-  assertResponder, audit, canSee, childIdsFromBody, coParentsFor, dateList, familyScope, optDateStr, optTime,
+  assertOnePair, assertResponder, audit, canSee, childIdsFromBody, coParentsFor, dateList, familyScope, optDateStr, optTime,
   reqDateStr, response, Scope, str, toAbs, toRel, today,
 } from "../_shared/agenda-family.ts";
+import { notify, NotifyCategory } from "../_shared/practical-audit.ts";
 
 /* ================================================================ appointments */
 const CATEGORIES: Record<string, string> = {
@@ -25,6 +26,28 @@ const EVENT_COLS =
   "id, created_by, title, category, category_key, start_date, start_time, end_date, end_time, is_all_day, location, description, is_shared, recurrence, skipped_dates, child_ids, reminder, take_along, deleted_at, created_at, updated_at";
 
 type Row = Record<string, any>;
+
+/* ---------- notifications (shared items only; only the other parent of the children involved) ---------- */
+async function kidNames(ids: string[]): Promise<string> {
+  if (!ids?.length) return "";
+  const { data } = await db().from("children").select("name").in("id", ids);
+  return ((data ?? []) as Row[]).map((c) => String(c.name)).join(" & ").slice(0, 80);
+}
+/** Best-effort: never fails the action. `to` = explicit recipients, otherwise the co-parents of `childIds`. */
+async function tell(me: string, s: Scope, o: { to?: string | null; childIds: string[]; key: string; category: NotifyCategory; type?: string; titel?: string | null; datum?: string | null; entityId?: string }) {
+  try {
+    const to = o.to !== undefined ? (o.to ? [o.to] : []) : coParentsFor(s, o.childIds ?? []);
+    if (!to.length) return;
+    const params: Record<string, string> = {};
+    if (o.titel) params.titel = String(o.titel).slice(0, 80);
+    if (o.datum) params.datum = o.datum;
+    const kind = await kidNames(o.childIds ?? []);
+    if (kind) params.kind = kind;
+    await notify({ to, actorId: me, type: o.type ?? "care", category: o.category, key: o.key, params, link: "/agenda", entityType: o.type ?? "care", entityId: o.entityId, childIds: o.childIds ?? [] });
+  } catch (e) {
+    console.warn("[manage-agenda] notify failed:", (e as Error)?.message ?? e);
+  }
+}
 
 function recurrenceIn(v: unknown): Row | null {
   if (v === undefined || v === null) return null;
@@ -45,12 +68,16 @@ function fieldsIn(s: Scope, v: unknown): Row {
   const f = v as Row;
   const gedeeld = f.gedeeld !== false;
   const kindIds = childIdsFromBody(s, f.kind_ids, { required: gedeeld });
+  if (gedeeld) assertOnePair(s, kindIds);
   const categorie = typeof f.categorie === "string" && f.categorie in CATEGORIES ? f.categorie : "overig";
+  const startDatum = reqDateStr(f.datum, "datum");
+  const eindDatum = optDateStr(f.einddatum, "einddatum");
+  if (eindDatum && eindDatum < startDatum) throw err.validation("einddatum must be on or after datum");
   const neemMee = Array.isArray(f.neem_mee) ? f.neem_mee.slice(0, 30).map((x: unknown) => str(x, "neem_mee", 100)).filter(Boolean) : [];
   return {
     titel: str(f.titel, "titel", 200, true),
-    datum: reqDateStr(f.datum, "datum"),
-    einddatum: optDateStr(f.einddatum, "einddatum"),
+    datum: startDatum,
+    einddatum: eindDatum && eindDatum !== startDatum ? eindDatum : null,
     tijd: optTime(f.tijd, "tijd"),
     eindtijd: optTime(f.eindtijd, "eindtijd"),
     heleDag: f.heleDag === true,
@@ -246,7 +273,7 @@ async function closeCare(p: Row, patch: Row): Promise<Row> {
 }
 
 /* ================================================================ attendance */
-const KEUZES = ["samen", "een", "afzonderlijk", "later"];
+const KEUZES = ["samen", "een", "afzonderlijk", "later", "halen", "brengen"];
 function attendanceOut(a: Row, me: string) {
   const rel = (x: unknown) => (x === "nog" || x === "onbekend" ? x : toRel(x, me));
   return {
@@ -328,10 +355,12 @@ Deno.serve(serveActions("manage-agenda", {
     const f = fieldsIn(s, body.fields);
     if (body.voorstel === true && f.gedeeld && coParentsFor(s, f.kind_ids).length) {
       const p = await proposeEvent(s, "create", null, f, "reeks", null, optDateStr(body.reply_by, "reply_by"));
+      await tell(me.id, s, { childIds: f.kind_ids, key: "agendaVoorstel", category: "actie", titel: f.titel, datum: f.datum, entityId: p.id });
       return ok({ applied: false, proposal: eventProposalOut(p, me.id) });
     }
     const r = await insertEvent(me.id, f);
     if (f.gedeeld) await audit(me.id, "afspraak", r.id, "CREATED", { item_naam: f.titel, kinderen: f.kind_ids, meta: { datum: f.datum, tijd: f.tijd } });
+    if (f.gedeeld) await tell(me.id, s, { childIds: f.kind_ids, key: "afspraakNieuw", category: "info", titel: f.titel, datum: f.datum, entityId: r.id });
     return ok({ applied: true, event: eventOut(r, me.id) });
   },
 
@@ -344,9 +373,27 @@ Deno.serve(serveActions("manage-agenda", {
     const scope = SCOPES.includes(body.scope) ? body.scope : "reeks";
     const occ = optDateStr(body.occurrence_date, "occurrence_date");
     if (r.is_shared === false && r.created_by !== me.id) throw err.notFound("Appointment not found");
-    const direct = r.is_shared === false || coParentsFor(s, [...(r.child_ids ?? []), ...f.kind_ids]).length === 0;
+    const oldKids: string[] = r.child_ids ?? [];
+    const newKids: string[] = f.kind_ids ?? [];
+    // Only the creator decides who an appointment is for and who sees it (a co-parent can never re-point it).
+    const sameKids = oldKids.length === newKids.length && oldKids.every((k) => newKids.includes(k));
+    if (r.created_by !== me.id && (!sameKids || f.gedeeld !== (r.is_shared !== false))) {
+      throw err.forbidden("Only the parent who made this appointment can change its children or sharing");
+    }
+    const nobody = (kids: string[]) => kids.every((k) => (s.coParentsByChild.get(k)?.size ?? 0) === 0);
+    // Directly: a private appointment, or one that nobody else could see (its children have no connected
+    // other parent; only the creator can see such an appointment, so this equals creating it).
+    const direct = r.is_shared === false || nobody(oldKids);
     if (!direct) {
+      // Old and new children must belong to the same ONE other parent; that parent answers the proposal.
+      const pair = coParentsFor(s, oldKids);
+      // (No new children = the change only makes it private; the proposal then keeps the old children.)
+      const newPair = newKids.length ? coParentsFor(s, newKids) : pair;
+      if (pair.length !== 1 || newPair.length !== 1 || newPair[0] !== pair[0]) {
+        throw new HttpError(400, "MIXED_CHILDREN", "These children are not all shared with the same other parent");
+      }
       const p = await proposeEvent(s, "update", r, f, scope, occ, optDateStr(body.reply_by, "reply_by"));
+      await tell(me.id, s, { to: pair[0], childIds: oldKids, key: "agendaVoorstel", category: "actie", titel: f.titel ?? r.title, datum: f.datum, entityId: p.id });
       return ok({ applied: false, proposal: eventProposalOut(p, me.id) });
     }
     const rows = await applyUpdate(r, f, scope, occ, me.id);
@@ -364,6 +411,7 @@ Deno.serve(serveActions("manage-agenda", {
     const direct = r.is_shared === false || coParentsFor(s, r.child_ids ?? []).length === 0;
     if (!direct) {
       const p = await proposeEvent(s, "delete", r, null, scope, occ, null);
+      await tell(me.id, s, { childIds: r.child_ids ?? [], key: "agendaVoorstel", category: "actie", titel: r.title, datum: occ ?? r.start_date, entityId: p.id });
       return ok({ applied: false, proposal: eventProposalOut(p, me.id) });
     }
     await applyDelete(r, scope, occ, me.id);
@@ -384,22 +432,29 @@ Deno.serve(serveActions("manage-agenda", {
       const until = optDateStr(body.until, "until");
       const u = check(await db().from("calendar_event_proposals").update({ more_time: { by: me.id, date: today(), ...(until ? { until } : {}) } }).eq("id", p.id).eq("status", "open").select(EP_COLS).single(), "more time") as Row;
       await audit(me.id, "afspraak", p.event_id ?? p.id, "UPDATED", { item_naam: p.fields?.titel, kinderen: p.child_ids, wijziging: { veld: "reactie", oud: "open", nieuw: "meer-tijd" }, meta: until ? { tot: until } : {} });
+      await tell(me.id, s, { to: p.created_by, childIds: p.child_ids ?? [], key: "agendaMeerTijd", category: "info", titel: p.fields?.titel, entityId: p.id });
       return ok({ proposal: eventProposalOut(u, me.id) });
     }
     const status = r === "akkoord" ? "geaccepteerd" : r === "niet-akkoord" ? "afgewezen" : "alternatief";
     const note = str(body.note, "note", 1000);
+    // Load + check the appointment BEFORE closing: never apply a proposal to a record the responder cannot
+    // see (e.g. its children are now shared with someone else), and never re-point another family's record.
+    let ev: Row | null = null;
+    if (status === "geaccepteerd" && p.kind !== "create" && p.event_id) {
+      ev = check(await db().from("calendar_events").select(EVENT_COLS).eq("id", p.event_id).is("deleted_at", null).maybeSingle(), "load event") as Row | null;
+      if (ev && (!canSee(s, ev) || (ev.created_by !== p.created_by && ev.created_by !== me.id))) throw err.notFound("Appointment not found");
+      if (ev && ev.created_by === me.id && !coParentsFor(s, ev.child_ids ?? []).includes(p.created_by)) throw err.notFound("Appointment not found");
+    }
     const u = check(await db().from("calendar_event_proposals").update({ status, responded_by: me.id, responded_at: now, response_note: note }).eq("id", p.id).eq("status", "open").select(EP_COLS).maybeSingle(), "close proposal") as Row | null;
     if (!u) throw new HttpError(409, "VALIDATION", "This proposal is already closed");
     let events: Row[] = [];
     if (status === "geaccepteerd") {
       if (p.kind === "create") events = [await insertEvent(p.created_by, p.fields)];
-      else if (p.event_id) {
-        const ev = check(await db().from("calendar_events").select(EVENT_COLS).eq("id", p.event_id).is("deleted_at", null).maybeSingle(), "load event") as Row | null;
-        if (ev && p.kind === "update") events = await applyUpdate(ev, p.fields, p.scope, p.occurrence_date, me.id);
-        if (ev && p.kind === "delete") await applyDelete(ev, p.scope, p.occurrence_date, me.id);
-      }
+      else if (ev && p.kind === "update") events = await applyUpdate(ev, p.fields, p.scope, p.occurrence_date, me.id);
+      else if (ev && p.kind === "delete") await applyDelete(ev, p.scope, p.occurrence_date, me.id);
     }
     await audit(me.id, "afspraak", p.event_id ?? events[0]?.id ?? p.id, status === "geaccepteerd" ? "ACCEPTED" : "DECLINED", { item_naam: p.fields?.titel, kinderen: p.child_ids, wijziging: { veld: "status", oud: "open", nieuw: status }, meta: note ? { toelichting: note } : {} });
+    await tell(me.id, s, { to: p.created_by, childIds: p.child_ids ?? [], key: status === "geaccepteerd" ? "agendaAkkoord" : status === "afgewezen" ? "agendaNietAkkoord" : "agendaAnderVoorstel", category: "wijziging", titel: p.fields?.titel, entityId: p.id });
     return ok({ proposal: eventProposalOut(u, me.id), events: events.map((e) => eventOut(e, me.id)) });
   },
 
@@ -421,6 +476,7 @@ Deno.serve(serveActions("manage-agenda", {
     const v = body.proposal ?? {};
     const soort = v.soort === "structureel" ? "structureel" : "eenmalig";
     const childIds = childIdsFromBody(s, v.kind_ids, { required: true });
+    assertOnePair(s, childIds);
     const datums = dateList(v.datums, "datums");
     const aanleiding = str(v.aanleiding, "aanleiding", 40);
     const moment = v.moment && typeof v.moment === "object" ? { datum: optDateStr(v.moment.datum, "moment.datum"), tijd: optTime(v.moment.tijd, "moment.tijd"), oud: optTime(v.moment.oud, "moment.oud") } : null;
@@ -445,6 +501,7 @@ Deno.serve(serveActions("manage-agenda", {
       status: connected ? "pending" : "accepted", ...(connected ? {} : { responded_at: new Date().toISOString() }),
     }).select(CARE_COLS).single(), "insert care proposal") as Row;
     if (!connected) await applyCare(row, me.id);
+    else await tell(me.id, s, { childIds, key: "zorgVoorstel", category: "actie", titel: row.datum_label ?? row.note, entityId: row.id });
     await audit(me.id, "schema", row.id, connected ? "CREATED" : "UPDATED", { item_naam: row.note, kinderen: childIds, meta: { soort, betreft: row.datum_label, direct: !connected } });
     return ok({ proposal: careOut(row, me.id), applied: !connected });
   },
@@ -460,12 +517,14 @@ Deno.serve(serveActions("manage-agenda", {
       const until = optDateStr(body.until, "until");
       const u = check(await db().from("care_schedule_proposals").update({ more_time: { by: me.id, date: today(), ...(until ? { until } : {}) } }).eq("id", p.id).eq("status", "pending").select(CARE_COLS).single(), "more time") as Row;
       await audit(me.id, "schema", p.id, "UPDATED", { item_naam: p.note, kinderen: p.child_ids, wijziging: { veld: "reactie", oud: "open", nieuw: "meer-tijd" }, meta: until ? { tot: until } : {} });
+      await tell(me.id, s, { to: p.created_by, childIds: p.child_ids ?? [], key: "zorgMeerTijd", category: "info", titel: p.datum_label ?? p.note, entityId: p.id });
       return ok({ proposal: careOut(u, me.id) });
     }
     const status = r === "akkoord" ? "accepted" : r === "niet-akkoord" ? "declined" : "counterproposal";
     const u = await closeCare(p, { status, responded_by: me.id, responded_at: new Date().toISOString(), ...(r === "ander-voorstel" ? { alternative: str(body.alternative, "alternative", 1000) } : {}) });
     if (status === "accepted") await applyCare(u, me.id);
     await audit(me.id, "schema", p.id, status === "accepted" ? "ACCEPTED" : "DECLINED", { item_naam: p.note, kinderen: p.child_ids, wijziging: { veld: "status", oud: "open", nieuw: CARE_STATUS_OUT[status] }, meta: { betreft: p.datum_label } });
+    await tell(me.id, s, { to: p.created_by, childIds: p.child_ids ?? [], key: status === "accepted" ? "zorgAkkoord" : status === "declined" ? "zorgNietAkkoord" : "zorgAnderVoorstel", category: "wijziging", titel: p.datum_label ?? p.note, entityId: p.id });
     return ok({ proposal: careOut(u, me.id) });
   },
 
@@ -491,6 +550,7 @@ Deno.serve(serveActions("manage-agenda", {
     const allowed = !p.reply_by ? sent.length === 0 : d <= p.reply_by ? before === 0 : after === 0;
     if (!allowed) throw new HttpError(429, "RATE_LIMITED", "Reminder limit reached");
     const u = check(await db().from("care_schedule_proposals").update({ reminders: [...sent, d] }).eq("id", p.id).select(CARE_COLS).single(), "remind") as Row;
+    await tell(me.id, await familyScope(me.id), { childIds: p.child_ids ?? [], key: "zorgHerinnering", category: "actie", titel: p.datum_label ?? p.note, entityId: p.id });
     await audit(me.id, "schema", p.id, "UPDATED", { item_naam: p.note, kinderen: p.child_ids, wijziging: { veld: "herinnering", oud: "", nieuw: d } });
     return ok({ proposal: careOut(u, me.id) });
   },
@@ -513,6 +573,7 @@ Deno.serve(serveActions("manage-agenda", {
     const row = { event_id: ev.id, created_by: old?.created_by ?? me.id, proposed_by: me.id, keuze, fase, wie_gaat: wieGaat, contact_wie: contactWie, history: [entry, ...(old?.history ?? [])] };
     const saved = check(await db().from("appointment_attendance").upsert(row, { onConflict: "event_id" }).select("*").single(), "save attendance") as Row;
     await audit(me.id, "afspraak", ev.id, "UPDATED", { item_naam: ev.title, kinderen: ev.child_ids, wijziging: { veld: "aanwezigheid", oud: old?.keuze ?? "", nieuw: keuze } });
+    if (fase === "voorstel") await tell(me.id, s, { childIds: ev.child_ids ?? [], key: "aanwezigheidVraag", category: "actie", type: "attendance", titel: ev.title, datum: ev.start_date, entityId: ev.id });
     return ok({ attendance: attendanceOut(saved, me.id) });
   },
 
@@ -529,6 +590,7 @@ Deno.serve(serveActions("manage-agenda", {
     const soort = ok2 ? "afgestemd" : reactie === "liever-niet-samen" ? "nietSamen" : "luktNiet";
     const saved = check(await db().from("appointment_attendance").update({ fase: ok2 ? "afgestemd" : "open", history: [{ datum: today(), soort, door: `is:${me.id}`, keuze: a.keuze, wie_gaat: a.wie_gaat }, ...(a.history ?? [])] }).eq("id", a.id).select("*").single(), "respond attendance") as Row;
     await audit(me.id, "afspraak", ev.id, ok2 ? "ACCEPTED" : "DECLINED", { item_naam: ev.title, kinderen: ev.child_ids, wijziging: { veld: "aanwezigheid", oud: "voorstel", nieuw: soort } });
+    await tell(me.id, s, { to: a.proposed_by, childIds: ev.child_ids ?? [], key: ok2 ? "aanwezigheidAkkoord" : "aanwezigheidNiet", category: "wijziging", type: "attendance", titel: ev.title, datum: ev.start_date, entityId: ev.id });
     return ok({ attendance: attendanceOut(saved, me.id) });
   },
 
@@ -568,6 +630,7 @@ Deno.serve(serveActions("manage-agenda", {
     const me = await requireUser(req);
     const s = await familyScope(me.id);
     const childIds = childIdsFromBody(s, body.kind_ids);
+    assertOnePair(s, childIds.length ? childIds : [...s.kids]);
     const categorie = URG_CATS.includes(body.categorie) ? body.categorie : "anders";
     const row = check(await db().from("urgent_requests").insert({
       created_by: me.id, child_ids: childIds.length ? childIds : [...s.kids], categorie, titel: str(body.titel, "titel", 300, true),
@@ -575,6 +638,7 @@ Deno.serve(serveActions("manage-agenda", {
       old_time: optTime(body.oude_tijd, "oude_tijd"), new_time: optTime(body.nieuwe_tijd, "nieuwe_tijd"),
     }).select("*").single(), "insert urgent") as Row;
     await audit(me.id, "besluit", row.id, "CREATED", { item_naam: row.titel, kinderen: row.child_ids, meta: { categorie } });
+    await tell(me.id, s, { childIds: row.child_ids ?? [], key: "nuAfstemmenVraag", category: "actie", titel: row.titel, entityId: row.id });
     return ok({ request: urgentOut(row, me.id) });
   },
 
@@ -588,6 +652,7 @@ Deno.serve(serveActions("manage-agenda", {
     const r = check(await db().from("urgent_requests").update({ status: "opgelost", antwoord, answered_by: me.id, answered_at: new Date().toISOString() }).eq("id", u.id).eq("status", "open").select("*").maybeSingle(), "answer urgent") as Row | null;
     if (!r) throw new HttpError(409, "VALIDATION", "Already answered");
     await audit(me.id, "besluit", u.id, "UPDATED", { item_naam: u.titel, kinderen: u.child_ids, wijziging: { veld: "reactie", oud: "open", nieuw: antwoord } });
+    await tell(me.id, s, { to: u.created_by, childIds: u.child_ids ?? [], key: "nuAfstemmenAntwoord", category: "wijziging", titel: u.titel, entityId: u.id });
     return ok({ request: urgentOut(r, me.id) });
   },
 }));

@@ -1,16 +1,16 @@
 import { uur } from "@/lib/tijd-tekst";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { accepteerHulp, useHulpVerzoeken } from "@/lib/taken-store";
 import { z } from "zod";
-import { Bell, Check, Heart, Home, Loader2, Menu, ShieldPlus } from "lucide-react";
+import { Bell, Check, Heart, Home, LogOut, Menu, ShieldPlus } from "lucide-react";
 import { useMomentjes } from "@/lib/momentjes-store";
-import { useKringMomentenVoeden } from "@/lib/overdracht-store";
 import { DeelMomentje, MomentjeKaart } from "@/components/Momentjes";
-import { bekijkAls, bevestig, geenRechten, isActief, laadKring, mag, mijnKringen, persoonLabel, rolNaam, toggleMee, useKring, } from "@/lib/kring-store";
+import { bekijkAls, geenRechten, isActief, laadAlsVerzorger, laadKring, laadRol, mag, meldAangekomenKring, meldOnderwegKring, mijnKringen, persoonLabel, reageerOphalen, rolNaam, toggleIngepakt, useAlsVerzorger, useKring, useOphalen, useRol, } from "@/lib/kring-store";
+import { reageerHulp } from "@/lib/hulp-store";
+import { auth } from "@/lib/auth-store";
 import { useTranslation } from "react-i18next";
 import i18n, { taalLocale } from "@/i18n";
-import { InhoudLaden } from "@/components/Laden";
+import { InhoudLaden, LaadFout } from "@/components/Laden";
 import { toonTelefoon } from "@/components/TelefoonInvoer";
 import { Chevron, MetVinkje, MetChevron } from "@/components/Tekens";
 const N = "routes.verzorger.";
@@ -25,42 +25,69 @@ export const Route = createFileRoute("/verzorger")({
         ] }),
     component: Verzorger,
 });
+const vandaagIso = () => new Date().toLocaleDateString("en-CA");
+const dagTekst = (d) => new Date(`${d}T12:00:00`).toLocaleDateString(taalLocale(), { weekday: "long", day: "numeric", month: "long" });
+const OPEN = ["requested", "accepted"];
 /**
  * Twee ingangen, één weergave (KringApp), altijd gebouwd uit wat de SERVER voor dit kringlid teruggeeft:
- * - als verzorger ingelogd: get-for-user (alleen actieve, bevestigde toegang binnen de periode);
- * - als ouder met `?p=<id>`: view-as, het voorbeeld van precies wat dat kringlid ziet.
+ * - als verzorger ingelogd: get-for-user (alleen actieve, bevestigde toegang binnen de periode) en
+ *   manage-pickups "mine" (eigen ophaal-/brengmomenten en hulpverzoeken);
+ * - als ouder met `?p=<id>`: view-as, het voorbeeld van precies wat dat kringlid ziet (de momenten en
+ *   hulpverzoeken komen dan uit de eigen ouderlijst, gefilterd op dat kringlid).
  */
 function Verzorger() {
     const { t } = useTranslation();
     const { p: pid } = Route.useSearch();
     const kring = useKring();
-    useKringMomentenVoeden();
+    const ov = useAlsVerzorger();
+    const rol = useRol();
+    const ouderLijst = useOphalen();
     const [eigen, setEigen] = useState(null); // views van dit account als verzorger
+    const [eigenFout, setEigenFout] = useState(null);
     const [keuze, setKeuze] = useState(0);
-    const [voorbeeld, setVoorbeeld] = useState(undefined); // undefined = laden, null = geen toegang
+    const [voorbeeld, setVoorbeeld] = useState(undefined); // undefined = laden, null = geen toegang (meer)
+    const [voorbeeldFout, setVoorbeeldFout] = useState(null);
+    const [poging, setPoging] = useState(0);
     useEffect(() => {
         if (pid)
             return;
         let weg = false;
+        setEigenFout(null);
         laadKring();
+        laadRol();
+        laadAlsVerzorger();
         mijnKringen().then((v) => { if (!weg)
-            setEigen(v); }).catch(() => { if (!weg)
-            setEigen([]); });
+            setEigen(v); }).catch((e) => { if (!weg)
+            setEigenFout(e); });
         return () => { weg = true; };
-    }, [pid]);
+    }, [pid, poging]);
     useEffect(() => {
         if (!pid)
             return;
         let weg = false;
         setVoorbeeld(undefined);
+        setVoorbeeldFout(null);
         bekijkAls(pid).then((v) => { if (!weg)
-            setVoorbeeld(v ?? null); }).catch(() => { if (!weg)
-            setVoorbeeld(null); });
+            setVoorbeeld(v ?? null); }).catch((e) => { if (!weg) {
+            if (e?.code === "NOT_FOUND" || e?.code === "VALIDATION")
+                setVoorbeeld("nietBeschikbaar");
+            else
+                setVoorbeeldFout(e);
+        } });
         return () => { weg = true; };
-    }, [pid]);
+    }, [pid, poging]);
+    const opnieuw = () => setPoging((x) => x + 1);
     if (pid) {
+        if (voorbeeldFout)
+            return <Kader><LaadFout onOpnieuw={opnieuw}/></Kader>;
         if (voorbeeld === undefined)
             return <Kader><Laden /></Kader>;
+        if (voorbeeld === "nietBeschikbaar") {
+            return (<Kader>
+          <p className="mt-6 text-sm text-ink-soft">{t(N + "nietBeschikbaar")}</p>
+          <Link to="/verzorger" className="mt-6 block text-xs font-semibold text-brand">{t(N + "verlopen.terug")}</Link>
+        </Kader>);
+        }
         if (!voorbeeld) {
             return (<Kader>
           <h1 className="lora text-[30px] leading-tight">{t(N + "verlopen.titel")}</h1>
@@ -68,14 +95,28 @@ function Verzorger() {
           <Link to="/verzorger" className="mt-6 block text-xs font-semibold text-brand">{t(N + "verlopen.terug")}</Link>
         </Kader>);
         }
-        return <KringApp view={voorbeeld} isVoorbeeld/>;
+        const cid = voorbeeld.caregiver.id;
+        return <KringApp view={voorbeeld} isVoorbeeld ophalen={{ toewijzingen: ouderLijst.toewijzingen.filter((a) => a.wieSoort === "caregiver" && a.wie === cid && [...OPEN, "declined"].includes(a.status)), hulp: ouderLijst.hulp.filter((h) => h.status !== "withdrawn" && h.ontvangers.some((o) => o.id === cid)), geladen: true }}/>;
     }
+    if (eigenFout && eigen === null)
+        return <Kader><LaadFout onOpnieuw={opnieuw}/></Kader>;
     if (eigen === null)
         return <Kader><Laden /></Kader>;
     if (eigen.length) {
         const view = eigen[Math.min(keuze, eigen.length - 1)];
-        return <KringApp view={view} andere={eigen.length > 1 ? eigen.map((v, i) => ({ i, naam: v.children.map((k) => k.name).join(` ${t("common.en")} `) || v.caregiver.name })) : null} kies={setKeuze} huidig={Math.min(keuze, eigen.length - 1)}/>;
+        const cid = view.caregiver.id;
+        return <KringApp view={view} ophalen={{ toewijzingen: ov.toewijzingen.filter((a) => a.wie === cid), hulp: ov.hulp.filter((h) => h.ontvangers.some((o) => o.id === cid)), geladen: ov.geladen, fout: ov.fout, opnieuw: laadAlsVerzorger }} andere={eigen.length > 1 ? eigen.map((v, i) => ({ i, naam: v.children.map((k) => k.name).join(` ${t("common.en")} `) || v.caregiver.name })) : null} kies={setKeuze} huidig={Math.min(keuze, eigen.length - 1)}/>;
     }
+    // Alleen kringlid, maar (nu) geen toegang: geen ouder-app tonen.
+    if (rol.rol === "verzorger") {
+        return (<Kader>
+        <h1 className="lora text-[30px] leading-tight">{t(N + "geenToegang.titel")}</h1>
+        <p className="mt-2 text-sm text-ink-soft">{t(N + "verlopen.uitleg")}</p>
+        <Uitloggen />
+      </Kader>);
+    }
+    if (rol.rol === null)
+        return <Kader><Laden /></Kader>;
     // Ouder zonder eigen kringtoegang: kies iemand uit de kring om het voorbeeld te bekijken.
     const metApp = kring.personen.filter((p) => p.uitgenodigd !== false && !String(p.id).startsWith("tmp-"));
     return (<Kader>
@@ -91,8 +132,15 @@ function Verzorger() {
     </Kader>);
 }
 function Laden() {
-    const { t } = useTranslation();
     return <InhoudLaden hoogte="min-h-[60dvh]"/>;
+}
+function Uitloggen() {
+    const { t } = useTranslation();
+    const nav = useNavigate();
+    const [bezig, setBezig] = useState(false);
+    return (<button disabled={bezig} onClick={async () => { setBezig(true); await auth.logout(); nav({ to: "/welkom", replace: true }); }} className="mt-8 flex min-h-11 items-center gap-2 text-sm font-semibold text-ink-soft disabled:opacity-40">
+      <LogOut className="size-4" strokeWidth={1.6}/>{t(N + "uitloggen")}
+    </button>);
 }
 function Kader({ children, nav }) {
     return (<div className="app-canvas min-h-screen w-full font-body text-ink">
@@ -106,25 +154,42 @@ function persoonUitView(v) {
     const c = v.caregiver;
     return { id: c.id, naam: c.name, rol: c.role, uitgenodigd: true, bevestigd: true, ingetrokken: false, periode: { type: "doorlopend" }, rechten: Object.fromEntries(Object.entries(v.permissions ?? {}).map(([k, r]) => [k, { ...geenRechten(), ...r }])) };
 }
-function KringApp({ view, isVoorbeeld, andere, kies, huidig }) {
+/** "Kan niet" met een optionele reden (kort, alleen voor de ouders). */
+function KanNiet({ onVerstuur, uit }) {
     const { t } = useTranslation();
-    const kring = useKring();
-    const hulpLijst = useHulpVerzoeken();
+    const [open, setOpen] = useState(false);
+    const [reden, setReden] = useState("");
+    if (!open)
+        return <button disabled={uit} onClick={() => setOpen(true)} className="flex-1 rounded-md border border-border py-2.5 text-sm font-semibold disabled:opacity-40">{t(N + "kanNiet")}</button>;
+    return (<div className="w-full space-y-2">
+      <label className="block text-xs text-ink-soft">{t(N + "redenOptioneel")}
+        <input value={reden} maxLength={300} onChange={(e) => setReden(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-ink"/>
+      </label>
+      <div className="flex gap-2">
+        <button onClick={() => setOpen(false)} className="flex-1 rounded-md border border-border py-2.5 text-sm">{t("common.annuleren")}</button>
+        <button disabled={uit} onClick={async () => { if (await onVerstuur(reden.trim()))
+            setOpen(false); }} className="flex-1 rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t(N + "kanNietVersturen")}</button>
+      </div>
+    </div>);
+}
+function KringApp({ view, isVoorbeeld, andere, kies, huidig, ophalen }) {
+    const { t } = useTranslation();
     const { lijst } = useMomentjes();
     const [tab, setTab] = useState("home");
     const [deel, setDeel] = useState(false);
+    const [bezig, setBezig] = useState(null);
     const p = persoonUitView(view);
     const kids = view.children.map((k) => ({ id: k.id, naam: k.name, nood: k.emergency }));
     const kidsMet = (o, min) => kids.filter((k) => mag(p, k.id, o, min));
     const momentjesKids = kidsMet("momentjes");
     const magDelen = !isVoorbeeld && kidsMet("momentjes", "bijdragen").length > 0;
-    const wisselKids = kidsMet("wissel");
     const noodKids = kidsMet("nood");
-    const zichtbaarMoment = (m) => m.kindIds.some((k) => mag(p, k, m.soort === "wissel" ? "wissel" : "agenda"));
-    const mijnMomenten = kring.momenten.filter((m) => kring.wie[m.id] === p.id && zichtbaarMoment(m));
-    const wissels = kring.momenten.filter((m) => m.soort === "wissel" && m.kindIds.some((k) => wisselKids.some((x) => x.id === k)));
+    const vandaag = vandaagIso();
+    // De server geeft alleen toewijzingen met toegang tot wisselmomenten of agenda van alle kinderen.
+    const mijnMomenten = ophalen.toewijzingen.filter((a) => [...OPEN, "declined"].includes(a.status) && a.datum >= vandaag).sort((a, b) => (a.datum + a.tijd).localeCompare(b.datum + b.tijd));
+    const actief = mijnMomenten.filter((a) => OPEN.includes(a.status));
     const mijnMomentjes = lijst.filter((m) => !m.prive && momentjesKids.some((k) => k.id === m.kindId) && (m.auteurId === p.id || m.kringIds?.includes(p.id)));
-    const hulpVoorMij = hulpLijst.filter((h) => h.ontvangers?.includes(p.id));
+    const hulpVoorMij = ophalen.hulp;
     const tabs = [
         { id: "home", label: t(N + "tab.home"), icoon: Home },
         ...(momentjesKids.length ? [{ id: "momentjes", label: t(N + "tab.momenten"), icoon: Heart }] : []),
@@ -139,9 +204,17 @@ function KringApp({ view, isVoorbeeld, andere, kies, huidig }) {
     </nav>);
     const naamKids = (ids) => kids.filter((k) => ids.includes(k.id)).map((k) => k.naam).join(` ${t("common.en")} `);
     const meldingen = [
-        ...mijnMomenten.map((m) => t(N + (m.soort === "wissel" ? "melding.haal" : "melding.breng"), { dag: m.dag, namen: naamKids(m.kindIds.filter((k) => mag(p, k, m.soort === "wissel" ? "wissel" : "agenda"))), tijd: m.tijd })),
+        ...mijnMomenten.filter((a) => a.status === "requested").map((a) => t(N + (a.soort === "wissel" ? "melding.haal" : "melding.breng"), { dag: dagTekst(a.datum), namen: naamKids(a.kindIds), tijd: a.tijd ? uur(a.tijd) : "" })),
+        ...hulpVoorMij.filter((h) => h.status === "open" && h.ontvangers.find((o) => o.id === p.id)?.status === "requested").map((h) => t(N + "melding.hulp", { wat: h.wat })),
         ...(mijnMomentjes.some((m) => m.auteurId !== p.id) ? [t(N + "melding.nieuwMoment")] : []),
     ];
+    const hulpActie = async (id, antwoord, reden) => {
+        setBezig(id);
+        const gelukt = await reageerHulp(id, antwoord, reden);
+        setBezig(null);
+        return gelukt;
+    };
+    const fout = !isVoorbeeld && ophalen.fout && !ophalen.geladen;
     return (<Kader nav={nav}>
       <div className="flex items-center justify-between">
         <p className="text-xs text-ink-soft">{t(N + "hoi", { naam: p.naam })}</p>
@@ -150,25 +223,27 @@ function KringApp({ view, isVoorbeeld, andere, kies, huidig }) {
       {andere ? <div className="mt-2 flex flex-wrap gap-2">{andere.map((a) => <button key={a.i} onClick={() => kies(a.i)} aria-pressed={a.i === huidig} className={`rounded-full border px-3 py-1 text-xs font-semibold ${a.i === huidig ? "border-brand bg-white text-ink" : "border-border text-ink-soft"}`}>{a.naam}</button>)}</div> : null}
 
       {tab === "home" ? (<>
-          <h1 className="lora mt-1 text-[30px] leading-tight">{mijnMomenten.length ? t(N + "binnenkort") : t(N + "allesRustig")}</h1>
-          {mijnMomenten.length === 0 ? <p className="mt-2 text-sm text-ink-soft">{kids.length ? t(N + "geenAfspraken", { namen: naamKids(kids.map((k) => k.id)) }) : t(N + "nietsGedeeld")}</p> : null}
+          <h1 className="lora mt-1 text-[30px] leading-tight">{actief.length ? t(N + "binnenkort") : t(N + "allesRustig")}</h1>
+          {fout ? <LaadFout onOpnieuw={ophalen.opnieuw}/> : !isVoorbeeld && !ophalen.geladen ? <InhoudLaden hoogte="min-h-[20dvh]"/> : mijnMomenten.length === 0 ? <p className="mt-2 text-sm text-ink-soft">{kids.length ? t(N + "geenAfspraken", { namen: naamKids(kids.map((k) => k.id)) }) : t(N + "nietsGedeeld")}</p> : null}
           <div className="mt-5 space-y-6">
-            {mijnMomenten.map((m) => <MijnMoment key={m.id} m={m} p={p} kids={kids} alleenKijken={isVoorbeeld}/>)}
+            {mijnMomenten.map((a) => <MijnMoment key={a.id} a={a} p={p} kids={kids} alleenKijken={isVoorbeeld} vandaag={vandaag}/>)}
           </div>
-
-          {wissels.length && !mijnMomenten.some((m) => m.soort === "wissel") ? (<section className="mt-8">
-              <h2 className={kop}>{t(N + "volgendeWissel")}</h2>
-              <p className="mt-2 text-sm font-semibold">{wissels[0].dag} · {wissels[0].tijd}</p>
-            </section>) : null}
 
           {hulpVoorMij.length ? (<section className="mt-8">
               <h2 className={kop}>{t(N + "hulpGevraagd")}</h2>
-              {hulpVoorMij.map((h) => (<div key={h.id} className="mt-2 border-b border-border pb-3 text-sm">
+              {hulpVoorMij.map((h) => {
+                const mijn = h.ontvangers.find((o) => o.id === p.id);
+                const open = h.status === "open" && mijn?.status === "requested";
+                return (<div key={h.id} className="mt-2 border-b border-border pb-3 text-sm">
                   <p className="font-semibold">{h.wat}</p>
-                  <p className="text-xs text-ink-soft">{new Date(h.datum).toLocaleDateString(taalLocale(), { weekday: "long", day: "numeric", month: "long" })} · {uur(h.tijd)}</p>
-                  {h.status === "open" && !isVoorbeeld ? <button onClick={() => accepteerHulp(h.id, p.id)} className="mt-2 min-h-11 rounded-full bg-brand px-4 text-xs font-semibold text-primary-foreground">{t(N + "ikDoeHet")}</button>
-                        : <p className="mt-1 text-xs text-ink-soft">{h.geaccepteerdDoor === p.id ? t(N + "hulp.jij") : h.status === "geaccepteerd" ? t(N + "hulp.iemandAnders") : h.status === "open" ? "" : t(N + "hulp.nietNodig")}</p>}
-                </div>))}
+                  <p className="text-xs text-ink-soft">{naamKids(h.kindIds) ? `${naamKids(h.kindIds)} · ` : ""}{dagTekst(h.datum)}{h.tijd ? ` · ${uur(h.tijd)}` : ""}</p>
+                  {open ? (<div className="mt-2 flex flex-wrap gap-2">
+                      <button disabled={isVoorbeeld || bezig === h.id} onClick={() => hulpActie(h.id, "accept")} className="min-h-11 flex-1 rounded-full bg-brand px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40">{t(N + "ikDoeHet")}</button>
+                      <KanNiet uit={isVoorbeeld || bezig === h.id} onVerstuur={(reden) => hulpActie(h.id, "decline", reden)}/>
+                    </div>)
+                        : <p className="mt-1 text-xs text-ink-soft">{h.status === "accepted" && h.geaccepteerdDoor === p.id ? t(N + "hulp.jij") : mijn?.status === "declined" ? t(N + "hulp.kanNiet") : h.status === "accepted" ? t(N + "hulp.iemandAnders") : t(N + "hulp.nietNodig")}</p>}
+                </div>);
+            })}
             </section>) : null}
 
           {mijnMomentjes[0] ? (<section className="mt-8">
@@ -180,7 +255,7 @@ function KringApp({ view, isVoorbeeld, andere, kies, huidig }) {
           {meldingen.length ? (<section className="mt-8">
               <h2 className={kop}>{t(N + "meldingen")}</h2>
               <ul className="mt-2 divide-y divide-border border-y border-border text-sm">
-                {meldingen.map((m) => <li key={m} className="flex items-center gap-2 py-2.5"><Bell className="size-3.5 text-ink-soft" strokeWidth={1.6}/>{m}</li>)}
+                {meldingen.map((m, i) => <li key={`${i}-${m}`} className="flex items-center gap-2 py-2.5"><Bell className="size-3.5 text-ink-soft" strokeWidth={1.6}/>{m}</li>)}
               </ul>
             </section>) : null}
         </>) : null}
@@ -199,53 +274,66 @@ function KringApp({ view, isVoorbeeld, andere, kies, huidig }) {
 
       {tab === "meer" ? (<>
           <h1 className="lora mt-1 text-[30px] leading-tight">{t(N + "tab.menu")}</h1>
-          {wisselKids.length && wissels.length ? (<section className="mt-6">
-              <h2 className={kop}>{t(N + "komendeWissels")}</h2>
+          {actief.length ? (<section className="mt-6">
+              <h2 className={kop}>{t(N + "komendeMomenten")}</h2>
               <div className="mt-1 divide-y divide-border border-y border-border">
-                {wissels.map((m) => (<div key={m.id} className="py-3 text-sm">
-                    <p className="font-semibold">{m.dag} · {uur(m.tijd)}</p>
-                    <p className="text-xs text-ink-soft">{t(N + "wisselmoment", { plek: m.plek })}</p>
+                {actief.map((a) => (<div key={a.id} className="py-3 text-sm">
+                    <p className="font-semibold">{dagTekst(a.datum)}{a.tijd ? ` · ${uur(a.tijd)}` : ""}</p>
+                    <p className="text-xs text-ink-soft">{a.soort === "wissel" ? t(N + "wisselmoment", { plek: a.plek || "-" }) : [a.titel, a.plek].filter(Boolean).join(" · ")}</p>
                   </div>))}
               </div>
             </section>) : null}
           {noodKids.map((k) => <Noodkaart key={k.id} kind={k}/>)}
-          {!(wisselKids.length && wissels.length) && !noodKids.length ? <p className="mt-4 text-sm text-ink-soft">{t(N + "nietsGedeeld")}</p> : null}
+          {!actief.length && !noodKids.length ? <p className="mt-4 text-sm text-ink-soft">{t(N + "nietsGedeeld")}</p> : null}
+          {!isVoorbeeld ? <Uitloggen /> : null}
         </>) : null}
     </Kader>);
 }
-function MijnMoment({ m, p, kids: alleKids, alleenKijken }) {
+/** Eén ophaal- of brengmoment van dit kringlid, met accepteren/weigeren, onderweg en "ik ben er". */
+function MijnMoment({ a, p, kids: alleKids, alleenKijken, vandaag }) {
     const { t } = useTranslation();
-    const kring = useKring();
-    const kids = alleKids.filter((k) => m.kindIds.includes(k.id) && mag(p, k.id, m.soort === "wissel" ? "wissel" : "agenda"));
-    const spullen = m.kindIds.some((k) => mag(p, k, "spullen"));
-    const spullenAanpassen = !alleenKijken && m.kindIds.some((k) => mag(p, k, "spullen", "bijdragen"));
-    const agenda = m.kindIds.some((k) => mag(p, k, "agenda"));
-    const klaar = kring.meeKlaar[m.id] ?? [];
-    const bev = kring.bevestigd[m.id];
-    const mee = m.mee ?? [];
+    const [bezig, setBezig] = useState(false);
+    const kids = alleKids.filter((k) => a.kindIds.includes(k.id));
+    const spullen = a.kindIds.some((k) => mag(p, k, "spullen"));
+    const spullenAanpassen = !alleenKijken && a.status === "accepted" && a.kindIds.some((k) => mag(p, k, "spullen", "bijdragen"));
+    const klaar = a.ingepakt ?? [];
+    const mee = a.mee ?? [];
     const nogMee = mee.filter((x) => !klaar.includes(x)).length;
+    const opDeDag = a.datum === vandaag;
+    const doe = async (f) => { setBezig(true); const r = await f(); setBezig(false); return r; };
+    const uit = alleenKijken || bezig;
+    const knop = "flex-1 rounded-md border border-border py-2.5 text-sm font-semibold disabled:opacity-40";
     return (<section className="border-t border-border pt-4">
-      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">{m.dag}</p>
-      <p className="mt-1 font-display text-xl">{uur(m.tijd)} · {m.soort === "wissel" ? t(N + "jijHaalt", { namen: kids.map((k) => k.naam).join(` ${t("common.en")} `) }) : m.titel}</p>
-      <p className="text-sm text-ink-soft">{m.plek}</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">{dagTekst(a.datum)}</p>
+      <p className="mt-1 font-display text-xl">{a.tijd ? `${uur(a.tijd)} · ` : ""}{a.soort === "wissel" ? t(N + "jijHaalt", { namen: kids.map((k) => k.naam).join(` ${t("common.en")} `) }) : a.titel}</p>
+      {a.plek ? <p className="text-sm text-ink-soft">{a.plek}</p> : null}
+      {(a.checkins ?? []).filter((c) => c.kind === "onderweg").map((c) => <p key={c.at} role="status" className="mt-2 rounded-md bg-brand-soft px-3 py-2 text-sm font-semibold">{t(N + "ouderOnderweg", { naam: c.name })}</p>)}
       {spullen && mee.length ? (<>
           <p className="mt-3 text-xs font-semibold">{t(N + "mee")} {nogMee ? t(N + "nogTeDoen", { n: nogMee }) : ""}</p>
           <ul className="mt-1 space-y-1">
             {mee.map((x) => {
                 const ok = klaar.includes(x);
                 return (<li key={x}>
-                  <button disabled={!spullenAanpassen} onClick={() => toggleMee(m.id, x)} className="flex items-center gap-2 text-sm">
+                  <button disabled={!spullenAanpassen} onClick={() => toggleIngepakt(a.id, x)} aria-pressed={ok} className="flex min-h-9 items-center gap-2 text-sm">
                     <span className={`grid size-5 place-items-center rounded-full border ${ok ? "border-brand bg-brand text-primary-foreground" : "border-border"}`}>{ok ? <Check className="size-3"/> : null}</span>{x}
                   </button>
                 </li>);
             })}
           </ul>
         </>) : null}
-      {agenda && m.daarna ? <p className="mt-3 text-xs"><b>{t(N + "daarna")}</b> · {m.daarna}</p> : null}
-      <div className="mt-4 flex gap-2">
-        <button disabled={alleenKijken} onClick={() => bevestig(m.id, "regel")} className={`flex-1 rounded-md border py-2.5 text-sm font-semibold ${bev === "regel" ? "border-brand bg-brand-soft" : "border-border"}`}>{bev === "regel" ? <MetVinkje achter>{t(N + "ikRegel")}</MetVinkje> : t(N + "ikRegel")}</button>
-        <button disabled={alleenKijken} onClick={() => bevestig(m.id, "er")} className={`flex-1 rounded-md py-2.5 text-sm font-semibold ${bev === "er" ? "bg-brand text-primary-foreground" : "border border-border"}`}>{bev === "er" ? <MetVinkje achter>{t(N + "ikBenEr")}</MetVinkje> : t(N + "ikBenEr")}</button>
-      </div>
+      {a.status === "requested" ? (<div className="mt-4 flex flex-wrap gap-2">
+          <button disabled={uit} onClick={() => doe(() => reageerOphalen(a.id, "accept"))} className="flex-1 rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t(N + "ikRegel")}</button>
+          <KanNiet uit={uit} onVerstuur={(reden) => doe(() => reageerOphalen(a.id, "decline", reden))}/>
+        </div>) : a.status === "declined" ? (<div className="mt-3">
+          <p className="text-xs text-ink-soft">{t(N + "jijKanNiet")}</p>
+          <button disabled={uit} onClick={() => doe(() => reageerOphalen(a.id, "accept"))} className="mt-1 inline-flex min-h-10 items-center text-sm font-semibold text-brand disabled:opacity-40">{t(N + "tochRegelen")}</button>
+        </div>) : a.aangekomenOp ? (<p role="status" className="mt-4 text-sm font-semibold text-brand"><MetVinkje>{t(N + "jijBentEr")}</MetVinkje></p>) : (<>
+          <p className="mt-3 text-xs font-semibold text-brand"><MetVinkje>{t(N + "bevestigdDoorJou")}</MetVinkje></p>
+          {opDeDag ? (<div className="mt-3 flex gap-2">
+              <button disabled={uit || !!a.onderwegOp} onClick={() => doe(() => meldOnderwegKring(a.id))} className={`${knop} ${a.onderwegOp ? "border-brand bg-brand-soft" : ""}`}>{a.onderwegOp ? <MetVinkje achter>{t(N + "ikBenOnderweg")}</MetVinkje> : t(N + "ikBenOnderweg")}</button>
+              <button disabled={uit} onClick={() => doe(() => meldAangekomenKring(a.id))} className="flex-1 rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t(N + "ikBenEr")}</button>
+            </div>) : null}
+        </>)}
     </section>);
 }
 /** Alleen de velden die de ouders op de noodkaart zetten; de server stuurt niets anders mee. */

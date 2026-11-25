@@ -1,8 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { AppIcon } from "@/components/AppIcon";
-import { bewaarEvaluatie, useEvaluaties } from "@/lib/evaluatie-store";
+import { bewaarEvaluatie, evaluatieBron, useEvaluaties } from "@/lib/evaluatie-store";
+import { LaadFout } from "@/components/Laden";
+import { bevestig } from "@/lib/feedback";
 import { useGezin } from "@/lib/gezin";
 import { useTranslation, Trans } from "react-i18next";
 import i18n, { taalLocale } from "@/i18n";
@@ -58,7 +60,10 @@ function Cirkel() {
 function EvaluatiePagina() {
     const { t } = useTranslation();
     const g = useGezin();
+    const nav = useNavigate();
+    // Met meerdere andere ouders (per kind een andere) is "de andere ouder" de enige juiste naam.
     const ander = g.ander?.naam || t("common.deAndereOuder");
+    const laadStatus = evaluatieBron.useStatus();
     const [stap, setStap] = useState("start");
     const [goed, setGoed] = useState("");
     const [anders, setAnders] = useState("");
@@ -81,11 +86,16 @@ function EvaluatiePagina() {
     ].filter(Boolean).join("\n");
     const ietsGedeeld = (delen.goed && goed.trim()) || (delen.anders && anders.trim()) || (delen.werkt && werkt);
     // Eén keer per doorloop bewaren (ook als de ouder daarna nog naar Berichten gaat).
-    const bewaar = () => {
+    const bewaar = async () => {
         if (bewaard)
-            return;
+            return true;
         setBewaard(true);
-        bewaarEvaluatie({ goed, anders, werkt, nodig, zelf });
+        const gelukt = await bewaarEvaluatie({ goed, anders, werkt, nodig, zelf, loslaten });
+        if (!gelukt)
+            setBewaard(false); // foutmelding is getoond; opnieuw proberen kan
+        else
+            bevestig(t(N + "opgeslagen"));
+        return gelukt;
     };
     return (<AppShell>
       <PageHeader titel={t(N + "titel")} subtitel={t(N + "subtitel")} terug="/meer"/>
@@ -97,6 +107,7 @@ function EvaluatiePagina() {
             <div className="flex items-start gap-2.5"><span className="grid size-8 shrink-0 place-items-center rounded-full border border-[#C9D6C3] bg-[#E9EFE3] text-xs font-black text-[#3F5747]" aria-hidden>Co</span><p className="text-[15px] leading-snug text-[#2F4A3A]"><Trans i18nKey="routes.evaluatie.start.co" components={{ b: <b /> }}/></p></div>
             <Cirkel />
           </Kaart>
+          {laadStatus === "fout" ? <LaadFout onOpnieuw={evaluatieBron.ververs}/> : null}
           {laatste ? <p className="mt-3 text-sm text-ink-soft">{t(N + "start.vorige", { datum: new Date(laatste.datum).toLocaleDateString(taalLocale(), { day: "numeric", month: "long", year: "numeric" }) })}</p> : null}
           <button onClick={() => ga("jij")} className="mt-5 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground">{t(N + "start.beginnen")}</button>
         </div>) : null}
@@ -142,10 +153,12 @@ function EvaluatiePagina() {
                 <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed">{concept}</p>
               </div>
               {SCHERP.test(concept) ? <p className="mt-2 rounded-2xl bg-[#E9EFE3] px-3.5 py-2.5 text-sm text-[#2F4A3A]"><Trans i18nKey="routes.evaluatie.delen.scherp" components={{ b: <b /> }}/></p> : null}
-              <Link to="/berichten" search={{ concept }} onClick={bewaar} className="mt-4 flex h-[54px] w-full items-center justify-center rounded-full bg-brand text-base font-black text-primary-foreground">{t(N + "delen.verderBerichten")}</Link>
+              <button onClick={async () => { if (await bewaar())
+                nav({ to: "/berichten", search: { concept } }); }} className="mt-4 flex h-[54px] w-full items-center justify-center rounded-full bg-brand text-base font-black text-primary-foreground">{t(N + "delen.verderBerichten")}</button>
               <p className="mt-2 text-center text-xs text-ink-soft">{t(N + "delen.nietsVerstuurd")}</p>
             </>) : null}
-          <button onClick={() => { bewaar(); ga("klaar"); }} className="mt-3 h-[50px] w-full rounded-full border border-white/90 bg-white/75 text-[15px] font-black">{t(N + "delen.alleenMezelf")}</button>
+          <button onClick={async () => { if (await bewaar())
+            ga("klaar"); }} className="mt-3 h-[50px] w-full rounded-full border border-white/90 bg-white/75 text-[15px] font-black">{t(N + "delen.alleenMezelf")}</button>
         </div>) : null}
 
       {stap === "klaar" ? (<div>

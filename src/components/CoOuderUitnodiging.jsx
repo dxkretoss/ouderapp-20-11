@@ -45,31 +45,50 @@ export function CoOuderUitnodiging({ token }) {
         return () => { weg = true; };
     }, [token]);
     const terug = () => nav({ to: a.status === "aan" ? "/" : "/welkom" });
+    // Gelukt accepteren onthouden: mislukt daarna een vervolgstap (profiel, verversen), dan alleen die opnieuw.
+    const [geaccepteerd, setGeaccepteerd] = useState(null);
     const accepteren = async () => {
+        if (bezig)
+            return;
         setBezig("accepteren");
         setActieFout(null);
+        let r = geaccepteerd;
+        if (!r) {
+            try {
+                // De server is idempotent voor wie de uitnodiging al accepteerde (geen INVITE_USED bij opnieuw).
+                r = await api("accept-invitation", "accept", { token });
+                setGeaccepteerd(r);
+            }
+            catch (e) {
+                const code = e.code ?? "SERVER";
+                if (["INVITE_USED", "INVITE_CANCELLED", "INVITE_DECLINED", "INVITE_EXPIRED", "NOT_FOUND"].includes(code)) {
+                    wisUitnodiging();
+                    setFout(code);
+                }
+                else
+                    setActieFout(code);
+                setBezig(null);
+                return;
+            }
+        }
         try {
-            const r = await api("accept-invitation", "accept", { token });
-            wisUitnodiging();
             // Wie via een uitnodiging binnenkomt, gebruikt de app samen: de welkomstappen zijn dan klaar.
             if (a.status !== "aan")
                 await auth.updateProfile({ onboarding_completed: true, usage_mode: "together" });
             else
                 await auth.refreshMe();
-            await start.hydrateer();
-            bevestig(t(N + "gekoppeld", { naam: r.co_parent?.name ?? "" }));
-            nav({ to: "/", replace: true });
         }
         catch (e) {
-            const code = e.code ?? "SERVER";
-            if (["INVITE_USED", "INVITE_CANCELLED", "INVITE_DECLINED", "INVITE_EXPIRED", "NOT_FOUND"].includes(code)) {
-                wisUitnodiging();
-                setFout(code);
-            }
-            else
-                setActieFout(code);
+            // De koppeling staat; alleen het profiel bijwerken lukte niet. Opnieuw proberen doet alleen dit.
+            setActieFout(e.code ?? "SERVER");
             setBezig(null);
+            return;
         }
+        wisUitnodiging();
+        // Gezin, agenda, vakanties en overdracht opnieuw laden: er zijn nu gedeelde kinderen.
+        await start.herlaadGekoppeld();
+        bevestig(t(N + "gekoppeld", { naam: r.co_parent?.name ?? "" }));
+        nav({ to: "/", replace: true });
     };
     const weigeren = async () => {
         setBezig("weigeren");
@@ -86,12 +105,32 @@ export function CoOuderUitnodiging({ token }) {
         setWeigerVraag(false);
     };
     const anderAccount = async () => {
+        // Niet uitloggen terwijl er nog een actie loopt (bijv. accepteren).
+        if (bezig)
+            return;
         setBezig("wissel");
-        await auth.logout();
-        bewaarUitnodiging(token);
-        nav({ to: "/inloggen" });
+        try {
+            await auth.logout();
+        }
+        finally {
+            // De uitnodiging blijft bewaard voor het andere account (logout wist de gezinscache).
+            bewaarUitnodiging(token);
+            setBezig(null);
+            nav({ to: "/inloggen" });
+        }
     };
-    const code = fout ?? (uitnodiging ? statusCode(uitnodiging) : null);
+    const ingelogdNu = a.status === "aan" || a.status === "onboarding";
+    // Al geaccepteerd (bijv. vorige poging lukte, daarna faalde het profiel bijwerken): voor een ingelogde
+    // gebruiker stil opnieuw accepteren. De server rondt het af voor dezelfde persoon, anders volgt INVITE_USED.
+    const herstel = !fout && uitnodiging?.status === "accepted" && ingelogdNu;
+    const [herstelGeprobeerd, setHerstelGeprobeerd] = useState(false);
+    useEffect(() => {
+        if (herstel && !herstelGeprobeerd && !bezig) {
+            setHerstelGeprobeerd(true);
+            accepteren();
+        }
+    }, [herstel, herstelGeprobeerd, bezig]);
+    const code = fout ?? (uitnodiging && !herstel ? statusCode(uitnodiging) : null);
     // Definitief niet meer bruikbaar: het bewaarde token mag weg (bij netwerk-/serverfout niet).
     useEffect(() => {
         if (code && code !== "SERVER" && code !== "NETWORK")

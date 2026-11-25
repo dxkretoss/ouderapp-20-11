@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useGezin } from "@/lib/gezin";
 import { z } from "zod";
 import { Annoyed, BellOff, Bookmark, BookmarkCheck, Check, Clock, Frown, Heart, ImageIcon, Meh, Repeat, Smile } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -11,9 +12,14 @@ import { Zichtbaar } from "@/components/Zichtbaar";
 import { AppIcon } from "@/components/AppIcon";
 import { gevoelens, metKind, momenten, onderwerpKleur, onderwerpen, zoekMomenten } from "@/lib/lastige-momenten";
 import { Chevron, Kruis, MetChevron, MetVinkje } from "@/components/Tekens";
+import { persoonlijkBron, persoonlijkState, usePersoonlijk, vanSoort, verwijderPersoonlijk, voegPersoonlijkToe } from "@/lib/persoonlijk-store";
+import { useVoorkeuren, zetVoorkeur } from "@/lib/voorkeuren-store";
+import { laadWeergave } from "@/components/Laden";
 /*
  * Lastige momenten (stijl A6). Vaste tekst uit src/lib/lastige-momenten.ts, geen AI op deze pagina.
- * Mijn houvast en "Schrijf het van je af" blijven op dit apparaat (localStorage) en worden nooit gedeeld.
+ * Mijn houvast (zinnen en bewaarde momenten) en de wissel-log staan privé op de server (manage-personal):
+ * alleen voor jou, nooit gedeeld. "Schrijf het van je af" wordt nergens bewaard. Kleine keuzes
+ * (hulp bij elke wissel, berichtenpauze) zijn voorkeuren van je account.
  */
 export const Route = createFileRoute("/lastige-momenten")({
     head: () => ({
@@ -25,24 +31,54 @@ export const Route = createFileRoute("/lastige-momenten")({
     validateSearch: z.object({ start: z.enum(["adem", "stoppen", "komt", "na", "pauze", "maand", "gesprek", "fijn", "houvast", "afschrijven"]).optional() }),
     component: LastigeMomenten,
 });
-const HOUVAST_SLEUTEL = "lastige-momenten-houvast-v1";
-function leesHouvast() {
+/** Oude, alleen-lokale gegevens (vóór de serveropslag): één keer overzetten en dan van dit apparaat wissen. */
+const OUD_HOUVAST = "lastige-momenten-houvast-v1";
+const OUD_LOG = "lastige-momenten-log-v1";
+const OUD_HULP = "lastige-momenten-wisselhulp-v1";
+const OUD_PAUZE = "berichten-pauze-tot-v1";
+let overgezet = false;
+async function zetOudeGegevensOver() {
+    if (overgezet || typeof window === "undefined")
+        return;
+    overgezet = true;
     try {
-        const r = localStorage.getItem(HOUVAST_SLEUTEL);
-        if (r) {
-            const p = JSON.parse(r);
-            return { bewaard: Array.isArray(p.bewaard) ? p.bewaard : [], zinnen: Array.isArray(p.zinnen) ? p.zinnen : [] };
-        }
+        const h = JSON.parse(localStorage.getItem(OUD_HOUVAST) ?? "null");
+        const log = JSON.parse(localStorage.getItem(OUD_LOG) ?? "null");
+        const hulp = localStorage.getItem(OUD_HULP);
+        const pauze = localStorage.getItem(OUD_PAUZE);
+        const nu = persoonlijkState();
+        const zinnen = new Set(vanSoort(nu, "houvast_zin").map((x) => x.data.tekst));
+        const momentjes = new Set(vanSoort(nu, "houvast_moment").map((x) => x.data.moment));
+        const logs = new Set(vanSoort(nu, "wissel_log").map((x) => `${x.data.datum}|${x.data.gevoel}`));
+        let gelukt = true;
+        const doe = async (soort, data) => { if (!(await voegPersoonlijkToe(soort, data)))
+            gelukt = false; };
+        for (const z of (Array.isArray(h?.zinnen) ? h.zinnen : []).filter((z) => typeof z === "string" && z.trim() && !zinnen.has(z.trim())).slice(0, 50))
+            await doe("houvast_zin", { tekst: z.trim().slice(0, 500) });
+        for (const id of (Array.isArray(h?.bewaard) ? h.bewaard : []).filter((x) => Number.isInteger(x) && !momentjes.has(x)).slice(0, 100))
+            await doe("houvast_moment", { moment: id });
+        for (const l of (Array.isArray(log) ? log : []).slice(-60))
+            if (l && typeof l.datum === "string" && typeof l.gevoel === "string" && !logs.has(`${l.datum.slice(0, 10)}|${l.gevoel}`))
+                await doe("wissel_log", { datum: l.datum.slice(0, 10), gevoel: l.gevoel, hielp: Array.isArray(l.hielp) ? l.hielp : [] });
+        if (hulp === "1")
+            zetVoorkeur("wisselHulp", true);
+        if (pauze && Date.parse(pauze) > Date.now())
+            zetVoorkeur("berichtenPauzeTot", new Date(pauze).toISOString());
+        // Alleen wissen als alles op de server staat; anders de volgende keer opnieuw proberen.
+        if (gelukt)
+            [OUD_HOUVAST, OUD_LOG, OUD_HULP, OUD_PAUZE].forEach((k) => localStorage.removeItem(k));
+        else
+            overgezet = false;
     }
-    catch { /* opslag niet beschikbaar: gewoon leeg beginnen */ }
-    return { bewaard: [], zinnen: [] };
+    catch { /* geen (geldige) oude gegevens */ }
 }
-function schrijfHouvast(h) {
-    try {
-        localStorage.setItem(HOUVAST_SLEUTEL, JSON.stringify(h));
-    }
-    catch { /* niet erg: dan alleen voor deze sessie */ }
+/** Mijn houvast uit de privé-opslag: { bewaard: [moment-id], zinnen: [tekst], zinItems: [item] }. */
+function houvastUit(s) {
+    const zinItems = vanSoort(s, "houvast_zin");
+    return { bewaard: vanSoort(s, "houvast_moment").map((x) => x.data.moment), zinnen: zinItems.map((x) => x.data.tekst), zinItems };
 }
+const voegZin = (tekst) => { const z = tekst.trim().slice(0, 500); if (z)
+    void voegPersoonlijkToe("houvast_zin", { tekst: z }); };
 const GLAS = "rounded-[18px] border border-white/85 bg-white/60";
 const HL = { background: "linear-gradient(135deg, rgba(220,230,210,.95), rgba(233,239,227,.9))" };
 function LastigeMomenten() {
@@ -57,15 +93,20 @@ function LastigeMomenten() {
     const { start } = Route.useSearch();
     const [stapel, setStapel] = useState(start ? [{ s: "start" }, { s: start }] : [{ s: "start" }]);
     const scherm = stapel[stapel.length - 1];
-    const [houvast, setHouvast] = useState({ bewaard: [], zinnen: [] });
-    useEffect(() => { setHouvast(leesHouvast()); }, []);
+    const ps = usePersoonlijk();
+    const laadStatus = persoonlijkBron.useStatus();
+    const houvast = useMemo(() => houvastUit(ps), [ps]);
+    useEffect(() => { if (laadStatus === "klaar")
+        void zetOudeGegevensOver(); }, [laadStatus]);
     const ga = (n) => { setStapel((s) => [...s, n]); if (typeof window !== "undefined")
         window.scrollTo({ top: 0 }); };
     const terug = () => setStapel((s) => (s.length > 1 ? s.slice(0, -1) : s));
     const bewaar = (id) => {
-        const h = { ...houvast, bewaard: houvast.bewaard.includes(id) ? houvast.bewaard.filter((x) => x !== id) : [...houvast.bewaard, id] };
-        setHouvast(h);
-        schrijfHouvast(h);
+        const al = vanSoort(ps, "houvast_moment").find((x) => x.data.moment === id);
+        if (al)
+            void verwijderPersoonlijk(al.id);
+        else
+            void voegPersoonlijkToe("houvast_moment", { moment: id });
     };
     if (scherm.s === "adem")
         return <Ademen kleur={kleur} terug={terug}/>;
@@ -81,13 +122,13 @@ function LastigeMomenten() {
       {scherm.s === "moment" && <MomentPagina m={momenten.find((x) => x.id === scherm.id)} namen={namen} ga={ga} bewaard={houvast.bewaard.includes(scherm.id)} bewaar={() => bewaar(scherm.id)}/>}
       {scherm.s === "nu" && <SnelleTips m={momenten.find((x) => x.id === scherm.id)} namen={namen} kleur={kleur} kinderenInfo={kinderenInfo} ga={ga}/>}
       {scherm.s === "stoppen" && <EvenStoppen ga={ga} terug={terug}/>}
-      {scherm.s === "houvast" && <MijnHouvast houvast={houvast} zet={(h) => { setHouvast(h); schrijfHouvast(h); }} ga={ga}/>}
+      {scherm.s === "houvast" && (laadWeergave(laadStatus, persoonlijkBron.ververs) ?? <MijnHouvast houvast={houvast} ga={ga}/>)}
       {scherm.s === "afschrijven" && <Afschrijven ga={ga}/>}
       {scherm.s === "komt" && <HetKomtEraan houvast={houvast} ga={ga}/>}
-      {scherm.s === "na" && <HoeGingDeWissel ouder={ouder} houvast={houvast} zet={(h) => { setHouvast(h); schrijfHouvast(h); }} ga={ga}/>}
+      {scherm.s === "na" && <HoeGingDeWissel ouder={ouder} log={vanSoort(ps, "wissel_log")} ga={ga}/>}
       {scherm.s === "pauze" && <EvenPauze terug={terug}/>}
-      {scherm.s === "maand" && <JouwMaand houvast={houvast}/>}
-      {scherm.s === "gesprek" && <GesprekVoorbereiden houvast={houvast} zet={(h) => { setHouvast(h); schrijfHouvast(h); }}/>}
+      {scherm.s === "maand" && (laadWeergave(laadStatus, persoonlijkBron.ververs) ?? <JouwMaand houvast={houvast} log={vanSoort(ps, "wissel_log")}/>)}
+      {scherm.s === "gesprek" && <GesprekVoorbereiden />}
       {scherm.s === "fijn" && <IetsFijns />}
       {scherm.s === "verder" && <MeerHulp ga={ga}/>}
     </AppShell>);
@@ -295,11 +336,11 @@ function EvenStoppen({ ga, terug }) {
       </div>
     </div>);
 }
-function MijnHouvast({ houvast, zet, ga }) {
+function MijnHouvast({ houvast, ga }) {
     const { t } = useTranslation();
     const [nieuw, setNieuw] = useState("");
     const voegToe = () => { if (!nieuw.trim())
-        return; zet({ ...houvast, zinnen: [...houvast.zinnen, nieuw.trim()] }); setNieuw(""); };
+        return; voegZin(nieuw); setNieuw(""); };
     const kopieer = (z) => { try {
         void navigator.clipboard?.writeText(z);
     }
@@ -309,14 +350,15 @@ function MijnHouvast({ houvast, zet, ga }) {
       <p className="text-sm text-ink-soft">{t("routes.lastigeMomenten.houvast.prive")}</p>
       <Sectie>{t("routes.lastigeMomenten.houvast.zinnen")}</Sectie>
       <div className="space-y-2">
-        {houvast.zinnen.map((z, i) => (<div key={`${z}-${i}`} className="flex items-center gap-2 rounded-[18px_18px_18px_6px] bg-[#DCE6D2] px-3.5 py-2.5">
+        {houvast.zinItems.map(({ id, data: { tekst: z } }) => (<div key={id} className="flex items-center gap-2 rounded-[18px_18px_18px_6px] bg-[#DCE6D2] px-3.5 py-2.5">
             <span className="min-w-0 flex-1 text-[15px] font-extrabold text-[#2F4A3A]">{z}</span>
             <button onClick={() => kopieer(z)} className="text-xs font-extrabold text-[#3F5747]">{t("routes.lastigeMomenten.houvast.kopieer")}</button>
-            <button onClick={() => zet({ ...houvast, zinnen: houvast.zinnen.filter((_, j) => j !== i) })} aria-label={t("routes.lastigeMomenten.houvast.verwijderAria")} className="grid size-10 shrink-0 place-items-center text-ink-soft"><Kruis className="size-4"/></button>
+            <button onClick={() => void verwijderPersoonlijk(id)} aria-label={t("routes.lastigeMomenten.houvast.verwijderAria")} className="grid size-10 shrink-0 place-items-center text-ink-soft"><Kruis className="size-4"/></button>
           </div>))}
         <div className="flex gap-2">
-          <input value={nieuw} onChange={(e) => setNieuw(e.target.value)} placeholder={t("routes.lastigeMomenten.houvast.placeholder")} aria-label={t("routes.lastigeMomenten.houvast.nieuwAria")} className="h-12 min-w-0 flex-1 rounded-2xl border border-white/85 bg-white px-3.5 text-[15px] outline-none"/>
-          <button onClick={voegToe} className="h-12 rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{t("routes.lastigeMomenten.houvast.toevoegen")}</button>
+          <input value={nieuw} onChange={(e) => setNieuw(e.target.value)} maxLength={500} onKeyDown={(e) => { if (e.key === "Enter")
+            voegToe(); }} placeholder={t("routes.lastigeMomenten.houvast.placeholder")} aria-label={t("routes.lastigeMomenten.houvast.nieuwAria")} className="h-12 min-w-0 flex-1 rounded-2xl border border-white/85 bg-white px-3.5 text-[15px] outline-none"/>
+          <button onClick={voegToe} disabled={!nieuw.trim() || houvast.zinnen.length >= 50} className="h-12 rounded-full bg-brand px-4 text-sm font-black text-primary-foreground disabled:opacity-45">{t("routes.lastigeMomenten.houvast.toevoegen")}</button>
         </div>
       </div>
       <Sectie>{t("routes.lastigeMomenten.houvast.bewaard")}</Sectie>
@@ -413,19 +455,6 @@ function Hulpregel() {
     return <p className="mt-6 text-[12.5px] leading-relaxed text-ink-soft">{t("routes.lastigeMomenten.hulpregel")}</p>;
 }
 /* ---------- Het komt eraan · Hoe ging de wissel · Even pauze · Jouw maand · Gesprek · Iets fijns ---------- */
-const HULP_SLEUTEL = "lastige-momenten-wisselhulp-v1";
-const LOG_SLEUTEL = "lastige-momenten-log-v1";
-function leesLog() { try {
-    const r = localStorage.getItem(LOG_SLEUTEL);
-    return r ? JSON.parse(r) : [];
-}
-catch {
-    return [];
-} }
-function schrijfLog(l) { try {
-    localStorage.setItem(LOG_SLEUTEL, JSON.stringify(l.slice(-60)));
-}
-catch { /* alleen voor deze sessie */ } }
 function Kop({ titel, sub }) {
     return <div className="mt-4"><h1 className="lora text-[30px] leading-tight">{titel}</h1><p className="text-sm text-ink-soft">{sub}</p></div>;
 }
@@ -442,15 +471,9 @@ function HetKomtEraan({ houvast, ga }) {
     const { t } = useTranslation();
     const [zinGekozen, setZinGekozen] = useState(false);
     const [voorMezelf, setVoorMezelf] = useState(false);
-    const [hulp, setHulp] = useState(false);
-    useEffect(() => { try {
-        setHulp(localStorage.getItem(HULP_SLEUTEL) === "1");
-    }
-    catch { /* geen opslag */ } }, []);
-    const zetHulp = (v) => { setHulp(v); try {
-        localStorage.setItem(HULP_SLEUTEL, v ? "1" : "0");
-    }
-    catch { /* geen opslag */ } };
+    const vk = useVoorkeuren();
+    const hulp = !!vk.wisselHulp;
+    const zetHulp = (v) => zetVoorkeur("wisselHulp", !!v);
     const zin = houvast.zinnen[0];
     return (<div>
       <Kop titel={t("routes.lastigeMomenten.start.komt.titel")} sub={t("routes.lastigeMomenten.komt.sub")}/>
@@ -485,20 +508,35 @@ const GING = [["Rustig", Smile], ["Ging wel", Meh], ["Lastig", Frown], ["Heftig"
 /** Waarden blijven Nederlands (log); label via routes.lastigeMomenten.na.hielp.<waarde>. */
 const HIELP = ["Mijn zin", "Ademen", "Kort afscheid", "Knuffel mee", "Niets"];
 const hielpLabel = (t, h) => (HIELP.includes(h) ? t(`routes.lastigeMomenten.na.hielp.${h}`) : h);
-function HoeGingDeWissel({ ouder, houvast, zet, ga }) {
+function HoeGingDeWissel({ ouder, log, ga }) {
     const { t } = useTranslation();
     const [ging, setGing] = useState(null);
     const [hielp, setHielp] = useState([]);
     const [onthoud, setOnthoud] = useState("");
     const [klaar, setKlaar] = useState(false);
-    const [zwaarVorige, setZwaarVorige] = useState(false);
-    useEffect(() => { const l = leesLog(); const laatste = l.at(-1); setZwaarVorige(!!laatste && (laatste.gevoel === "Lastig" || laatste.gevoel === "Heftig")); }, []);
-    const bewaar = () => {
-        if (ging)
-            schrijfLog([...leesLog(), { datum: new Date().toISOString().slice(0, 10), gevoel: ging, hielp }]);
-        if (onthoud.trim())
-            zet({ ...houvast, zinnen: [...houvast.zinnen, onthoud.trim()] });
-        setKlaar(true);
+    const [bezig, setBezig] = useState(false);
+    const [gelogd, setGelogd] = useState(null);
+    // De vorige wissel (vóór wat je nu bewaart): vastgezet bij het openen van dit scherm.
+    const [vorige] = useState(() => log.at(-1));
+    const zwaarVorige = !!vorige && (vorige.data.gevoel === "Lastig" || vorige.data.gevoel === "Heftig");
+    const bewaar = async () => {
+        if (bezig)
+            return;
+        setBezig(true);
+        const d = new Date();
+        const datum = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const metLog = ging && gelogd !== ging;
+        const goed = await Promise.all([
+            metLog ? voegPersoonlijkToe("wissel_log", { datum, gevoel: ging, hielp }) : true,
+            onthoud.trim() ? voegPersoonlijkToe("houvast_zin", { tekst: onthoud.trim().slice(0, 500) }) : true,
+        ]);
+        setBezig(false);
+        if (metLog && goed[0])
+            setGelogd(ging);
+        if (goed.every(Boolean)) {
+            setKlaar(true);
+            setOnthoud("");
+        }
     };
     return (<div>
       <Kop titel={t("routes.lastigeMomenten.na.titel", { ouder })} sub={t("routes.lastigeMomenten.houvast.prive")}/>
@@ -512,15 +550,14 @@ function HoeGingDeWissel({ ouder, houvast, zet, ga }) {
         {HIELP.map((h) => { const aan = hielp.includes(h); return <button key={h} onClick={() => setHielp((l) => (aan ? l.filter((x) => x !== h) : [...l, h]))} aria-pressed={aan} className={`h-10 rounded-full px-4 text-sm font-extrabold ${aan ? "bg-[#4F6B58] text-white" : "border border-white/85 bg-white/70"}`}>{hielpLabel(t, h)}</button>; })}
       </div>
       <h2 className="mt-5 font-display text-[19px] font-black">{t("routes.lastigeMomenten.na.onthoudVraag")}</h2>
-      <textarea value={onthoud} onChange={(e) => setOnthoud(e.target.value)} rows={3} aria-label={t("routes.lastigeMomenten.na.onthoudAria")} className="mt-2 w-full resize-none rounded-[18px] border border-white/85 bg-white/80 px-4 py-3 text-[15px] outline-none"/>
+      <textarea value={onthoud} onChange={(e) => { setOnthoud(e.target.value); setKlaar(false); }} rows={3} maxLength={500} aria-label={t("routes.lastigeMomenten.na.onthoudAria")} className="mt-2 w-full resize-none rounded-[18px] border border-white/85 bg-white/80 px-4 py-3 text-[15px] outline-none"/>
       {klaar ? <p className="mt-3 rounded-2xl bg-[rgba(220,230,210,.85)] px-4 py-3 text-sm font-extrabold text-[#2F4A3A]">{t("routes.lastigeMomenten.na.bewaard")}</p> : null}
-      <button onClick={bewaar} disabled={!ging && !onthoud.trim()} className="mt-4 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground disabled:opacity-45">{t("routes.lastigeMomenten.houvast.bewaarIn")}</button>
+      <button onClick={() => void bewaar()} disabled={bezig || klaar || ((!ging || gelogd === ging) && !onthoud.trim())} className="mt-4 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground disabled:opacity-45">{t("routes.lastigeMomenten.houvast.bewaarIn")}</button>
       <Link to="/verhaal" className={`${GLAS} mt-2.5 flex h-[50px] w-full items-center justify-center rounded-full text-[15px] font-black`}><AppIcon functie="co" maat="sm" className="mr-1.5"/>{t("routes.lastigeMomenten.co.vertellen")}</Link>
       <div className="mt-4 flex items-center gap-3"><AdemKnop maat={44} label={false} onClick={() => ga({ s: "adem" })}/><span className="text-sm text-ink-soft">{t("routes.lastigeMomenten.na.onrustig")}</span></div>
       <button onClick={() => ga({ s: "afschrijven" })} className="mt-3 text-sm font-extrabold text-brand">{t("routes.lastigeMomenten.afschrijven.titel")}</button>
     </div>);
 }
-const PAUZE_SLEUTEL = "berichten-pauze-tot-v1";
 function EvenPauze({ terug }) {
     const { t } = useTranslation();
     const opties = [[t("routes.lastigeMomenten.pauze.optie.uur"), 1], [t("routes.lastigeMomenten.pauze.optie.vanavond"), 0], [t("routes.lastigeMomenten.pauze.optie.ochtend"), -1]];
@@ -534,10 +571,8 @@ function EvenPauze({ terug }) {
             d.setDate(d.getDate() + 1);
         d.setHours(8, 0, 0, 0);
     } return d; };
-    const zet = () => { try {
-        localStorage.setItem(PAUZE_SLEUTEL, tot().toISOString());
-    }
-    catch { /* geen opslag */ } terug(); };
+    // Voorkeur van je account: Berichten toont de pauze en de badge blijft stil tot dit moment.
+    const zet = () => { zetVoorkeur("berichtenPauzeTot", tot().toISOString()); terug(); };
     const label = tot().toLocaleString(taalLocale(), { weekday: "long", hour: "2-digit", minute: "2-digit" });
     return (<div>
       <Kop titel={t("routes.lastigeMomenten.pauze.titel")} sub={t("routes.lastigeMomenten.pauze.sub")}/>
@@ -554,10 +589,9 @@ function EvenPauze({ terug }) {
       <button onClick={zet} className="mt-6 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground">{t("routes.lastigeMomenten.pauze.aanzetten")}</button>
     </div>);
 }
-function JouwMaand({ houvast }) {
+function JouwMaand({ houvast, log: items }) {
     const { t } = useTranslation();
-    const [log, setLog] = useState([]);
-    useEffect(() => { setLog(leesLog()); }, []);
+    const log = items.map((x) => x.data);
     const maand = new Date().toLocaleDateString(taalLocale(), { month: "long" });
     const dezeMaand = log.filter((l) => l.datum.slice(0, 7) === new Date().toISOString().slice(0, 7));
     const rustig = dezeMaand.filter((l) => l.gevoel === "Rustig" || l.gevoel === "Ging wel").length;
@@ -581,7 +615,7 @@ function Vraag({ v, w, z, ph }) {
     return (<label className="block border-b border-[#E9E1D5] py-2.5 last:border-0"><span className="block text-sm font-extrabold text-ink-soft">{v}</span>
       <textarea value={w} onChange={(e) => z(e.target.value)} rows={2} aria-label={v} placeholder={ph} className="mt-1 w-full resize-none bg-transparent text-[16px] font-black outline-none placeholder:font-normal placeholder:text-ink-soft/70"/></label>);
 }
-function GesprekVoorbereiden({ houvast, zet }) {
+function GesprekVoorbereiden() {
     const { t } = useTranslation();
     const [doel, setDoel] = useState("");
     const [punt, setPunt] = useState("");
@@ -602,7 +636,8 @@ function GesprekVoorbereiden({ houvast, zet }) {
         <p className="mt-1 text-sm text-ink-soft">{t("routes.lastigeMomenten.gesprek.spiekTip")}</p>
       </div> : null}
       <Link to="/verhaal" className="mt-4 flex h-[54px] w-full items-center justify-center rounded-full bg-brand text-base font-black text-primary-foreground"><AppIcon functie="co" maat="sm" className="mr-1.5"/>{t("routes.lastigeMomenten.co.samenOefenen")}</Link>
-      <button disabled={!spiek} onClick={() => { zet({ ...houvast, zinnen: [...houvast.zinnen, spiek] }); setBewaard(true); }} className={`${GLAS} mt-2.5 h-[50px] w-full rounded-full text-[15px] font-black disabled:opacity-45`}>{bewaard ? <MetVinkje>{t("routes.lastigeMomenten.houvast.bewaardIn")}</MetVinkje> : t("routes.lastigeMomenten.houvast.bewaarIn")}</button>
+      <button disabled={!spiek || bewaard} onClick={async () => { if (await voegPersoonlijkToe("houvast_zin", { tekst: spiek.slice(0, 500) }))
+            setBewaard(true); }} className={`${GLAS} mt-2.5 h-[50px] w-full rounded-full text-[15px] font-black disabled:opacity-45`}>{bewaard ? <MetVinkje>{t("routes.lastigeMomenten.houvast.bewaardIn")}</MetVinkje> : t("routes.lastigeMomenten.houvast.bewaarIn")}</button>
     </div>);
 }
 function IetsFijns() {
@@ -669,16 +704,18 @@ function CoNaWissel({ ging, ga }) {
 /** Na twee zware wissels op rij: Co stelt voor de wissel via school te doen, als voorstel aan de andere ouder. */
 function SchoolTip() {
     const { t } = useTranslation();
-    const concept = t("routes.lastigeMomenten.schoolTip.concept");
+    const gezin = useGezin();
+    const anderNaam = gezin.ander?.naam || t("common.deAndereOuder");
+    const concept = t("routes.lastigeMomenten.schoolTip.concept", { naam: anderNaam });
     return (<div className="mt-3 rounded-[22px] border border-white/85 bg-white/70 px-4 py-3.5">
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border border-[#C9D6C3] bg-[#E9EFE3] text-xs font-black text-[#3F5747]" aria-hidden>Co</span>
         <div className="min-w-0 text-[#2F4A3A]"><p className="text-[16px] font-black">{t("routes.lastigeMomenten.schoolTip.titel")}</p><p className="mt-0.5 text-[15px] leading-snug">{t("routes.lastigeMomenten.schoolTip.tekst")}</p></div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Link to="/berichten" search={{ concept }} className="inline-flex h-10 items-center rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{t("routes.lastigeMomenten.schoolTip.bericht")}</Link>
+        <Link to="/berichten" search={{ concept }} className="inline-flex h-10 items-center rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{t("routes.lastigeMomenten.schoolTip.bericht", { naam: anderNaam })}</Link>
         <Link to="/agenda" search={{ zorgActie: "wijziging" }} className="inline-flex h-10 items-center rounded-full border border-white/85 bg-white/80 px-4 text-sm font-black text-[#2F4A3A]">{t("routes.lastigeMomenten.schoolTip.voorstellen")}</Link>
       </div>
-      <p className="mt-2 text-xs text-ink-soft">{t("routes.lastigeMomenten.schoolTip.voetnoot")}</p>
+      <p className="mt-2 text-xs text-ink-soft">{t("routes.lastigeMomenten.schoolTip.voetnoot", { naam: anderNaam })}</p>
     </div>);
 }

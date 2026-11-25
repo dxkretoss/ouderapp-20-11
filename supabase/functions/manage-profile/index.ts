@@ -105,7 +105,8 @@ Deno.serve(serveActions("manage-profile", {
     // 2. References without ON DELETE action would block the delete.
     check(await db().from("budget_proposals").update({ turn_to_respond: null }).eq("turn_to_respond", me.id), "fk budget_proposals");
     check(await db().from("parent_agreements").update({ proposed_by: null }).eq("proposed_by", me.id), "fk parent_agreements");
-    check(await db().from("budget_steps").delete().eq("actor_id", me.id), "fk budget_steps");
+    // shared, append-only history: anonymise the actor instead of deleting the steps
+    check(await db().from("budget_steps").update({ actor_id: null }).eq("actor_id", me.id), "fk budget_steps");
 
     // 3. Files.
     await removeStored(secret.avatar_url);

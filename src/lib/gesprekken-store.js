@@ -21,9 +21,8 @@ const transcriptDemo = () => tLijst("lib.gesprekkenStore.transcript");
 let state = {
     aan: { gps: false, audio: true, video: true, opname: false, transcriptie: false, samenvatting: false, acties: false },
     bewaar: Object.fromEntries(bewaarOnderdelen.map((b) => [b, b === "Aankomstbevestigingen" ? "30 dagen" : "3 maanden"])),
-    onderweg: {},
-    onderwegMeldingen: [],
-    checkins: [{ id: 1, wie: "Joris", get moment() { return i18n.t("lib.gesprekkenStore.seed.checkinMoment"); }, get datum() { return i18n.t("lib.gesprekkenStore.seed.datum7"); }, tijd: "16:57" }],
+    // Aankomst/onderweg staan nu op de server (kring-store: meldCheckIn / onderwegVoor); hier alleen het belscherm.
+    checkins: [],
     gesprekken: [
         { id: 3, soort: "audio", get datum() { return i18n.t("lib.gesprekkenStore.seed.datum10"); }, begin: "20:05", eind: "20:17", duur: "12 min", status: "Beantwoord",
             opname: { aangevraagd: "Joris", akkoord: [{ wie: "Joris", get wanneer() { return i18n.t("lib.gesprekkenStore.seed.wanneer10"); } }, { wie: "Sanne", get wanneer() { return i18n.t("lib.gesprekkenStore.seed.wanneer10"); } }], start: "20:06", eind: "20:17", kind: "Noah", get transcript() { return transcriptDemo(); } } },
@@ -33,20 +32,8 @@ let state = {
 };
 const listeners = new Set();
 const zet = (p) => { state = { ...state, ...p }; listeners.forEach((l) => l()); };
-export const zetOnderweg = (momentId, wie, tijd) => {
-    const o = { ...state.onderweg };
-    if (wie)
-        o[momentId] = wie;
-    else
-        delete o[momentId];
-    const alGemeld = state.onderwegMeldingen.some((m) => m.momentId === momentId);
-    const meldingen = wie && !alGemeld ? [...state.onderwegMeldingen, { momentId, tekst: tijd ? i18n.t("lib.gesprekkenStore.onderwegTijd", { wie, tijd }) : i18n.t("lib.gesprekkenStore.onderweg", { wie }) }] : state.onderwegMeldingen;
-    zet({ onderweg: o, onderwegMeldingen: meldingen });
-};
 export const zetModule = (m, v) => zet({ aan: { ...state.aan, [m]: v } });
 export const zetBewaar = (k, v) => zet({ bewaar: { ...state.bewaar, [k]: v } });
-export const voegCheckInToe = (c) => zet({ checkins: [c, ...state.checkins] });
-export const verwijderCheckIn = (id) => zet({ checkins: state.checkins.filter((c) => c.id !== id) });
 export const voegGesprekToe = (g) => zet({ gesprekken: [g, ...state.gesprekken] });
 export const werkOpnameBij = (id, p) => zet({ gesprekken: state.gesprekken.map((g) => (g.id === id && g.opname ? { ...g, opname: { ...g.opname, ...p } } : g)) });
 export const demoTranscript = transcriptDemo;

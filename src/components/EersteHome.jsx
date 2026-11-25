@@ -8,7 +8,7 @@ import { BeeldKiezer, ProfielBeeld } from "@/components/ProfielBeeld";
 import { BewerkPotlood } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { basisStappen, geldigeRegeling, gezagKeuzes, maandagVan, patronen, tweeWekenVanaf, start, useStart, vandaagVolgens } from "@/lib/start-store";
+import { basisStappen, geldigeRegeling, gezagKeuzes, maandagVan, patronen, regelingVoorKind, tweeWekenVanaf, start, useStart, vandaagVolgens } from "@/lib/start-store";
 import { uur } from "@/lib/tijd-tekst";
 import { geenRechten, rolNaam, rolOpties, voegPersoonToe } from "@/lib/kring-store";
 import { agendaZorgOp } from "@/lib/agenda-zorg";
@@ -93,14 +93,14 @@ export function KindSheet({ open, onClose, start: begin = "kind" }) {
     const titel = t(`components.EersteHome.kind.titel.${fase}`);
     const keuze = "flex min-h-[48px] w-full items-center rounded-xl border border-border bg-card px-4 text-left text-sm font-semibold";
     return (<Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-3xl bg-background">
+      <SheetContent side="bottom" className="max-h-[92dvh] overflow-y-auto rounded-t-3xl bg-background">
         <SheetHeader><SheetTitle className="font-display">{titel}</SheetTitle></SheetHeader>
         <div className="space-y-3 px-4 pb-6">
           {fase === "kind" ? (<>
             <label className="block text-xs text-ink-soft">{t("components.EersteHome.kind.voornaam")}<input autoFocus value={naam} onChange={(e) => setNaam(e.target.value)} className={veld}/></label>
             <label className="block text-xs text-ink-soft">{t("components.EersteHome.kind.geboortedatum")}<input type="date" max={vandaagIso()} value={geb} onChange={(e) => setGeb(inToekomst(e.target.value) ? vandaagIso() : e.target.value)} className={veld}/></label>
             <div className="pt-1"><p className="mb-2 text-xs text-ink-soft">{t("components.EersteHome.kind.foto")}</p><BeeldKiezer beeld={beeld} naam={naam} onKies={setBeeld} overslaanTekst={t("components.EersteHome.kind.geenAfbeelding")}/></div>
-            <button disabled={!naam.trim()} className={knop} onClick={opslaanKind}>{t("common.opslaan")}</button>
+            <button disabled={!naam.trim()} className={knop} onClick={opslaanKind}>{t("components.EersteHome.kind.voegToe")}</button>
           </>) : fase === "vervolg" ? (<>
             <p className="text-sm text-ink-soft">{t("components.EersteHome.kind.nogIemand")}</p>
             <div className="rounded-xl bg-surface px-4 py-3 text-sm leading-relaxed text-ink-soft">{t("components.EersteHome.kind.later")}</div>
@@ -123,33 +123,55 @@ export function KindSheet({ open, onClose, start: begin = "kind" }) {
       </SheetContent>
     </Sheet>);
 }
-function RegelingSheet({ open, onClose, kindNaam }) {
+/**
+ * Mag de vaste verdeling hier (nog) direct worden aangepast? Na "Klopt" van de andere ouder, of als de
+ * andere ouder hem invulde en nog moet antwoorden, gaan wijzigingen via een voorstel in de agenda.
+ */
+function verdelingVast(k, st) {
+    if (!k)
+        return false;
+    const rs = k.regelingStatus;
+    if (!rs)
+        return !!(k.samen || st.uitgenodigd) && geldigeRegeling(k.regeling ?? st.regeling);
+    if (rs.status === "klopt")
+        return true;
+    return !rs.doorMij && rs.status === "open";
+}
+function RegelingSheet({ open, onClose, kindNaam, kindId: beginKind }) {
     const { t } = useTranslation();
     const st = useStart();
+    const kinderen = st.kinderen.filter((k) => !String(k.id).startsWith("tmp-"));
+    // De verdeling geldt per kind: voor één kind of (standaard) voor alle kinderen tegelijk.
+    const [voor, setVoor] = useState(beginKind ?? "alle");
+    const gekozen = voor === "alle" ? kinderen : kinderen.filter((k) => k.id === voor);
+    const huidig = voor === "alle" ? st.regeling : regelingVoorKind(voor, st);
+    const vast = gekozen.some((k) => verdelingVast(k, st)) || (!kinderen.length && st.uitgenodigd && geldigeRegeling(st.regeling));
     const [stap, setStap] = useState("patroon");
     const [patroon, setPatroon] = useState("om-de-week");
     const [dagen, setDagen] = useState([]);
     const [tijd, setTijd] = useState("14:30");
     const [plek, setPlek] = useState("");
+    useEffect(() => { if (open)
+        setVoor(beginKind ?? "alle"); }, [open, beginKind]);
     useEffect(() => {
         if (!open)
             return;
-        if (geldigeRegeling(st.regeling)) {
-            setPatroon(st.regeling.patroon);
-            setDagen(tweeWekenVanaf(st.regeling, new Date()));
-            setTijd(st.regeling.wisseltijd);
-            setPlek(st.regeling.plek ?? "");
+        if (geldigeRegeling(huidig)) {
+            setPatroon(huidig.patroon);
+            setDagen(tweeWekenVanaf(huidig, new Date()));
+            setTijd(huidig.wisseltijd);
+            setPlek(huidig.plek ?? "");
             setStap("aanpassen");
         }
         else
             setStap("patroon");
-    }, [open]);
+    }, [open, voor]);
     const kies = (id) => {
         const p = patronen.find((x) => x.id === id);
         if (!p)
             return;
         if (!p.dagen) {
-            start.regeling("later");
+            start.regeling("later", voor === "alle" ? undefined : voor);
             onClose();
             return;
         }
@@ -159,18 +181,22 @@ function RegelingSheet({ open, onClose, kindNaam }) {
     };
     const omdraaien = () => setDagen((d) => d.map((x) => (x === "ik" ? "ander" : "ik")));
     const bevestig = () => {
-        if (st.uitgenodigd && geldigeRegeling(st.regeling))
+        if (vast)
             return;
         const r = { patroon, dagen, wisseltijd: tijd, plek: plek.trim() || undefined, startMaandag: maandagVan(new Date()) };
-        start.regeling(r);
+        start.regeling(r, voor === "alle" ? undefined : voor);
         onClose();
     };
+    const kiesKind = kinderen.length > 1 ? (<div className="mb-3 flex flex-wrap gap-2" role="radiogroup" aria-label={t("components.EersteHome.regeling.voorWie")}>
+        {[{ id: "alle", naam: t("common.alleKinderen") }, ...kinderen].map((k) => (<button key={k.id} type="button" role="radio" aria-checked={voor === k.id} onClick={() => setVoor(k.id)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${voor === k.id ? "bg-brand text-primary-foreground" : "border border-border bg-card"}`}>{k.naam}</button>))}
+      </div>) : null;
     return (<Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-3xl bg-background">
+      <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-3xl bg-background">
         {stap === "patroon" ? (<>
             <SheetHeader><SheetTitle className="font-display">{t("components.EersteHome.regeling.titel")}</SheetTitle></SheetHeader>
             <div className="px-4 pb-6">
-              <p className="text-sm text-ink-soft">{t("components.EersteHome.regeling.uitleg")}</p>
+              {kiesKind}
+              <p className="text-sm text-ink-soft">{t(gekozen.some((k) => k.samen) ? "components.EersteHome.regeling.uitlegSamen" : "components.EersteHome.regeling.uitleg")}</p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {patronen.map((p) => (<button key={p.id} onClick={() => kies(p.id)} className="rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-brand/50">
                     <p className="text-sm font-semibold">{p.naam}</p>
@@ -178,11 +204,12 @@ function RegelingSheet({ open, onClose, kindNaam }) {
                     {p.dagen && p.id !== "zelf" ? <div className="mt-2"><Weken dagen={p.dagen}/></div> : null}
                   </button>))}
               </div>
-              <button onClick={() => { start.regeling("later"); onClose(); }} className="mt-3 w-full text-center text-xs font-semibold text-ink-soft">{t("components.EersteHome.regeling.later")}</button>
+              <button onClick={() => { start.regeling("later", voor === "alle" ? undefined : voor); onClose(); }} className="mt-3 w-full text-center text-xs font-semibold text-ink-soft">{t("components.EersteHome.regeling.later")}</button>
             </div>
           </>) : (<>
-            <SheetHeader><SheetTitle className="font-display">{geldigeRegeling(st.regeling) ? t("components.EersteHome.regeling.aanpassen") : t("components.EersteHome.regeling.instellen")}</SheetTitle></SheetHeader>
+            <SheetHeader><SheetTitle className="font-display">{geldigeRegeling(huidig) ? t("components.EersteHome.regeling.aanpassen") : t("components.EersteHome.regeling.instellen")}</SheetTitle></SheetHeader>
             <div className="space-y-4 px-4 pb-6">
+              {kiesKind}
               <div>
                 <p className="text-xs text-ink-soft">{t("components.EersteHome.regeling.tik")}</p>
                 <div className="mt-2"><Weken dagen={dagen} labels rijLabels onToggle={(i) => setDagen((d) => d.map((x, n) => (n === i ? (x === "ik" ? "ander" : "ik") : x)))}/></div>
@@ -200,7 +227,10 @@ function RegelingSheet({ open, onClose, kindNaam }) {
             })()}
                 <p className="mt-1 text-xs text-ink-soft">{t("components.EersteHome.regeling.uitzonderingen")}</p>
               </div>
-              {st.uitgenodigd && geldigeRegeling(st.regeling) ? <p role="status" className="text-sm text-ink-soft">{t("components.EersteHome.regeling.blijftStaan")}</p> : <Button className="w-full" onClick={bevestig}>{t("components.EersteHome.regeling.opslaan")}</Button>}
+              {vast ? <p role="status" className="text-sm text-ink-soft">{t("components.EersteHome.regeling.vastgezet")}</p> : <>
+                <Button className="w-full" onClick={bevestig}>{t("components.EersteHome.regeling.opslaan")}</Button>
+                {gekozen.some((k) => k.samen) ? <p className="text-xs text-ink-soft">{t("components.EersteHome.regeling.andereBevestigt")}</p> : null}
+              </>}
               <button onClick={() => setStap("patroon")} className="w-full text-center text-xs font-semibold text-ink-soft">{t("components.EersteHome.regeling.anderPatroon")}</button>
             </div>
           </>)}
@@ -329,6 +359,7 @@ export function EigenVolgende() {
         volgende.push({ icoon: "overdracht", titel: t("components.EersteHome.volgende.mee.titel"), tekst: t("components.EersteHome.volgende.mee.tekst"), naar: "/overdracht" });
     return (<>
       <GezagSheet open={gezagOpen} onClose={() => setGezagOpen(false)}/>
+      <RegelingBevestigen />
       {false && s.kinderen.length > 0 ? (<p role="status" className={`mt-6 flex items-center gap-2 rounded-lg px-4 py-3 text-sm ${volgende.length ? "border border-border bg-card" : "bg-brand-soft text-brand"}`}>
           {volgende.length ? (<><span aria-hidden className="font-bold">{volgende.length}</span> {t("components.EersteHome.volgende.afstemmen", { count: volgende.length })}</>) : (<><Vinkje className="size-4"/> {t("components.EersteHome.volgende.allesAfgestemd")}</>)}
         </p>) : null}
@@ -357,5 +388,57 @@ export function EigenVolgende() {
               <button onClick={() => start.markeer({ voortgangVerborgen: true })} className="mt-2 text-xs font-semibold text-ink-soft">{t("components.EersteHome.start.nietMeer")}</button>
             </>) : null}
         </section>) : null}
+    </>);
+}
+
+/**
+ * Stap 1 van de wissel: de andere ouder bevestigt de vaste verdeling per kind ("Klopt / Klopt niet").
+ * Klopt niet: de andere ouder schrijft wat anders is; wie de verdeling invulde, past hem aan en de andere
+ * ouder bevestigt opnieuw.
+ */
+function RegelingBevestigen() {
+    const { t } = useTranslation();
+    const st = useStart();
+    const [anders, setAnders] = useState(null); // kindId waarvoor "Klopt niet" open staat
+    const [tekst, setTekst] = useState("");
+    const [bezig, setBezig] = useState(false);
+    const [aanpassen, setAanpassen] = useState(null);
+    const kinderen = st.kinderen.filter((k) => k.samen && k.regelingStatus && geldigeRegeling(k.regeling));
+    const vragen = kinderen.filter((k) => !k.regelingStatus.doorMij && k.regelingStatus.status === "open");
+    const nietGoed = kinderen.filter((k) => k.regelingStatus.doorMij && k.regelingStatus.status === "klopt_niet");
+    if (!vragen.length && !nietGoed.length && !aanpassen)
+        return null;
+    const antwoord = async (k, klopt) => {
+        setBezig(true);
+        const ok = await start.bevestigRegeling(k.id, klopt, klopt ? "" : tekst.trim());
+        setBezig(false);
+        if (ok) {
+            setAnders(null);
+            setTekst("");
+        }
+    };
+    const kaart = "mt-4 rounded-lg border border-border bg-card px-4 py-3";
+    return (<>
+      {vragen.map((k) => (<section key={k.id} className={kaart} aria-label={t("components.EersteHome.bevestigen.titel", { naam: k.naam })}>
+          <p className="font-display text-base font-bold">{t("components.EersteHome.bevestigen.titel", { naam: k.naam })}</p>
+          <p className="mt-0.5 text-sm text-ink-soft">{t("components.EersteHome.bevestigen.uitleg", { tijd: uur(k.regeling.wisseltijd), plek: k.regeling.plek || t("components.EersteHome.bevestigen.geenPlek") })}</p>
+          <div className="mt-2"><Weken dagen={tweeWekenVanaf(k.regeling, new Date())} labels rijLabels/><Legenda /></div>
+          {anders === k.id ? (<div className="mt-3 space-y-2">
+              <label className="block text-xs text-ink-soft">{t("components.EersteHome.bevestigen.watAnders")}<textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={2} maxLength={1000} className={veld}/></label>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setAnders(null)} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold">{t("common.annuleren")}</button>
+                <button type="button" disabled={bezig || !tekst.trim()} onClick={() => antwoord(k, false)} className="flex-1 rounded-xl bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.EersteHome.bevestigen.versturen")}</button>
+              </div>
+            </div>) : (<div className="mt-3 flex gap-2">
+              <button type="button" disabled={bezig} onClick={() => { setAnders(k.id); setTekst(""); }} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold">{t("components.EersteHome.bevestigen.kloptNiet")}</button>
+              <button type="button" disabled={bezig} onClick={() => antwoord(k, true)} className="flex-1 rounded-xl bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.bevestigen.klopt")}</button>
+            </div>)}
+        </section>))}
+      {nietGoed.map((k) => (<section key={k.id} className={kaart}>
+          <p className="font-display text-base font-bold">{t("components.EersteHome.bevestigen.kloptNietTitel", { naam: k.naam })}</p>
+          {k.regelingStatus.opmerking ? <p className="mt-1 whitespace-pre-wrap text-sm">{k.regelingStatus.opmerking}</p> : null}
+          <button type="button" onClick={() => setAanpassen(k.id)} className="mt-3 w-full rounded-xl bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.bevestigen.aanpassen")}</button>
+        </section>))}
+      <RegelingSheet open={!!aanpassen} kindId={aanpassen ?? undefined} onClose={() => setAanpassen(null)} kindNaam={st.kinderen.find((k) => k.id === aanpassen)?.naam ?? ""}/>
     </>);
 }

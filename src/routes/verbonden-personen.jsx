@@ -137,7 +137,8 @@ function Ontkoppelen({ ouder, namen, sluit }) {
         setFout(null);
         try {
             await api("accept-invitation", "disconnect", { co_parent_id: ouder.id });
-            await start.hydrateer();
+            // Gezin én agenda, vakanties en overdracht opnieuw: gedeelde kinderen zijn nu losgekoppeld.
+            await start.herlaadGekoppeld();
             laadKring();
             bevestig(t(N + "ontkoppel.klaar"));
             sluit();

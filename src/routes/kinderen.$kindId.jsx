@@ -1,7 +1,7 @@
 import { Mijlpalen, useMijlpalenLijst, voegMijlpaal } from "@/components/Mijlpalen";
 import { BewerkPotlood } from "@/components/ui-kit";
 import { useKring, adresboek, persoonLabel } from "@/lib/kring-store";
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { AppShell, BackButton, PageHeader } from "@/components/AppShell";
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
@@ -12,16 +12,17 @@ import { useMomentjes } from "@/lib/momentjes-store";
 import { AppIcon } from "@/components/AppIcon";
 import { Loader2, Pencil, Plus } from "lucide-react";
 import { Chevron, Kruis, MetChevron } from "@/components/Tekens";
-import { useStart, leeftijdTekst, kindKleuren } from "@/lib/start-store";
+import { useStart, leeftijdTekst, kindKleuren, echteKindId, start } from "@/lib/start-store";
 import { useGezin } from "@/lib/gezin";
 import { bevestig } from "@/lib/feedback";
 import { MedischGezag } from "@/components/MedischGezag";
 import { BeeldKiezer, ProfielBeeld } from "@/components/ProfielBeeld";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { vandaagIso } from "@/lib/datum-vandaag";
-import { InhoudLaden } from "@/components/Laden";
+import { InhoudLaden, LaadFout } from "@/components/Laden";
 import { TelefoonInvoer, telLink, toonTelefoon } from "@/components/TelefoonInvoer";
-import { bewaarKind, bewaarNotitie, useKindProfiel, zetKindBeeld } from "@/lib/kindprofiel-store";
+import { laadKind, bewaarKind, bewaarNotitie, useKindProfiel, zetKindBeeld } from "@/lib/kindprofiel-store";
+import { GezagToegang, GezagToegangRij } from "@/components/GezagToegang";
 const N = "routes.kinderenKindId.";
 export const Route = createFileRoute("/kinderen/$kindId")({
     loader: ({ params }) => {
@@ -54,16 +55,22 @@ function KindNietGevonden() {
 }
 function KindProfielWrap() {
     const { kindId } = Route.useParams();
+    const nav = useNavigate();
     const st = useStart();
     const k = st.kinderen.find((x) => x.id === kindId);
-    const server = k && !String(k.id).startsWith("tmp-");
-    const { kind, notitie } = useKindProfiel(server ? kindId : null);
-    if (!k || kind === null)
+    const tijdelijk = String(kindId).startsWith("tmp-");
+    const echt = tijdelijk ? echteKindId(kindId) : null;
+    // Een net toegevoegd kind (tmp-…) krijgt na het opslaan een echt id: dan naar het echte profiel.
+    useEffect(() => { if (echt)
+        nav({ to: "/kinderen/$kindId", params: { kindId: echt }, replace: true }); }, [echt]);
+    const server = k && !tijdelijk;
+    const { kind, notitie, fout } = useKindProfiel(server ? kindId : null);
+    if ((!k && !echt) || kind === null)
         return <KindNietGevonden />;
     if (!kind)
         return (<AppShell>
-        <div className="flex items-center gap-3"><BackButton terug="/kinderen"/><h1 className="lora min-w-0 flex-1 text-[32px] leading-tight">{i18n.t(N + "allesOver", { naam: k.naam })}</h1></div>
-        <InhoudLaden />
+        <div className="flex items-center gap-3"><BackButton terug="/kinderen"/><h1 className="lora min-w-0 flex-1 text-[32px] leading-tight">{i18n.t(N + "allesOver", { naam: k?.naam ?? "" })}</h1></div>
+        {fout && server ? <LaadFout onOpnieuw={() => laadKind(kindId)}/> : <InhoudLaden />}
       </AppShell>);
     return <KindProfiel kort={k} kind={kind} notitie={notitie}/>;
 }
@@ -147,6 +154,12 @@ function KindProfiel({ kort, kind, notitie }) {
     const gezin = useGezin();
     useKring();
     const kan = kind.can_edit !== false;
+    // Toegang per onderdeel (server): wat je niet mag zien, komt niet mee; bewerken alleen met `edit`.
+    const verborgen = lijst(kind.hidden_sections);
+    const mag = (sectie) => kan && (kind.my_access?.[sectie]?.edit ?? true) && !verborgen.includes(sectie);
+    const nav = useNavigate();
+    const [toegangOpen, setToegangOpen] = useState(() => typeof window !== "undefined" && window.location.hash === "#toegang");
+    const [verwijderOpen, setVerwijderOpen] = useState(false);
     const profiel = obj(kind.profile);
     const sec = (s) => obj(profiel[s]);
     const school = sec("school"), opvang = obj(school.opvang), gezond = sec("gezondheid"), prak = sec("praktisch");
@@ -167,7 +180,7 @@ function KindProfiel({ kort, kind, notitie }) {
     const ouders = [gezin.ik?.naam || t("common.jij"), ...lijst(kind.linked_parents).map((o) => o.name)];
     const mensen = [...ouders, ...kring];
     const groepen = [
-        { id: "school", icoon: "school", titel: t(N + "groep.school"), samenvatting: [kind.school, school.groep, kind.daycare].filter(Boolean).join(" · "), rijen: [
+        { id: "school", sectie: "school", icoon: "school", titel: t(N + "groep.school"), samenvatting: [kind.school, school.groep, kind.daycare].filter(Boolean).join(" · "), rijen: [
                 { label: t(N + "groep.schoolLabel"), waarde: kind.school },
                 { label: t(N + "groep.klas"), waarde: school.groep },
                 { label: t(N + "eigen.leerkrachten"), waarde: lijst(school.leerkrachten).map((l) => [l.naam, l.telefoon ? toonTelefoon(l.telefoon) : "", l.email].filter(Boolean).join(" · ")).join("\n") },
@@ -181,7 +194,7 @@ function KindProfiel({ kort, kind, notitie }) {
                     school: schoon(w.school), daycare: schoon(w.daycare),
                     profile: { school: { ...school, groep: schoon(w.groep), leerkrachten: w.leerkrachten.filter((l) => schoon(l.naam)).map((l) => ({ id: l.id, naam: schoon(l.naam), telefoon: schoon(l.telefoon), email: schoon(l.email) })), opvang: { ...opvang, dagen: schoon(w.dagen), contact: schoon(w.contact) } } },
                 })}/>) },
-        { id: "gezondheid", icoon: "gezondheid", titel: t(N + "groep.gezondheid"), samenvatting: [kind.doctor && t(N + "eigen.huisartsKlein"), gezond.tandarts && t(N + "groep.tandartsKlein"), kind.allergies && t(N + "eigen.allergieenKlein")].filter(Boolean).join(", "), rijen: [
+        { id: "gezondheid", sectie: "gezondheid", icoon: "gezondheid", titel: t(N + "groep.gezondheid"), samenvatting: [kind.doctor && t(N + "eigen.huisartsKlein"), gezond.tandarts && t(N + "groep.tandartsKlein"), kind.allergies && t(N + "eigen.allergieenKlein")].filter(Boolean).join(", "), rijen: [
                 { label: t(N + "eigen.huisarts"), waarde: kind.doctor },
                 { label: t(N + "eigen.tandarts"), waarde: gezond.tandarts },
                 { label: t(N + "eigen.allergieen"), waarde: kind.allergies },
@@ -194,26 +207,26 @@ function KindProfiel({ kort, kind, notitie }) {
                     doctor: schoon(w.doctor), allergies: schoon(w.allergies), medical_notes: schoon(w.overig),
                     profile: { gezondheid: { ...gezond, tandarts: schoon(w.tandarts), medicatie: schoon(w.medicatie) } },
                 })}/>), na: <MedischGezag kindId={kindId} naam={kind.name} leeftijd={jaren(kind.date_of_birth)}/> },
-        { id: "activiteiten", icoon: "activiteiten", titel: t(N + "groep.activiteiten"), samenvatting: [prak.hobbys, ...lijst(prak.activiteiten).map((a) => a.naam)].filter(Boolean).join(" · "), rijen: [
+        { id: "activiteiten", sectie: "praktisch", icoon: "activiteiten", titel: t(N + "groep.activiteiten"), samenvatting: [prak.hobbys, ...lijst(prak.activiteiten).map((a) => a.naam)].filter(Boolean).join(" · "), rijen: [
                 { label: t(N + "eigen.hobbys"), waarde: prak.hobbys },
                 ...lijst(prak.activiteiten).map((a) => ({ label: a.naam, waarde: a.wanneer || "—" })),
             ], formulier: () => (<Formulier velden={[{ id: "hobbys", label: t(N + "eigen.hobbys"), type: "lang" }]} begin={{ hobbys: prak.hobbys ?? "", activiteiten: lijst(prak.activiteiten) }} extra={(w, setW) => <LijstVelden titel={t(N + "groep.activiteiten")} items={w.activiteiten} onChange={(l) => setW((x) => ({ ...x, activiteiten: l }))} toevoegenTekst={t(N + "eigen.activiteitToevoegen")} velden={[{ id: "naam", label: t(N + "eigen.activiteit") }, { id: "wanneer", label: t(N + "eigen.wanneer") }]}/>} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, {
                     profile: { praktisch: { ...prak, hobbys: schoon(w.hobbys), activiteiten: w.activiteiten.filter((a) => schoon(a.naam)).map((a) => ({ id: a.id, naam: schoon(a.naam), wanneer: schoon(a.wanneer) })) } },
                 })}/>) },
-        { id: "maten", icoon: "kledingmaten", titel: t(N + "groep.maten"), samenvatting: [kind.clothes_size && t(N + "groep.kledingMaat", { maat: kind.clothes_size }), kind.shoe_size && t(N + "groep.schoenMaat", { maat: kind.shoe_size })].filter(Boolean).join(" · "), rijen: [
+        { id: "maten", sectie: "praktisch", icoon: "kledingmaten", titel: t(N + "groep.maten"), samenvatting: [kind.clothes_size && t(N + "groep.kledingMaat", { maat: kind.clothes_size }), kind.shoe_size && t(N + "groep.schoenMaat", { maat: kind.shoe_size })].filter(Boolean).join(" · "), rijen: [
                 { label: t(N + "groep.kleding"), waarde: kind.clothes_size },
                 { label: t(N + "groep.schoenen"), waarde: kind.shoe_size },
             ], voet: prak.matenGewijzigd ? t(N + "groep.laatstGewijzigd", { datum: datumTekst(prak.matenGewijzigd) }) : null, formulier: () => (<Formulier velden={[{ id: "kleding", label: t(N + "groep.kleding") }, { id: "schoen", label: t(N + "groep.schoenen") }]} begin={{ kleding: kind.clothes_size ?? "", schoen: kind.shoe_size ?? "" }} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, {
                     clothes_size: schoon(w.kleding), shoe_size: schoon(w.schoen),
                     profile: { praktisch: { ...prak, matenGewijzigd: new Date().toISOString().slice(0, 10) } },
                 })}/>) },
-        { id: "praktisch", icoon: "lijst", titel: t(N + "eigen.praktisch"), samenvatting: [prak.routines, prak.overig].filter(Boolean).join(" · "), rijen: [
+        { id: "praktisch", sectie: "praktisch", icoon: "lijst", titel: t(N + "eigen.praktisch"), samenvatting: [prak.routines, prak.overig].filter(Boolean).join(" · "), rijen: [
                 { label: t(N + "eigen.routines"), waarde: prak.routines },
                 { label: t(N + "eigen.praktischOverig"), waarde: prak.overig },
             ], formulier: () => (<Formulier velden={[{ id: "routines", label: t(N + "eigen.routines"), type: "lang" }, { id: "overig", label: t(N + "eigen.praktischOverig"), type: "lang" }]} begin={{ routines: prak.routines ?? "", overig: prak.overig ?? "" }} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, {
                     profile: { praktisch: { ...prak, routines: schoon(w.routines), overig: schoon(w.overig) } },
                 })}/>) },
-        { id: "basis", icoon: "persoon", titel: t(N + "groep.basis"), samenvatting: kind.date_of_birth ? t(N + "groep.geborenOp", { datum: datumTekst(kind.date_of_birth) }) : "", rijen: [
+        { id: "basis", sectie: "basis", icoon: "persoon", titel: t(N + "groep.basis"), samenvatting: kind.date_of_birth ? t(N + "groep.geborenOp", { datum: datumTekst(kind.date_of_birth) }) : "", rijen: [
                 { label: t(N + "naam"), waarde: [kind.name, kind.last_name].filter(Boolean).join(" ") },
                 { label: t(N + "groep.geboren"), waarde: datumTekst(kind.date_of_birth) },
                 { label: t(N + "eigen.ouders"), waarde: ouders.join(", ") },
@@ -238,17 +251,20 @@ function KindProfiel({ kort, kind, notitie }) {
     const goedOmTeWeten = [kind.allergies, gezond.medicatie].map((x) => x?.trim()).filter(Boolean).join(", ");
     const toonGroep = (g) => {
         const gevuld = g.rijen.filter((r) => r.waarde);
+        const dicht = verborgen.includes(g.sectie);
+        const kanHier = mag(g.sectie);
         return (<div key={g.id} id={`onderdeel-${g.id}`} className="scroll-mt-20">
-            <Rij id={g.id} icoon={<AppIcon functie={g.icoon} maat="md"/>} titel={g.titel} samenvatting={g.samenvatting}/>
+            <Rij id={g.id} icoon={<AppIcon functie={g.icoon} maat="md"/>} titel={g.titel} samenvatting={dicht ? t(N + "toegang.geenToegangKort") : g.samenvatting}/>
             {open === g.id ? (<div className="mb-3 space-y-2">
-                {gevuld.map((r) => (<div key={r.label} className="rounded-md bg-white/60 px-3 py-2">
+                {dicht ? <p className="text-sm text-ink-soft">{t(N + "toegang.geenToegang")}</p> : null}
+                {!dicht ? gevuld.map((r) => (<div key={r.label} className="rounded-md bg-white/60 px-3 py-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">{r.label}</p>
                     <p className="whitespace-pre-line text-sm">{r.waarde}</p>
-                  </div>))}
-                {gevuld.length === 0 && bewerk !== g.id ? <p className="text-sm text-ink-soft">{kan ? t(N + "eigen.leegSectie") : t(N + "eigen.leegSectieLezen")}</p> : null}
-                {g.voet && gevuld.length ? <p className="text-[11px] text-ink-soft">{g.voet}</p> : null}
-                {bewerk === g.id ? g.formulier() : kan ? <SectieKnop gevuld={gevuld.length > 0} onClick={() => setBewerk(g.id)}/> : null}
-                {g.na && bewerk !== g.id ? g.na : null}
+                  </div>)) : null}
+                {!dicht && gevuld.length === 0 && bewerk !== g.id ? <p className="text-sm text-ink-soft">{kanHier ? t(N + "eigen.leegSectie") : t(N + "eigen.leegSectieLezen")}</p> : null}
+                {!dicht && g.voet && gevuld.length ? <p className="text-[11px] text-ink-soft">{g.voet}</p> : null}
+                {bewerk === g.id && kanHier ? g.formulier() : kanHier ? <SectieKnop gevuld={gevuld.length > 0} onClick={() => setBewerk(g.id)}/> : null}
+                {!dicht && g.na && bewerk !== g.id ? g.na : null}
               </div>) : null}
           </div>);
     };
@@ -259,7 +275,7 @@ function KindProfiel({ kort, kind, notitie }) {
       </div>
       <section className={`${GLAS} relative mt-4 p-4`}>
         <div className="flex items-center gap-3.5 pr-10">
-          <button type="button" disabled={!kan} onClick={() => setBeeldOpen(true)} aria-label={t(N + "eigen.beeldWijzigen", { naam: kind.name })} className="relative shrink-0 rounded-full border-[3px]" style={{ borderColor: kleurHex }}>
+          <button type="button" disabled={!mag("basis")} onClick={() => setBeeldOpen(true)} aria-label={t(N + "eigen.beeldWijzigen", { naam: kind.name })} className="relative shrink-0 rounded-full border-[3px]" style={{ borderColor: kleurHex }}>
             <ProfielBeeld beeld={kort.beeld} naam={kind.name} kleur={kleurHex} maat={66}/>
           </button>
           <div className="min-w-0">
@@ -267,7 +283,7 @@ function KindProfiel({ kort, kind, notitie }) {
             <p className="mt-0.5 text-sm leading-snug">{kind.description || <span className="text-ink-soft">{kan ? t(N + "eigen.omschrijvingLeeg") : t(N + "eigen.nogNietIngevuld")}</span>}</p>
           </div>
         </div>
-        {kan ? <div className="absolute right-3 top-3"><BewerkPotlood onClick={() => { setOpen("basis-kop"); setBewerk("basis-kop"); }} label={t(N + "gegevensAanpassen", { naam: kind.name })}/></div> : null}
+        {mag("basis") ? <div className="absolute right-3 top-3"><BewerkPotlood onClick={() => { setOpen("basis-kop"); setBewerk("basis-kop"); }} label={t(N + "gegevensAanpassen", { naam: kind.name })}/></div> : null}
         {goedOmTeWeten ? (<div className="mt-3 flex items-start gap-2 rounded-[14px] bg-[#E9EFE3] px-3 py-2.5">
             <AppIcon functie="info" maat="sm" vorm="kaal"/>
             <p className="text-[13.5px] leading-snug text-[#2F4A3A]"><Trans i18nKey={N + "goedOmTeWeten"} values={{ tekst: goedOmTeWeten }} components={{ b: <b/> }}/></p>
@@ -275,7 +291,7 @@ function KindProfiel({ kort, kind, notitie }) {
       </section>
       {bewerk === "basis-kop" ? <div className="mt-2"><BasisFormulier kind={kind} onKlaar={() => { setBewerk(null); setOpen(null); }}/></div> : null}
       <Sheet open={beeldOpen} onOpenChange={setBeeldOpen}>
-        <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-3xl bg-background">
+        <SheetContent side="bottom" className="max-h-[92dvh] overflow-y-auto rounded-t-3xl bg-background">
           <SheetHeader><SheetTitle className="font-display">{t(N + "eigen.beeldTitel", { naam: kind.name })}</SheetTitle></SheetHeader>
           <div className="px-4 pb-6"><BeeldKiezer beeld={kort.beeld} naam={kind.name} overslaanTekst={t("common.sluiten")} onKies={(b) => { if (!b && !kort.beeld) {
         setBeeldOpen(false);
@@ -299,16 +315,23 @@ function KindProfiel({ kort, kind, notitie }) {
           {personen.length || open === "contact" ? <Chevron richting="omlaag" open={open === "contact"} className="size-4 text-ink-soft"/> : <Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0 text-ink-soft"/>}
         </button>
         {open === "contact" ? (<div className="mb-3 space-y-2">
-            {bewerk === "contact" ? <Formulier velden={[]} begin={{ personen }} extra={(w, setW) => <LijstVelden titel={t(N + "eigen.contacten")} items={w.personen} onChange={(l) => setW((x) => ({ ...x, personen: l }))} toevoegenTekst={t(N + "eigen.contactToevoegen")} velden={[{ id: "naam", label: t(N + "naam") }, { id: "rol", label: t(N + "eigen.rolLabel"), type: "rol" }, { id: "telefoon", label: t(N + "eigen.telefoon"), type: "tel" }, { id: "email", label: t(N + "eigen.email"), type: "email" }, { id: "nood", label: t(N + "eigen.noodcontact"), type: "vink" }]}/>} voet={t(N + "eigen.contactenUitleg")} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, { profile: { personen: w.personen.filter((c) => schoon(c.naam)).map((c) => ({ id: c.id ?? nieuwId(), naam: schoon(c.naam), rol: c.rol ?? "anders", telefoon: schoon(c.telefoon), email: schoon(c.email), nood: !!c.nood })) } })}/> : <>
+            {bewerk === "contact" && mag("personen") ? <Formulier velden={[]} begin={{ personen }} extra={(w, setW) => <LijstVelden titel={t(N + "eigen.contacten")} items={w.personen} onChange={(l) => setW((x) => ({ ...x, personen: l }))} toevoegenTekst={t(N + "eigen.contactToevoegen")} velden={[{ id: "naam", label: t(N + "naam") }, { id: "rol", label: t(N + "eigen.rolLabel"), type: "rol" }, { id: "telefoon", label: t(N + "eigen.telefoon"), type: "tel" }, { id: "email", label: t(N + "eigen.email"), type: "email" }, { id: "nood", label: t(N + "eigen.noodcontact"), type: "vink" }]}/>} voet={t(N + "eigen.contactenUitleg")} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, { profile: { personen: w.personen.filter((c) => schoon(c.naam)).map((c) => ({ id: c.id ?? nieuwId(), naam: schoon(c.naam), rol: c.rol ?? "anders", telefoon: schoon(c.telefoon), email: schoon(c.email), nood: !!c.nood })) } })}/> : <>
               {personen.map((c) => (<div key={c.id ?? c.naam} className="flex items-center justify-between gap-3 rounded-md bg-white/60 px-3 py-2">
                   <div className="min-w-0"><p className="text-sm font-semibold">{c.naam}</p><p className="text-xs text-ink-soft">{t(N + `rol.${ROLLEN.includes(c.rol) ? c.rol : "anders"}`)}{c.nood ? ` · ${t(N + "eigen.noodcontact")}` : ""}{c.email ? ` · ${c.email}` : ""}</p></div>
                   {c.telefoon ? <a href={telLink(c.telefoon)} className="flex min-h-11 shrink-0 items-center gap-1.5 text-xs font-semibold text-brand"><AppIcon functie="bellen" maat="sm" vorm="kaal"/>{toonTelefoon(c.telefoon)}</a> : null}
                 </div>))}
-              {!personen.length ? <p className="text-sm text-ink-soft">{kan ? t(N + "eigen.leegSectie") : t(N + "eigen.leegSectieLezen")}</p> : null}
-              {kan ? <SectieKnop gevuld={personen.length > 0} onClick={() => setBewerk("contact")}/> : null}
+              {verborgen.includes("personen") ? <p className="text-sm text-ink-soft">{t(N + "toegang.geenToegang")}</p> : !personen.length ? <p className="text-sm text-ink-soft">{mag("personen") ? t(N + "eigen.leegSectie") : t(N + "eigen.leegSectieLezen")}</p> : null}
+              {mag("personen") ? <SectieKnop gevuld={personen.length > 0} onClick={() => setBewerk("contact")}/> : null}
             </>}
           </div>) : null}
+        <GezagToegangRij onClick={() => setToegangOpen(true)} samenvatting={kort.samen ? t(N + "toegang.samenvattingSamen") : t(N + "toegang.samenvattingSolo")}/>
       </div>
+      <Sheet open={toegangOpen} onOpenChange={setToegangOpen}>
+        <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto rounded-t-3xl bg-background">
+          <SheetHeader><SheetTitle className="font-display">{t(N + "toegang.titel", { naam: kind.name })}</SheetTitle></SheetHeader>
+          <div className="px-4 pb-6">{toegangOpen ? <GezagToegang kindId={kindId} naam={kind.name} bewerkbaar/> : null}</div>
+        </SheetContent>
+      </Sheet>
 
       <h2 className="mt-6 px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft">{t(N + "vaakNodig")}</h2>
       <div className={`${GLAS} mt-2 divide-y divide-[#E9E1D5] px-4`}>
@@ -345,7 +368,32 @@ function KindProfiel({ kort, kind, notitie }) {
         {alleMomenten ? <Mijlpalen kindId={kindId} naam={kind.name} momentjesPerJaar={mijn.reduce((acc, m) => { const j = m.datum ? Number(m.datum.slice(0, 4)) : NaN; return Number.isFinite(j) ? { ...acc, [j]: (acc[j] ?? 0) + 1 } : acc; }, {})}/> : null}
       </section>
       <DeelMomentje open={deelOpen} onSluit={() => setDeelOpen(false)} kindId={kindId}/>
+      <button type="button" onClick={() => setVerwijderOpen(true)} className="mt-8 flex min-h-11 w-full items-center justify-center text-sm font-bold text-accent-warm">{kort.samen || lijst(kind.linked_parents).length ? t(N + "verwijderen.knopGedeeld", { naam: kind.name }) : t(N + "verwijderen.knop", { naam: kind.name })}</button>
+      {verwijderOpen ? <KindVerwijderen naam={kind.name} gedeeld={!!kort.samen || lijst(kind.linked_parents).length > 0} sluit={() => setVerwijderOpen(false)} doe={async () => {
+            const modus = await start.verwijderKind(kindId);
+            if (!modus)
+                return false;
+            bevestig(modus === "unlinked" ? t(N + "verwijderen.ontkoppeld") : t(N + "verwijderen.verwijderd"));
+            nav({ to: "/kinderen", replace: true });
+            return true;
+        }}/> : null}
     </AppShell>);
+}
+/** Bevestiging voor verwijderen; bij een gedeeld kind verdwijnt alleen jouw koppeling. */
+function KindVerwijderen({ naam, gedeeld, sluit, doe }) {
+    const { t } = useTranslation();
+    const [bezig, setBezig] = useState(false);
+    return (<div className="app-modal-achter z-40" onClick={() => !bezig && sluit()}>
+      <div className="app-modal" role="dialog" aria-modal="true" aria-labelledby="kind-verwijderen-titel" onClick={(e) => e.stopPropagation()}>
+        <p id="kind-verwijderen-titel" className="font-display text-lg">{gedeeld ? t(N + "verwijderen.titelGedeeld", { naam }) : t(N + "verwijderen.titel", { naam })}</p>
+        <p className="mt-2 text-sm text-ink-soft">{gedeeld ? t(N + "verwijderen.uitlegGedeeld", { naam }) : t(N + "verwijderen.uitleg", { naam })}</p>
+        <div className="mt-5 flex gap-2">
+          <button type="button" disabled={bezig} onClick={sluit} className={knopAnnuleer}>{t("common.annuleren")}</button>
+          <button type="button" disabled={bezig} onClick={async () => { setBezig(true); const ok = await doe(); if (!ok)
+            setBezig(false); }} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[#A4533E] px-5 text-sm font-black text-white disabled:opacity-50">{bezig ? <Loader2 className="size-4 animate-spin" aria-hidden="true"/> : null}{gedeeld ? t(N + "verwijderen.jaGedeeld") : t(N + "verwijderen.ja")}</button>
+        </div>
+      </div>
+    </div>);
 }
 /** Naam, geboortedatum, korte omschrijving en kleur — gedeeld met de andere ouder. */
 function BasisFormulier({ kind, onKlaar }) {

@@ -19,7 +19,7 @@ export function AanwezigheidKiezer({ open, onSluit, onKies }) {
     const [wieGaat, setWieGaat] = useState(null);
     const [contactWie, setContactWie] = useState(null);
     const veilig = heeftVeiligheidsafspraken();
-    const klaar = keuze === "samen" || keuze === "later" || (keuze === "een" && wieGaat) || (keuze === "afzonderlijk" && contactWie);
+    const klaar = keuze === "samen" || keuze === "later" || ((keuze === "een" || keuze === "halen" || keuze === "brengen") && wieGaat) || (keuze === "afzonderlijk" && contactWie);
     const bevestig = () => {
         if (!keuze || !klaar)
             return;
@@ -34,7 +34,7 @@ export function AanwezigheidKiezer({ open, onSluit, onKies }) {
         setContactWie(null);
         onSluit();
     } }}>
-      <SheetContent side="bottom" className="left-1/2 max-h-[85vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8">
+      <SheetContent side="bottom" className="left-1/2 max-h-[85dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8">
         <SheetHeader className="text-left">
           <SheetTitle className="font-display text-xl font-medium">{t("components.AanwezigheidAfstemmen.kiezer.titel")}</SheetTitle>
           <SheetDescription className="text-xs text-ink-soft">{t("components.AanwezigheidAfstemmen.kiezer.beschrijving")}</SheetDescription>
@@ -44,7 +44,7 @@ export function AanwezigheidKiezer({ open, onSluit, onKies }) {
           {Object.keys(keuzeLabel).map((k) => (<button key={k} onClick={() => setKeuze(k)} className={chip(keuze === k)}>{keuzeLabel[k]}</button>))}
         </div>
         {keuze === "samen" ? <p className="mt-3 text-sm text-ink-soft">{t("components.AanwezigheidAfstemmen.kiezer.samenUitleg")}</p> : null}
-        {keuze === "een" ? (<div className="mt-4">
+        {keuze === "een" || keuze === "halen" || keuze === "brengen" ? (<div className="mt-4">
             <p className="text-sm font-semibold">{t("components.AanwezigheidAfstemmen.kiezer.wieGaat")}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button onClick={() => setWieGaat("sanne")} className={chip(wieGaat === "sanne")}>{t("components.AanwezigheidAfstemmen.ikKanGaan")}</button>
@@ -247,7 +247,7 @@ export function AanwezigheidFormulier({ keuze, wieGaat, contactWie, onKeuze, onW
           <div className="flex flex-wrap gap-2">
             {Object.keys(keuzeLabel).map((k) => (<button key={k} type="button" onClick={() => onKeuze(keuze === k ? null : k)} className={chip(keuze === k)}>{keuzeLabel[k]}</button>))}
           </div>
-          {keuze === "een" ? (<div className="flex flex-wrap gap-2">
+          {keuze === "een" || keuze === "halen" || keuze === "brengen" ? (<div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => onWieGaat("sanne")} className={chip(wieGaat === "sanne")}>{t("components.AanwezigheidAfstemmen.ikKanGaan")}</button>
               <button type="button" onClick={() => onWieGaat("joris")} className={chip(wieGaat === "joris")}>{t("components.AanwezigheidAfstemmen.formulier.anderOuder")}</button>
               <button type="button" onClick={() => onWieGaat("onbekend")} className={chip(wieGaat === "onbekend")}>{t("components.AanwezigheidAfstemmen.nogNietBekend")}</button>

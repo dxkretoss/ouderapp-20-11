@@ -9,13 +9,16 @@ import { KostenTabs } from "@/components/KostenTabs";
 import { useBudgetten } from "@/lib/budget-store";
 import { bevestigdBudget, gekoppeldBudget } from "@/lib/budget-weergave";
 import { useKosten } from "@/lib/kosten-store";
-import { useNogNodig } from "@/lib/nog-nodig-store";
+import { laadNogNodig, useNogNodig } from "@/lib/nog-nodig-store";
+import { LaadFout } from "@/components/Laden";
 import { useStart } from "@/lib/start-store";
 import { AppIcon } from "@/components/AppIcon";
 import { Chevron, Kruis, Vinkje } from "@/components/Tekens";
 import { bevestig } from "@/lib/feedback";
 import { useOnthouden } from "@/lib/onthouden";
-import { Zichtbaar } from "@/components/Zichtbaar";
+import { useGezin } from "@/lib/gezin";
+import { DeelLabel, DelenKeuze, deelCheck, VerwijderDialoog } from "@/components/DelenKeuze";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 export const Route = createFileRoute("/boodschappen")({
     head: () => ({
         meta: [
@@ -56,6 +59,11 @@ function Boodschappen() {
     const [kind, setKind] = useState(zoekKind || kindOpties[0]?.waarde || "");
     const [gekochtOpen, setGekochtOpen] = useState(false);
     const [vraag, setVraag] = useState(null);
+    const g = useGezin();
+    // Nieuw item = standaard "Alleen jij"; delen is een bewuste keuze (per kind de juiste andere ouder).
+    const [gedeeld, setGedeeld] = useState(false);
+    const [anderKeuze, setAnderKeuze] = useState("");
+    const [bewerk, setBewerk] = useState(null);
     const open = data.lijst.filter((i) => !i.klaar);
     const gekocht = data.lijst.filter((i) => i.klaar);
     const inKosten = (x) => kosten.some((k) => k.omschrijving.trim().toLowerCase() === x.trim().toLowerCase());
@@ -82,10 +90,13 @@ function Boodschappen() {
         const invoer = snel.trim();
         if (!invoer || !gekozenKind)
             return;
+        const delen = deelCheck(g, idsVan(gekozenKind), gedeeld, anderKeuze);
+        if (!delen.ok)
+            return;
         const netjes = invoer.charAt(0).toUpperCase() + invoer.slice(1);
         setSnel("");
         setSnelKind("");
-        const id = await data.voegToe(netjes, "Nodig", idsVan(gekozenKind));
+        const id = await data.voegToe(netjes, "Nodig", idsVan(gekozenKind), false, undefined, delen);
         if (id)
             bevestig(t("routes.boodschappen.opDeLijst"), { uitleg: `${netjes} · ${kindOpties.find((k) => k.waarde === gekozenKind)?.label ?? ""}`, ongedaan: () => data.verwijder(id) });
     };
@@ -112,11 +123,13 @@ function Boodschappen() {
             <span className="flex flex-wrap items-center gap-1.5">
               <span className={`text-[15.5px] ${i.klaar ? "text-ink-soft line-through" : "font-black"}`}>{tekstVan(i)}</span>
               {kinderenVan.map(kindBol)}
+              {g.gekoppeld ? <DeelLabel gedeeld={!i.vanMij || i.gedeeld}/> : null}
             </span>
             <span className="mt-0.5 block text-[13px] text-ink-soft">
               {maat ? <span className="font-bold text-[#6E5014]">{maat}{regel ? " · " : ""}</span> : null}{regel ? regel.charAt(0).toUpperCase() + regel.slice(1) : null}
             </span>
           </button>
+          {i.klaar ? <button onClick={() => setOpenItem(isOpen ? null : i.id)} aria-label={t("routes.boodschappen.meer")} className="grid size-8 shrink-0 place-items-center"><Chevron className={`size-4 text-ink-soft ${isOpen ? "rotate-90" : ""}`}/></button> : null}
           {!i.klaar && !i.koper && !isOpen
                 ? <button onClick={() => data.zetKoper(i.id, "ik")} className="inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full border-[1.5px] border-brand px-3 text-[13px] font-black text-[#3F5747]">{t("routes.boodschappen.ikKoop")}</button>
                 : !i.klaar ? <Chevron className={`mt-1 size-4 text-ink-soft ${isOpen ? "rotate-90" : ""}`}/> : null}
@@ -134,6 +147,9 @@ function Boodschappen() {
             {!i.koper ? <button onClick={() => data.zetKoper(i.id, "ik")} className="mt-2 block min-h-9 text-[13px] font-extrabold text-[#3F5747]">{t("routes.boodschappen.ikKoop")}</button> : null}
             {i.koper === "ik" ? <button onClick={() => data.zetKoper(i.id, undefined)} className="mt-2 block min-h-9 text-[13px] font-semibold text-ink-soft">{t("routes.boodschappen.tochNiet")}</button> : null}
           </div>) : null}
+        {isOpen ? (<div className="ml-9 mt-2 flex flex-wrap items-center gap-x-4">
+            <button onClick={() => setBewerk(i)} className="min-h-10 text-[13px] font-extrabold text-[#3F5747]">{t("common.bewerken")}</button>
+          </div>) : null}
       </li>);
     };
     const snelHint = snel.trim() && gekozenKind && gekozenKind !== "alle" ? maatHint(snel, kinderen.find((k) => k.id === gekozenKind)) : null;
@@ -143,7 +159,6 @@ function Boodschappen() {
         <button type="button" aria-label={t("routes.boodschappen.toevoegenLabel")} onClick={() => setNieuw(!nieuw)} className="grid size-10 place-items-center rounded-full bg-brand text-2xl leading-none text-primary-foreground"><Plus aria-hidden="true" strokeWidth={2.25} className="size-5"/></button>
       </div>
       <KostenTabs actief="nognodig"/>
-      <Zichtbaar voor="samen" className="mt-2.5"/>
 
       {kinderen.length > 1 ? <div className="mt-3 flex flex-wrap gap-2">
         <button onClick={() => setVoor("samen")} aria-pressed={voor === "samen"} className={`h-9 rounded-full px-4 text-sm font-extrabold ${voor === "samen" ? "bg-brand text-primary-foreground" : "border border-white/95 bg-white/75"}`}>{t("routes.boodschappen.samen")}</button>
@@ -159,6 +174,7 @@ function Boodschappen() {
           <span className="text-[13px] font-bold text-ink-soft">{t("routes.boodschappen.voorWie")}</span>
           {kindOpties.map((k) => (<button key={k.waarde} type="button" onClick={() => setSnelKind(k.waarde)} aria-pressed={gekozenKind === k.waarde} className={`h-8 rounded-full px-3 text-[13px] font-extrabold ${gekozenKind === k.waarde ? "bg-brand text-primary-foreground" : "border border-[#E6DED2] bg-white"}`}>{k.label}</button>))}
         </div>) : null}
+      {snel.trim() && gekozenKind ? <DelenKeuze className="mt-2 px-1" kindIds={idsVan(gekozenKind)} gedeeld={gedeeld} onGedeeld={setGedeeld} anderId={anderKeuze} onAnderId={setAnderKeuze}/> : null}
       {snelHint ? (<p className="mt-1.5 flex items-center gap-1 px-1 text-[12.5px] font-bold text-[#6E5014]"><AppIcon functie="maten" maat="sm" vorm="kaal"/>{snelHint}</p>) : null}
 
       {nieuw ? (<Card className="mt-4 space-y-2">
@@ -168,16 +184,23 @@ function Boodschappen() {
             {kindOpties.length ? <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label={t("routes.boodschappen.voorWieLabel")} className={`flex-1 ${veld}`}>{kindOpties.map((k) => <option key={k.waarde} value={k.waarde}>{k.label}</option>)}</select> : null}
           </div>
           <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={alGekocht} onChange={(e) => setAlGekocht(e.target.checked)}/>{t("routes.boodschappen.alGekocht")}</label>
+          <DelenKeuze kindIds={idsVan(kind || kindOpties[0]?.waarde)} gedeeld={gedeeld} onGedeeld={setGedeeld} anderId={anderKeuze} onAnderId={setAnderKeuze}/>
           <button onClick={async () => { if (tekst.trim()) {
             const ids = idsVan(kind || kindOpties[0]?.waarde);
+            const delen = deelCheck(g, ids, gedeeld, anderKeuze);
+            if (!delen.ok)
+                return;
             const klaar = alGekocht;
+            const invoer = tekst.trim();
             setAlGekocht(false);
             setTekst("");
             setNieuw(false);
-            const id = await data.voegToe(tekst.trim(), wie, ids, klaar);
+            const id = await data.voegToe(invoer, wie, ids, klaar, undefined, delen);
+            if (id)
+                bevestig(t("routes.boodschappen.opDeLijst"), { uitleg: invoer });
             if (id && klaar)
                 setVraag(id);
-        } }} disabled={!tekst.trim()} className="min-h-11 w-full rounded-full bg-brand text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("common.toevoegen")}</button>
+        } }} disabled={!tekst.trim() || !deelCheck(g, idsVan(kind || kindOpties[0]?.waarde), gedeeld, anderKeuze).ok} className="min-h-11 w-full rounded-full bg-brand text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("common.toevoegen")}</button>
         </Card>) : null}
 
       {vraagItem ? (<Card className="mt-4">
@@ -196,7 +219,7 @@ function Boodschappen() {
 
       <section className="mt-5">
         <h2 className="px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft">{t("routes.boodschappen.opDeLijstKop")}{zichtbaarOpen.length ? <span className="ml-1.5 text-xs">· {zichtbaarOpen.length}</span> : null}</h2>
-        {zichtbaarOpen.length ? <ul className="mt-2 divide-y divide-[#E9E1D5] rounded-[22px] border border-white/85 bg-white/60">{zichtbaarOpen.map(rij)}</ul> : <p className="mt-2 px-1 text-sm text-ink-soft">{data.geladen ? t("routes.boodschappen.nietsNodig") : t("routes.boodschappen.laden")}</p>}
+        {zichtbaarOpen.length ? <ul className="mt-2 divide-y divide-[#E9E1D5] rounded-[22px] border border-white/85 bg-white/60">{zichtbaarOpen.map(rij)}</ul> : data.fout ? <LaadFout onOpnieuw={laadNogNodig}/> : <p className="mt-2 px-1 text-sm text-ink-soft">{data.geladen ? t("routes.boodschappen.nietsNodig") : t("routes.boodschappen.laden")}</p>}
       </section>
 
       {zichtbaarGekocht.length ? (<section className="mt-4 rounded-[22px] border border-white/85 bg-white/60">
@@ -207,7 +230,83 @@ function Boodschappen() {
           {gekochtOpen ? <ul className="divide-y divide-[#E9E1D5] border-t border-[#E9E1D5]">{zichtbaarGekocht.map(rij)}</ul> : null}
         </section>) : null}
       <p className="mt-3 px-2 text-center text-xs text-ink-soft">{t("routes.boodschappen.afgevinkt")}</p>
+      <ItemBewerken item={bewerk} kindOpties={kindOpties} onSluit={() => setBewerk(null)} data={data}/>
     </AppShell>);
+}
+/** Een item wijzigen (naam, soort, kind, datum, "Alleen jij" / "Gedeeld") of verwijderen. */
+function ItemBewerken({ item, kindOpties, onSluit, data }) {
+    const { t } = useTranslation();
+    const g = useGezin();
+    const [voor, setVoor] = useState(null);
+    const [tekst, setTekst] = useState("");
+    const [wie, setWie] = useState("Nodig");
+    const [kind, setKind] = useState("");
+    const [deadline, setDeadline] = useState("");
+    const [gedeeld, setGedeeld] = useState(false);
+    const [ander, setAnder] = useState("");
+    const [bezig, setBezig] = useState(false);
+    const [weg, setWeg] = useState(false);
+    const waardeVan = (ids) => kindOpties.find((k) => k.ids.length === ids.length && k.ids.every((x) => ids.includes(x)))?.waarde ?? "";
+    // Velden vullen zodra een (ander) item geopend wordt.
+    if (item && voor !== item.id) {
+        setVoor(item.id);
+        setTekst(item.tekst);
+        setWie(item.wie === "Boodschap" ? "Boodschap" : "Nodig");
+        setKind(waardeVan(item.kindIds));
+        setDeadline(/^\d{4}-\d{2}-\d{2}$/.test(item.deadline ?? "") ? item.deadline : "");
+        setGedeeld(!!item.gedeeld);
+        setAnder(item.anderId ?? "");
+        setWeg(false);
+    }
+    const ids = kindOpties.find((k) => k.waarde === kind)?.ids ?? item?.kindIds ?? [];
+    const eigen = !!item?.vanMij;
+    const delen = deelCheck(g, ids, gedeeld, ander);
+    const geldig = !!tekst.trim() && (!eigen || delen.ok) && !bezig;
+    const opslaan = async () => {
+        if (!item || !geldig)
+            return;
+        setBezig(true);
+        // Een oude vrije-tekstdatum blijft staan zolang er geen nieuwe datum gekozen is.
+        const datumGewijzigd = deadline ? deadline !== item.deadline : !!item.deadline && /^\d{4}-\d{2}-\d{2}$/.test(item.deadline);
+        const gelukt = await data.wijzig(item.id, { tekst: tekst.trim(), wie, ...(datumGewijzigd ? { deadline } : {}), ...(eigen ? { kindIds: ids, gedeeld: delen.gedeeld, anderId: delen.anderId } : {}) });
+        setBezig(false);
+        if (gelukt) {
+            bevestig(t("routes.boodschappen.bewerk.opgeslagen"));
+            onSluit();
+        }
+    };
+    const verwijder = async () => {
+        if (!item)
+            return;
+        setWeg(false);
+        onSluit();
+        if (await data.verwijder(item.id))
+            bevestig(t("routes.boodschappen.bewerk.verwijderd"), { uitleg: item.tekst });
+    };
+    return (<Sheet open={!!item} onOpenChange={(o) => !o && onSluit()}>
+      <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto">
+        {item ? (<>
+            <SheetHeader className="text-left">
+              <SheetTitle className="lora text-[24px] leading-tight">{t("routes.boodschappen.bewerk.titel")}</SheetTitle>
+              <SheetDescription>{item.tekst}</SheetDescription>
+            </SheetHeader>
+            <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); opslaan(); }}>
+              <input value={tekst} maxLength={200} onChange={(e) => setTekst(e.target.value)} aria-label={t("routes.boodschappen.watNodig")} className={`w-full ${veld}`}/>
+              <div className="flex gap-2">
+                <select value={wie} onChange={(e) => setWie(e.target.value)} aria-label={t("routes.boodschappen.soortLabel")} className={`flex-1 ${veld}`}><option value="Nodig">{t("routes.boodschappen.soort.nodig")}</option><option value="Boodschap">{t("routes.boodschappen.soort.boodschap")}</option></select>
+                {eigen && kindOpties.length ? <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label={t("routes.boodschappen.voorWieLabel")} className={`flex-1 ${veld}`}>{kind === "" ? <option value="">{t("routes.boodschappen.bewerk.huidige")}</option> : null}{kindOpties.map((k) => <option key={k.waarde} value={k.waarde}>{k.label}</option>)}</select> : null}
+              </div>
+              <label className="block text-xs font-semibold">{t("routes.boodschappen.bewerk.voorDatum")}<input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={`mt-1 w-full font-normal ${veld}`}/></label>
+              {eigen ? <DelenKeuze kindIds={ids} gedeeld={gedeeld} onGedeeld={setGedeeld} anderId={ander} onAnderId={setAnder}/> : <DeelLabel gedeeld/>}
+              <div className="sticky bottom-0 space-y-2 bg-background pb-2 pt-1">
+                <button type="submit" disabled={!geldig} className="min-h-11 w-full rounded-full bg-brand text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("common.opslaan")}</button>
+                <button type="button" onClick={() => setWeg(true)} className="min-h-11 w-full text-sm font-semibold text-ink-soft">{t("common.verwijderen")}</button>
+              </div>
+            </form>
+          </>) : null}
+      </SheetContent>
+      <VerwijderDialoog open={weg} onOpenChange={setWeg} titel={t("routes.boodschappen.bewerk.verwijderTitel")} tekst={item?.gedeeld || !item?.vanMij ? t("routes.boodschappen.bewerk.verwijderTekstGedeeld") : t("routes.boodschappen.bewerk.verwijderTekst")} onBevestig={verwijder}/>
+    </Sheet>);
 }
 /** Korte maat voor in de lijst: "maat 30" of "kledingmaat 122". */
 function maatKort(tekst, kind) {

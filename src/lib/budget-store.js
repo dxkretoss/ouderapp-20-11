@@ -8,7 +8,7 @@
  */
 import { api } from "@/lib/api";
 import { geldigUitstelMoment } from "@/lib/budget-uitstel";
-import { kostenBron, kostenSnapshot, useKostenBron } from "@/lib/kosten-store";
+import { kostenBron, kostenSnapshot, useKostenBron, useKostenPaar } from "@/lib/kosten-store";
 export const budgetSnapshot = () => kostenSnapshot().budgetten;
 const vervang = (b) => kostenBron.vervang("budgets", b);
 async function stuur(actie, velden, optimistisch) {
@@ -29,11 +29,12 @@ async function stuur(actie, velden, optimistisch) {
     }
 }
 /**
- * Nieuw voorstel: { wat, kindIds?, max, pctIk (of oud: pctSanne), toelichting?, reactieDatum?, categorie?, periode? }.
+ * Nieuw voorstel: { wat, kindIds?, max, pctIk (of oud: pctSanne), toelichting?, reactieDatum?, categorie?, periode?, anderId? }.
+ * anderId: de andere ouder (nodig bij twee of meer co-ouders als er geen kind gekozen is).
  * Geeft (async) het id van het opgeslagen voorstel, of null.
  */
 export async function nieuwBudget(b) {
-    const r = await stuur("create-budget", { budget: { title: b.wat, child_ids: b.kindIds ?? [], amount: b.max, my_pct: b.pctIk ?? b.pctSanne ?? 50, note: b.toelichting || undefined, response_date: b.reactieDatum || undefined, category: b.categorie, period: b.periode } });
+    const r = await stuur("create-budget", { budget: { title: b.wat, child_ids: b.kindIds ?? [], amount: b.max, my_pct: b.pctIk ?? b.pctSanne ?? 50, note: b.toelichting || undefined, response_date: b.reactieDatum || undefined, category: b.categorie, period: b.periode, ...(b.anderId ? { other_parent_id: b.anderId } : {}) } });
     return r?.id ?? null;
 }
 const reactieCode = (r) => (typeof r === "object" ? "ander_voorstel" : r === "akkoord" ? "akkoord" : "niet_akkoord");
@@ -67,4 +68,8 @@ export async function stuurBudgetHerinnering(id) {
 }
 export function useBudgetten() {
     return useKostenBron().budgetten;
+}
+/** Budgetten van het gekozen ouderpaar (Kosten-pagina). Bij één co-ouder gelijk aan useBudgetten. */
+export function useBudgettenPaar() {
+    return useKostenPaar().budgetten;
 }

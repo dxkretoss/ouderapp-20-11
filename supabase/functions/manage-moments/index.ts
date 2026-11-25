@@ -6,14 +6,14 @@ import { check, err, ok, serveActions } from "../_shared/respond.ts";
 import { requireUser } from "../_shared/session.ts";
 import { optDate, optText, requireUuid } from "../_shared/util.ts";
 import { resolveAvatars, uploadImage } from "../_shared/storage.ts";
-import { CaregiverAccess, caregiverAccess, caregiverProfilesFor, canSee, Family, familyFor, familyMembers } from "../_shared/practical-scope.ts";
+import { addressFor, CaregiverAccess, caregiverAccess, caregiverProfilesFor, canSee, Family, familyFor, familyMembers } from "../_shared/practical-scope.ts";
 import { notify } from "../_shared/practical-audit.ts";
 
 const VISIBILITY = ["private", "parents", "circle"];
 const PHASES = ["geen", "vooraf", "tijdens", "na"];
 const MILESTONES = ["Eerste stapjes", "Eerste woordje", "Eerste schooldag", "Eerste tand", "Zwemdiploma", "Verjaardag", "Sportprestatie", "Rapport", "Iets bijzonders"];
 const REACTIONS = ["leuk", "lief", "trots", "watGoed", "tekst", "duim"];
-const COLS = "id, user_id, child_id, title, description, photo_url, is_milestone, is_private, visibility, circle_ids, phase, milestone, entry_kind, happened_on, created_at, deleted_at";
+const COLS = "id, user_id, child_id, title, description, photo_url, is_milestone, is_private, visibility, circle_ids, phase, milestone, entry_kind, happened_on, other_parent_id, created_at, deleted_at";
 
 type Row = Record<string, any>;
 
@@ -22,11 +22,11 @@ function mayRead(f: Family, cg: CaregiverAccess, circleAuthors: Set<string>, r: 
   if (r.deleted_at) return false;
   const isPrivate = r.visibility === "private" || r.is_private;
   if (r.user_id === f.userId) return true;
-  if (r.child_id && f.childIds.includes(r.child_id) && (canSee(f, r.user_id, [r.child_id], isPrivate) || (!isPrivate && circleAuthors.has(r.user_id)))) return true;
+  if (r.child_id && f.childIds.includes(r.child_id) && (canSee(f, r.user_id, [r.child_id], isPrivate, r.other_parent_id ?? null) || (!isPrivate && circleAuthors.has(r.user_id)))) return true;
   return r.visibility === "circle" && !!r.child_id && cg.view("momentjes").includes(r.child_id) && (r.circle_ids ?? []).some((id: string) => cg.caregiverIds.includes(id));
 }
 
-const visible = (f: Family, r: Row) => !r.deleted_at && canSee(f, r.user_id, r.child_id ? [r.child_id] : [], r.visibility === "private" || r.is_private);
+const visible = (f: Family, r: Row) => !r.deleted_at && canSee(f, r.user_id, r.child_id ? [r.child_id] : [], r.visibility === "private" || r.is_private, r.other_parent_id ?? null);
 
 async function out(rows: Row[], f: Family) {
   const ids = rows.map((r) => r.id);
@@ -41,6 +41,7 @@ async function out(rows: Row[], f: Family) {
     text: r.description ?? r.title,
     photo_url: urls[i],
     visibility: r.visibility === "private" || r.is_private ? "private" : r.visibility,
+    other_parent_id: r.other_parent_id ?? null,
     circle_ids: r.circle_ids ?? [],
     phase: r.phase || "geen",
     milestone: r.milestone ?? null,
@@ -93,7 +94,8 @@ Deno.serve(serveActions("manage-moments", {
     if (!["moment", "mijlpaal"].includes(kind)) throw err.validation("kind is invalid");
     const text = optText(body.text, "text", 2000) ?? null;
     if (!text && !body.photo_base64) throw err.validation("text or photo is required");
-    const visibility = body.visibility ?? "parents";
+    // New moments are private ("Alleen jij") unless the author chooses to share them.
+    const visibility = body.visibility ?? "private";
     if (!VISIBILITY.includes(visibility)) throw err.validation("visibility is invalid");
     const phase = body.phase ?? "geen";
     if (!PHASES.includes(phase)) throw err.validation("phase is invalid");
@@ -118,6 +120,8 @@ Deno.serve(serveActions("manage-moments", {
         milestone,
         entry_kind: kind,
         happened_on: optDate(body.happened_on, "happened_on") ?? new Date().toISOString().slice(0, 10),
+        // Shared with the other parent of this child; private / caregiver moments are not addressed.
+        other_parent_id: asCaregiver ? null : addressFor(f, [childId], visibility === "private"),
       }).select(COLS).single(),
       "create moment",
     ) as Row;
@@ -142,6 +146,24 @@ Deno.serve(serveActions("manage-moments", {
     );
     await notify({ to: row.user_id, actorId: me.id, type: "moment", category: "info", key: "momentReactie", link: "/momentjes", entityType: "moment", entityId: row.id, childIds: row.child_id ? [row.child_id] : [] });
     return ok({ moment: (await out([row], f))[0] });
+  },
+
+  /** "Alleen jij" ↔ "Gedeeld" (or circle): only the author. Sharing addresses the other parent of the child. */
+  async "set-visibility"(req, body) {
+    const me = await requireUser(req);
+    const f = await familyFor(me.id);
+    const row = await loadMoment(f, body.moment_id);
+    if (row.user_id !== me.id) throw err.notFound("Moment not found");
+    const visibility = body.visibility;
+    if (!VISIBILITY.includes(visibility)) throw err.validation("visibility is invalid");
+    const upd = check(
+      await db().from("shared_moments").update({
+        visibility, is_private: visibility === "private",
+        other_parent_id: row.child_id && f.childIds.includes(row.child_id) ? addressFor(f, [row.child_id], visibility === "private") : null,
+      }).eq("id", row.id).select(COLS).single(),
+      "set visibility",
+    ) as Row;
+    return ok({ moment: (await out([upd], f))[0] });
   },
 
   /** Soft delete by the author (history of shared items is never rewritten for others). */

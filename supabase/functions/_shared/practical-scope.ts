@@ -6,7 +6,7 @@
 //   - it is not private AND it was created by an ACTIVE co-parent of the caller AND
 //     (it concerns no specific child, or at least one child the caller can access).
 import { db } from "./db.ts";
-import { check, err } from "./respond.ts";
+import { check, err, HttpError } from "./respond.ts";
 import { childIdsFor, coParentIdsFor } from "./access.ts";
 import { caregiverGrantsFor } from "./family-caregivers.ts";
 
@@ -41,20 +41,62 @@ export async function familyFor(userId: string): Promise<Family> {
 /** Everyone whose records may appear for the caller (caller first). */
 export const familyMembers = (f: Family): string[] => [f.userId, ...f.coParents];
 
-export function canSee(f: Family, ownerId: string | null | undefined, childIds: string[] | null | undefined, isPrivate = false): boolean {
+/**
+ * Visible for the caller: own records always. A co-parent's record only when it is not private and
+ *  - for tables with an `other_parent_id` column (pass it as `addressedTo`, also when null): it is
+ *    addressed to the caller. null = not shared (made while Solo, or "Alleen jij") → hidden;
+ *  - EVERY child of the record is shared between the caller and that co-parent (so father B never
+ *    sees anything of child 1, which the mother shares with father A);
+ *  - without `addressedTo` (undefined) a record without children stays with its owner.
+ */
+export function canSee(
+  f: Family,
+  ownerId: string | null | undefined,
+  childIds: string[] | null | undefined,
+  isPrivate = false,
+  addressedTo?: string | null,
+): boolean {
   if (!ownerId) return false;
   if (ownerId === f.userId) return true;
   if (isPrivate) return false;
   if (!f.coParents.includes(ownerId)) return false;
-  const kids = childIds ?? [];
-  if (!kids.length) return true;
-  return kids.some((id) => f.childIds.includes(id));
+  const kids = (childIds ?? []).filter(Boolean);
+  if (addressedTo !== undefined) {
+    if (addressedTo !== f.userId) return false;
+  } else if (!kids.length) return false;
+  const shared = f.shared[ownerId] ?? [];
+  return kids.every((id) => shared.includes(id));
 }
 
-/** The co-parent(s) who share these children with the caller (all co-parents when no child is given). */
-export function otherParents(f: Family, childIds: string[] = []): string[] {
-  if (!childIds.length) return [...f.coParents];
-  return f.coParents.filter((c) => childIds.some((id) => (f.shared[c] ?? []).includes(id)));
+/**
+ * The co-parent who shares ALL these children with the caller (at most one, see access.pairOf).
+ * Without children: only `addressedTo` when that is an active co-parent — never "everyone".
+ */
+export function otherParents(f: Family, childIds: string[] = [], addressedTo?: string | null): string[] {
+  if (!childIds.length) return addressedTo && f.coParents.includes(addressedTo) ? [addressedTo] : [];
+  return f.coParents.filter((c) => childIds.every((id) => (f.shared[c] ?? []).includes(id)));
+}
+
+/**
+ * other_parent_id for a new shared record: the one co-parent of these children; without children the
+ * requested co-parent or the only one. null = nobody else (Solo, or private).
+ * Throws MIXED_CHILDREN when the children belong to different co-parents.
+ */
+export function addressFor(f: Family, childIds: string[], isPrivate: boolean, requested?: unknown): string | null {
+  if (isPrivate) return null;
+  const want = typeof requested === "string" && requested ? requested : null;
+  if (!childIds.length) {
+    if (want) {
+      if (!f.coParents.includes(want)) throw err.notFound();
+      return want;
+    }
+    if (f.coParents.length > 1) throw err.validation("Choose the other parent this is for");
+    return f.coParents[0] ?? null;
+  }
+  const o = otherParents(f, childIds).filter((c) => !want || c === want);
+  if (o.length === 1) return o[0];
+  if (!f.coParents.some((c) => childIds.some((id) => (f.shared[c] ?? []).includes(id)))) return null; // Solo children
+  throw new HttpError(400, "MIXED_CHILDREN", "These children are not all shared with the same other parent");
 }
 
 /** Validates a list of child ids: each must be accessible by the caller. Empty list = whole family. */

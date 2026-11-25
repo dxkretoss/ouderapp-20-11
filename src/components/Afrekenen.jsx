@@ -9,7 +9,7 @@ import { GeldInvoer } from "@/components/GeldInvoer";
 import { bewerkGeld, leesGeld } from "@/lib/geld-invoer";
 import { Badge } from "@/components/ui-kit";
 import { bevestig, meldFout } from "@/lib/feedback";
-import { deelBetaalverzoek, reageerOpVerrekening, startVerrekening, useKosten, useVerrekenInstellingen } from "@/lib/kosten-store";
+import { deelBetaalverzoek, reageerOpVerrekening, startVerrekening, useKostenPaar, useVerrekenInstellingen } from "@/lib/kosten-store";
 import { geldigeIban } from "@/lib/vaste-lasten-store";
 import { berekenSaldo, betaalOvergang, veiligeBetaallink, verrekeningStatus } from "@/lib/verrekening";
 const euro = (n) => n.toLocaleString(taalLocale(), { style: "currency", currency: "EUR" });
@@ -22,7 +22,8 @@ export function Afrekenen({ onTerug, onBerekening, startVerzoek = false }) {
     const { t } = useTranslation();
     const naam = (wie) => (wie === "ik" ? t("common.jij") : t("components.Afrekenen.andereOuder"));
     const { historie } = useVerrekenInstellingen();
-    const saldo = berekenSaldo(useKosten());
+    const paar = useKostenPaar();
+    const saldo = berekenSaldo(paar.kosten, paar.budgetten);
     const [id, setId] = useState(null);
     const [optie, setOptie] = useState(startVerzoek ? "verzoek" : null);
     const [link, setLink] = useState("");
@@ -60,6 +61,8 @@ export function Afrekenen({ onTerug, onBerekening, startVerzoek = false }) {
         const bron = await start();
         const gelukt = bron ? await deelBetaalverzoek(bron.id, { omschrijving, ...velden }) : false;
         setBezig(false);
+        if (!bron && bedrag < 0.01)
+            meldFout(t("components.Afrekenen.nietsOpen"));
         if (gelukt)
             bevestig(melding);
     };
@@ -80,14 +83,19 @@ export function Afrekenen({ onTerug, onBerekening, startVerzoek = false }) {
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={controle} onChange={(e) => setControle(e.target.checked)} className="mt-1"/>{t("components.Afrekenen.gecontroleerd")}</label>
         <Button disabled={!veiligeBetaallink(link) || !controle || bezig || !omschrijving.trim() || leesGeld(bedragTekst) !== bedrag} onClick={() => deel({ link }, t("components.Afrekenen.melding.verzoekOpgeslagen"))}>{t("components.Afrekenen.verzoekToevoegen")}</Button>
       </> : !v?.betaalverzoek && !v?.iban ? <p className="text-sm text-ink-soft">{t("components.Afrekenen.nogGeenVerzoek")}</p> : null}
-      {!ikOntvang ? <p className="text-xs text-ink-soft">{t("components.Afrekenen.jijBetaalt")}</p> : null}
+      {!ikOntvang ? <>
+        <p className="text-xs text-ink-soft">{t("components.Afrekenen.jijBetaalt")}</p>
+        {!v?.betaalverzoek && !v?.iban && (!v || v.status === "nog-te-betalen") ? (v ? <p role="status" className="text-sm text-ink-soft">{t("components.Afrekenen.verzoekGevraagd")}</p> : <Button variant="outline" disabled={bezig || bedrag < 0.01} onClick={async () => { if (bezig)
+            return; setBezig(true); const bron = await start(); setBezig(false); if (bron)
+            bevestig(t("components.Afrekenen.melding.verzoekGevraagd")); }}>{t("components.Afrekenen.vraagVerzoek")}</Button>) : null}
+      </> : null}
       <Button variant="outline" onClick={() => setOptie("bank")}>{t("components.Afrekenen.bankoverschrijving")}</Button>
     </section> : null}
     {optie === "bank" ? <section className="mt-4 space-y-3 border-t border-border pt-4">
       <h2 className="font-display text-lg font-bold">{t("components.Afrekenen.bankoverschrijving")}</h2>
       {kanVerzoek ? <>
         <p className="text-sm text-ink-soft">{t("components.Afrekenen.bank.vraagIban")}</p>
-        <p className="text-xs text-ink-soft">{t("components.Afrekenen.bank.geenOpslag")}</p>
+        <p className="text-xs text-ink-soft">{t("components.Afrekenen.bank.opslag")}</p>
         <label className="block text-sm font-semibold">{t("components.Afrekenen.bank.naamHouder")}<input value={rekeninghouder} onChange={(e) => setRekeninghouder(e.target.value)} className="mt-1 min-h-11 w-full rounded-md border border-border bg-background px-3 text-sm"/></label>
         <label className="block text-sm font-semibold">{t("components.Afrekenen.bank.iban")}<input value={iban} onChange={(e) => setIban(e.target.value)} autoComplete="off" className="mt-1 min-h-11 w-full rounded-md border border-border bg-background px-3 text-sm"/></label>
         {iban && !geldigeIban(iban) ? <p role="alert" className="text-sm text-accent-warm">{t("components.Afrekenen.bank.ibanOngeldig")}</p> : null}
@@ -117,6 +125,7 @@ function AfrekenInhoud({ v, bedrag, naam, ikOntvang, optie, setOptie, onTerug, o
     const klaar = v?.status === "afgerond" || v?.status === "ontvangst-bevestigd";
     return <AppShell><div className="flex items-center gap-3"><TerugKnop onClick={onTerug}/><h1 className="lora text-[30px] leading-tight">{t("components.Afrekenen.titel")}</h1></div>
     <section className="mt-5 border-y border-border py-4"><p className="font-display text-3xl font-extrabold tabular-nums">{euro(bedrag)}</p><p className="mt-1 text-sm">{ontvanger === "ik" ? t("components.Afrekenen.anderBetaaltJou") : t("components.Afrekenen.jijBetaaltAnder")}</p><Badge toon={klaar ? "klaar" : "actie"} className="mt-2">{verrekeningStatus(v?.status ?? "nog-te-betalen")}</Badge><div><Button variant="link" onClick={onBerekening} className="min-h-11 px-0"><MetChevron>{t("components.Afrekenen.bekijkBerekening")}</MetChevron></Button></div><Kopieer label={t("components.Afrekenen.bedrag")} waarde={taalLocale() === "nl-NL" ? bedrag.toFixed(2).replace(".", ",") : bedrag.toFixed(2)}/>{v?.iban && !ikOntvang ? <Kopieer label={t("components.Afrekenen.bank.iban")} waarde={v.iban}/> : null}</section>
+    {!v && bedrag < 0.01 ? <p role="status" className="mt-4 text-sm text-ink-soft">{t("components.Afrekenen.nietsOpen")}</p> : null}
     {!klaar && bedrag > 0 ? <div className="mt-4 divide-y divide-border border-y border-border">{[{ id: "verzoek", tekst: t("components.Afrekenen.optie.verzoek"), icoon: "betaalverzoek" }, { id: "bank", tekst: t("components.Afrekenen.bankoverschrijving"), icoon: "kosten" }, { id: "betaald", tekst: ikOntvang ? t("components.Afrekenen.optie.ontvangstBevestigen") : t("components.Afrekenen.optie.alBetaald"), icoon: "akkoord" }].map((o) => <Button variant="ghost" key={o.id} aria-expanded={optie === o.id} onClick={() => setOptie(o.id)} className="h-auto min-h-14 w-full justify-start gap-3 whitespace-normal rounded-none px-0 text-left"><AppIcon functie={o.icoon} maat="sm"/><span className="flex-1">{o.tekst}</span><Chevron className="size-4 text-brand"/></Button>)}</div> : null}
     {children}
   </AppShell>;

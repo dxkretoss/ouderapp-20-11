@@ -130,7 +130,7 @@ function AbonnementPagina() {
         </>)}
 
       <Sheet open={!!stap} onOpenChange={(o) => !o && sluit()}>
-        <SheetContent side="bottom" className="left-1/2 max-h-[90vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8">
+        <SheetContent side="bottom" className="left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8">
           {stap === "opzeggen" ? (<>
               <SheetHeader className="text-left"><SheetTitle className="font-display text-xl font-medium">{t("routes.abonnement.opzeggen.titel")}</SheetTitle>
                 <SheetDescription>{t("routes.abonnement.opzeggen.beschrijving", { datum: datum(ab.verlengdatum) })}</SheetDescription></SheetHeader>

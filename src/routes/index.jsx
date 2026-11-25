@@ -1,4 +1,5 @@
 import i18n, { taalLocale } from "@/i18n";
+import { AfspraakFormulier } from "@/components/AfspraakFormulier";
 import { useTranslation } from "react-i18next";
 import { agendaItems, iso, plusDagen, voorkomens, dt } from "@/lib/agenda-datum";
 import { uur } from "@/lib/tijd-tekst";
@@ -25,13 +26,13 @@ import { useTeControleren } from "@/lib/import-store";
 import { LivingSfeer } from "@/components/LivingHome";
 import { begroeting } from "@/lib/living-home";
 import { useVoorkeuren } from "@/lib/voorkeuren-store";
-import { useKostenBron } from "@/lib/kosten-store";
+import { useKostenPaar } from "@/lib/kosten-store";
 import { beoordeelKosten, wachtOpJouwAkkoord } from "@/lib/kosten-akkoord";
 import { berekenSaldo } from "@/lib/verrekening";
 import { kindLabel } from "@/components/KostenTabs";
-import { meeLijst, useTaken } from "@/lib/taken-store";
+import { useTaken } from "@/lib/taken-store";
 import { categorieMeta } from "@/lib/demo-data";
-import { mijnKringen, toggleMee, useKring } from "@/lib/kring-store";
+import { mijnKringen, useKring } from "@/lib/kring-store";
 import { useAuth } from "@/lib/auth-store";
 import { PaginaSkelet } from "@/components/Laden";
 export const Route = createFileRoute("/")({
@@ -137,26 +138,18 @@ function Dashboard() {
     const [toevoegenOpen, setToevoegenOpen] = useState(false);
     const [voorstelMenu, setVoorstelMenu] = useState(false);
     const [afspraakMenu, setAfspraakMenu] = useState(false);
+    // "Nieuwe afspraak" opent hetzelfde formulier als in Agenda, direct hier op Home.
+    const [afspraakOpen, setAfspraakOpen] = useState(false);
     const [puntenOpen, setPuntenOpen] = useState(false);
-    const PLAN_GEZIEN = "onzeapp-plan-wijziging-gezien-8-maart";
-    const [planGezien, setPlanGezien] = useState(false);
-    useEffect(() => { try {
-        setPlanGezien(localStorage.getItem(PLAN_GEZIEN) === "1");
-    }
-    catch { /* geen opslag */ } }, []);
     useEffect(() => { if (neemHeropen())
         setPuntenOpen(true); }, []);
-    const [spullenOpen, setSpullenOpen] = useState(false);
     const kring = useKring();
     const nuAfstemmen = useNuAfstemmen();
     useTaken();
-    // Eén bron voor wat er mee moet: dezelfde lijst als Overdracht en Even vooruitkijken.
-    const wisselMoment = kring.momenten.find((m) => m.soort === "wissel");
-    const meeItems = wisselMoment ? meeLijst(wisselMoment) : [];
-    const meeKlaar = wisselMoment ? kring.meeKlaar[wisselMoment.id] ?? [] : [];
     const overdrachtSt = useOverdracht();
-    // Kosten van het eigen gezin (kosten-store, kijker-relatief "ik"/"ander").
-    const kostenBron = useKostenBron();
+    // Kosten van het gekozen ouderpaar (bij meerdere andere ouders per kind: het paar dat op Kosten
+    // gekozen is), zodat het saldo nooit bedragen van verschillende ouders optelt.
+    const kostenBron = useKostenPaar();
     const kostenLijst = kostenBron.kosten;
     const saldoDetail = berekenSaldo(kostenLijst, kostenBron.budgetten);
     const saldo = -saldoDetail.netto; // positief: jij betaalt de andere ouder
@@ -219,13 +212,13 @@ function Dashboard() {
     const vk = useVoorkeuren();
     const [klokNu, setKlokNu] = useState(null);
     useEffect(() => setKlokNu(new Date()), []);
-    const spullenTeGaan = meeItems.filter((x) => !meeKlaar.includes(x)).length;
     const eigenVandaag = klokNu ? iso(klokNu) : "";
     const eigenKomend = eigenVandaag ? agendaItems(agendaSt.events).flatMap((a) => voorkomens(a, eigenVandaag, plusDagen(eigenVandaag, 365)).map((datum) => ({ a, datum }))).sort((x, y) => (x.datum + x.a.tijd).localeCompare(y.datum + y.a.tijd)).slice(0, 2) : [];
     const { moment: volgendeWissel } = volgendeVan(useWisselMomenten(14));
     const paklijst = volgendeWissel ? itemsVoor(overdrachtSt, volgendeWissel.id) : [];
     const paklijstTonen = !!volgendeWissel && klokNu && urenTot(volgendeWissel.datum, volgendeWissel.tijd, klokNu) <= 48;
     return (<AppShell>
+      <AfspraakFormulier open={afspraakOpen} onSluit={() => setAfspraakOpen(false)}/>
       <LivingSfeer moment={null}/>
 
       {/* header (stijl A6): Co, meldingen en je profiel rechtsboven */}
@@ -312,11 +305,11 @@ function Dashboard() {
                           <AppIcon functie={o.icoon}/>
                           <span className="flex-1">{t("routes.index.toevoegen.voorstelDoen")}</span>
                           <Chevron className="size-4 text-ink-soft"/>
-                        </button>) : o.id === "afspraak" ? (<Link to="/agenda" search={{ nieuw: true }} onClick={() => setToevoegenOpen(false)} className="flex w-full items-center gap-3 py-3 text-left text-sm font-semibold">
+                        </button>) : o.id === "afspraak" ? (<button onClick={() => { setToevoegenOpen(false); setAfspraakOpen(true); }} className="flex w-full items-center gap-3 py-3 text-left text-sm font-semibold">
                           <AppIcon functie={o.icoon}/>
                           <span className="flex-1">{t("routes.index.toevoegOptie.afspraak")}</span>
                           <Chevron className="size-4 text-ink-soft"/>
-                        </Link>) : (<Link to={o.to} search={("search" in o ? o.search : undefined)} className="flex items-center gap-3 py-3 text-sm font-semibold">
+                        </button>) : (<Link to={o.to} search={("search" in o ? o.search : undefined)} className="flex items-center gap-3 py-3 text-sm font-semibold">
                           <AppIcon functie={o.icoon}/>
                           <span className="flex-1">{t(`routes.index.toevoegOptie.${o.id}`)}</span>
                           <Chevron className="size-4 text-ink-soft"/>
@@ -329,7 +322,7 @@ function Dashboard() {
           </div>
         </div>) : null}
       <Sheet open={puntenOpen} onOpenChange={setPuntenOpen}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-xl bg-card">
+        <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-xl bg-card">
           <SheetHeader><SheetTitle className="font-display">{t("routes.index.punten.titel", { count: openActies.length })}</SheetTitle></SheetHeader>
           {openActies.length === 0 ? <p className="px-4 pb-4 text-sm text-brand"><MetVinkje>{t("routes.index.punten.allesAfgestemd")}</MetVinkje></p> : (<div className="px-4 pb-4">
               {["Wacht op jou", "Afstemming loopt"].map((groep) => {
@@ -373,25 +366,8 @@ function Dashboard() {
             </details>) : null}
         </SheetContent>
       </Sheet>
-      <Sheet open={spullenOpen} onOpenChange={setSpullenOpen}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-xl bg-card">
-          <SheetHeader><SheetTitle className="font-display">{spullenTeGaan === 0 ? t("routes.index.spullen.klaar") : t("routes.index.spullen.meenemen", { count: spullenTeGaan })}</SheetTitle></SheetHeader>
-          <ul className="divide-y divide-border px-4">
-            {meeItems.map((item) => {
-            const klaar = meeKlaar.includes(item);
-            return (<li key={item}>
-                  <label className="flex cursor-pointer items-center gap-3 py-3">
-                    <input type="checkbox" checked={klaar} onChange={() => wisselMoment && toggleMee(wisselMoment.id, item)} className="size-4 accent-[var(--brand)]"/>
-                    <span className={`text-sm ${klaar ? "text-ink-soft line-through" : ""}`}>{item}</span>
-                  </label>
-                </li>);
-        })}
-          </ul>
-          <Link to="/overdracht" onClick={() => setSpullenOpen(false)} className="mx-4 mb-4 mt-2 inline-block text-sm font-semibold text-brand"><MetChevron>{t("routes.index.spullen.heleOverdracht")}</MetChevron></Link>
-        </SheetContent>
-      </Sheet>
       <Sheet open={kostenOpen} onOpenChange={setKostenOpen}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-xl bg-card">
+        <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-xl bg-card">
           <SheetHeader><SheetTitle className="font-display">{saldo > 0 ? t("routes.index.kosten.betalen", { bedrag: saldoTekst }) : t("routes.index.kosten.ontvangen", { bedrag: saldoTekst })}</SheetTitle></SheetHeader>
           <div className="space-y-4 px-4 pb-4">
             {[[t("routes.index.kosten.jouwAandeel"), saldoDetail.ikAanAnder], [t("routes.index.kosten.aandeelAnder"), saldoDetail.anderAanIk]].map(([titel, kant]) => kant.posten.length === 0 ? null : (<div key={titel}>

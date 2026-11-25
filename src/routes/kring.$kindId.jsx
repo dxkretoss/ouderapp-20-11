@@ -1,4 +1,5 @@
 import { uur } from "@/lib/tijd-tekst";
+import { professionalsAan } from "@/lib/fase";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { z } from "zod";
 import { useEffect, useState } from "react";
@@ -13,7 +14,7 @@ import { useStart } from "@/lib/start-store";
 import { useGezin } from "@/lib/gezin";
 import { AppIcon } from "@/components/AppIcon";
 import { isGeldigTelefoon, TelefoonInvoer, telLink, toonTelefoon } from "@/components/TelefoonInvoer";
-import { geenRechten, isActief, isOuder, laadKring, maakPersoon, niveau, onderdelen, periodeTekst, persoonLabel, rechtenSamenvatting, rolNaam, rolOpties, toggleNoodVeld, trekIn, kandidatenVoor, contactKandidaten, noodcontacten, useKring, wieNaam, wijzigPersoon, zetNoodkaart, zetWie, } from "@/lib/kring-store";
+import { geenRechten, isActief, laadKring, maakPersoon, niveau, onderdelen, periodeTekst, persoonLabel, rechtenSamenvatting, rolNaam, rolOpties, toggleNoodVeld, trekIn, kandidatenVoor, contactKandidaten, noodcontacten, ophalenBron, regelStatus, trekToewijzingIn, useKring, useOphalen, wijzigPersoon, zetNoodkaart, zetWie, } from "@/lib/kring-store";
 /** Eigen kinderen (server-uuid's) uit start-store; de kring hoort altijd bij het eigen gezin. */
 const useKinderen = () => useStart().kinderen.filter((k) => !String(k.id).startsWith("tmp-"));
 const kindNaam = (kinderen, id) => kinderen.find((x) => x.id === id)?.naam ?? "";
@@ -63,12 +64,15 @@ function KringPagina() {
     const gezin = useGezin();
     const kind = kinderen.find((k) => k.id === kindId);
     const kring = useKring();
+    const ophalen = useOphalen();
+    const ophaalStatus = ophalenBron.useStatus();
     const zoekK = Route.useSearch();
     const [scherm, setScherm] = useState(zoekK.toevoegen ? { t: "toevoegen" } : { t: "lijst" });
     useEffect(() => { laadKring(); }, []);
     if (!kind)
         return <AppShell><PageHeader titel={t("routes.kringKindId.kindNietGevonden")} terug="/kinderen"/></AppShell>;
     const ouders = [gezin.ik ? { id: gezin.ik.id, naam: gezin.ik.naam, label: t("common.jij") } : null, ...(kind.ouders ?? []).map((o) => ({ id: o.id, naam: o.name, label: t("common.deAndereOuder") }))].filter(Boolean);
+    const anderOuder = (kind.ouders ?? []).find((o) => (gezin.coOuders ?? []).some((c) => c.id === o.id)) ?? null;
     const magBeheren = kind.kanBewerken !== false;
     const leden = kring.personen.filter((p) => p.rechten[kindId] && !p.ingetrokken);
     const momenten = kring.momenten.filter((m) => m.kindIds.includes(kindId));
@@ -104,13 +108,13 @@ function KringPagina() {
         {noodcontacten(kindId).length ? (<p className="mt-2 px-1 text-xs text-ink-soft">{t("routes.kringKindId.lijst.noodcontact", { namen: noodcontacten(kindId).map((p) => `${persoonLabel(p)}${p.telefoon ? ` (${toonTelefoon(p.telefoon)})` : ""}`).join(", ") })}</p>) : null}
       </section>
 
-      <section className="mt-7">
+      {professionalsAan ? <section className="mt-7">
         <h2 className={sectieKop}>{t("routes.kringKindId.lijst.professionals")}</h2>
         <div className={`${KAART} mt-2 flex items-start gap-3.5 px-4 py-4`}>
           <AppIcon functie="professionals" maat="md"/>
           <p className="text-[13px] leading-relaxed text-ink-soft">{t("routes.kringKindId.lijst.professionalsUitleg")}</p>
         </div>
-      </section>
+      </section> : null}
 
       <section className="mt-7">
         <h2 className={sectieKop}>{t("routes.kringKindId.lijst.wieHaalt")}</h2>
@@ -120,23 +124,31 @@ function KringPagina() {
               <AppIcon functie="wissel" maat="md"/>
               <p className="text-sm text-ink-soft">{t("routes.kringKindId.lijst.geenMomenten")}</p>
             </div>) : null}
+          {momenten.length && ophaalStatus === "fout" && !ophalen.toewijzingen.length ? (<p role="alert" className="flex items-center justify-between gap-3 py-3 text-sm text-ink-soft">{t("common.laadFout")}
+              <button onClick={() => ophalenBron.ververs()} className="min-h-11 font-semibold text-brand">{t("common.opnieuwProberen")}</button></p>) : null}
           {momenten.map((m) => {
-            const wie = kring.wie[m.id];
-            const kandidaten = kandidatenVoor(m);
-            const bev = kring.bevestigd[m.id];
+            const status = regelStatus(m.id, kindId);
+            const wie = status?.status === "declined" ? "" : status?.wie ?? "";
+            const kandidaten = kandidatenVoor(m, [kindId]);
+            const contacten = contactKandidaten({ ...m, kindIds: [kindId] });
+            const extraNaam = wie && !kandidaten.some((p) => p.id === wie) && !contacten.some((p) => p.id === wie) && wie !== gezin.ik?.id && wie !== anderOuder?.id ? status.toewijzing.wieNaam : null;
+            const laden = ophaalStatus === "leeg" || ophaalStatus === "laden";
             return (<div key={m.id} className="py-4">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="text-[15px] font-extrabold">{m.dag} · {uur(m.tijd)} · {m.titel}</p>
-                  {bev && wie && !isOuder(wie) ? (<span className="flex items-center gap-1 text-[11px] font-semibold text-brand"><Check className="size-3"/>{bev === "er" ? t("routes.kringKindId.lijst.isEr") : t("routes.kringKindId.lijst.bevestigd")}</span>) : null}
+                  {status && status.wieSoort === "caregiver" && status.bevestigd ? (<span className="flex items-center gap-1 text-[11px] font-semibold text-brand"><Check className="size-3"/>{status.toewijzing.aangekomenOp ? t("routes.kringKindId.lijst.isEr") : t("routes.kringKindId.lijst.bevestigd")}</span>) : null}
                 </div>
                 <p className="text-xs text-ink-soft">{m.plek}</p>
-                <select value={wie ?? ""} onChange={(e) => zetWie(m.id, e.target.value)} aria-label={t("routes.kringKindId.lijst.wieRegelt", { titel: m.titel })} className="mt-2.5 h-11 w-full rounded-xl border border-[#E3DACD] bg-white/80 px-3 text-sm font-semibold outline-none focus:border-brand">
+                <select disabled={laden} value={wie} onChange={(e) => e.target.value && zetWie(m, e.target.value, kindId)} aria-label={t("routes.kringKindId.lijst.wieRegelt", { titel: m.titel })} className="mt-2.5 h-11 w-full rounded-xl border border-[#E3DACD] bg-white/80 px-3 text-sm font-semibold outline-none focus:border-brand disabled:opacity-60">
+                  <option value="" disabled>{laden ? t("common.laden") : t("lib.kringStore.nogNiemand")}</option>
                   {gezin.ik ? <option value={gezin.ik.id}>{t("common.jij")}</option> : null}
-                  {gezin.ander ? <option value={gezin.ander.id}>{t("common.deAndereOuder")}</option> : null}
+                  {anderOuder ? <option value={anderOuder.id}>{t("common.deAndereOuder")}</option> : null}
                   {kandidaten.map((p) => <option key={p.id} value={p.id}>{persoonLabel(p)}</option>)}
-                  {contactKandidaten(m).map((p) => <option key={p.id} value={p.id}>{t("routes.kringKindId.lijst.contactZonderApp", { naam: persoonLabel(p) })}</option>)}
+                  {contacten.map((p) => <option key={p.id} value={p.id}>{t("routes.kringKindId.lijst.contactZonderApp", { naam: persoonLabel(p) })}</option>)}
+                  {extraNaam ? <option value={wie}>{extraNaam}</option> : null}
                 </select>
-                {wie && kring.personen.find((x) => x.id === wie)?.uitgenodigd === false ? <p className="mt-1 text-[11px] text-ink-soft">{t("routes.kringKindId.lijst.doorJouGeregistreerd")}</p> : bev && wie && !isOuder(wie) ? <p className="mt-1 text-[11px] text-ink-soft">{t("routes.kringKindId.lijst.heeftBevestigd", { naam: wieNaam(wie) })}</p> : wie && !isOuder(wie) ? <p className="mt-1 text-[11px] text-ink-soft">{t("routes.kringKindId.lijst.wachtOpBevestiging")}</p> : null}
+                {status && status.wieSoort === "contact" ? <p className="mt-1 text-[11px] text-ink-soft">{t("routes.kringKindId.lijst.doorJouGeregistreerd")}</p> : status && status.wieSoort === "caregiver" ? <p className={`mt-1 text-[11px] ${status.status === "declined" ? "font-semibold text-[#A4533E]" : "text-ink-soft"}`}>{status.status === "requested" ? t("routes.kringKindId.lijst.wachtOpBevestiging") : status.tekst}</p> : null}
+                {status && status.wieSoort !== "parent" && !String(status.id).startsWith("tmp-") ? <button type="button" onClick={() => trekToewijzingIn(status.id)} className="mr-4 mt-1 inline-flex min-h-8 items-center text-[11px] font-semibold text-ink-soft">{t("routes.kringKindId.lijst.intrekken")}</button> : null}
                 <Link to="/veranderd" search={{ moment: m.id, kind: kindId }} className="mt-1 inline-flex min-h-8 items-center text-[11px] font-semibold text-brand"><MetChevron>{t("routes.kringKindId.lijst.nuAfstemmen")}</MetChevron></Link>
               </div>);
         })}
@@ -175,12 +187,14 @@ function Toevoegen({ kindId, klaar, beginRol }) {
     const [periode, setPeriode] = useState({ type: "doorlopend" });
     const [rechten, setRechten] = useState({});
     const [voorstel, setVoorstel] = useState([]);
+    // Alle hooks vóór de vroege return hieronder (anders crasht React bij "Professional").
+    const [verstuurd, setVerstuurd] = useState(null);
     const rolLabel = rol === "Anders" ? anders.trim() : rol;
-    if (rol === "Professional") {
+    if (rol === "Professional" && professionalsAan) {
         return (<AppShell>
         <PageHeader titel={t("routes.kringKindId.toevoegen.professionalTitel")} terug={`/kring/${kindId}`}/>
         <p className="mt-6 text-sm text-ink-soft">{t("routes.kringKindId.toevoegen.professionalUitleg")}</p>
-        <Link to="/professionals" className={`mt-5 block text-center ${knop}`}>{t("routes.kringKindId.toevoegen.naarProfessional")}</Link>
+        {professionalsAan ? <Link to="/professionals" className={`mt-5 block text-center ${knop}`}>{t("routes.kringKindId.toevoegen.naarProfessional")}</Link> : null}
         <button onClick={() => setRol("")} className="mt-3 w-full py-2 text-sm text-ink-soft">{t("common.terug")}</button>
       </AppShell>);
     }
@@ -195,7 +209,6 @@ function Toevoegen({ kindId, klaar, beginRol }) {
         if (p)
             setVerstuurd(p);
     };
-    const [verstuurd, setVerstuurd] = useState(null);
     const profiel = () => ({ naam: naam.trim(), rol: rolLabel, contact: telefoon.trim() || email.trim(), telefoon: telefoon.trim() || undefined, email: email.trim() || undefined, adres: adres.trim() || undefined, foto, noodcontact: nood, gezag: "geen" });
     const alleenContact = async () => {
         const def = {};
@@ -218,7 +231,7 @@ function Toevoegen({ kindId, klaar, beginRol }) {
       {stap === 1 ? (<>
           <h2 className="mt-5 font-display text-[22px] font-bold leading-snug">{t("routes.kringKindId.toevoegen.wieToevoegen")}</h2>
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {[...rolOpties, "Professional"].map((r) => <button key={r} onClick={() => setRol(r)} className={keuze(rol === r)}>{rolNaam(r)}</button>)}
+            {[...rolOpties, ...(professionalsAan ? ["Professional"] : [])].map((r) => <button key={r} onClick={() => setRol(r)} className={keuze(rol === r)}>{rolNaam(r)}</button>)}
           </div>
           {rol === "Anders" ? <input value={anders} onChange={(e) => setAnders(e.target.value)} placeholder={t("routes.kringKindId.toevoegen.andersPlaceholder")} className="mt-3 w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm"/> : null}
           <button disabled={!rolLabel} onClick={() => setStap(2)} className={`mt-6 w-full ${knop}`}>{t("routes.kringKindId.toevoegen.verder")}</button>
@@ -316,8 +329,9 @@ function PeriodeKeuze({ periode, onChange }) {
     const { t } = useTranslation();
     const opties = [{ t: "doorlopend", l: t("routes.kringKindId.periode.doorlopend") }, { t: "tot", l: t("routes.kringKindId.periode.tot") }, { t: "periode", l: t("routes.kringKindId.periode.periode") }];
     const veld = "rounded-md border border-border bg-background px-3 py-2 text-sm";
+    const [vandaag, overEenWeek] = (() => { const s = snelPeriodes(); return [s[0].start, s[2].eind]; })();
     return (<div className="mt-4 space-y-2">
-      {opties.map((o) => (<button key={o.t} onClick={() => onChange(o.t === "doorlopend" ? { type: "doorlopend" } : o.t === "tot" ? { type: "tot", eind: "2027-07-24" } : { type: "periode", start: "2027-07-10", eind: "2027-07-24" })} className={`flex w-full items-center gap-3 text-left ${keuze(periode.type === o.t)}`}>
+      {opties.map((o) => (<button key={o.t} onClick={() => onChange(o.t === "doorlopend" ? { type: "doorlopend" } : o.t === "tot" ? { type: "tot", eind: overEenWeek } : { type: "periode", start: vandaag, eind: overEenWeek })} className={`flex w-full items-center gap-3 text-left ${keuze(periode.type === o.t)}`}>
           <span className={`size-3.5 rounded-full border ${periode.type === o.t ? "border-4 border-brand" : "border-ink-soft"}`}/>{o.l}
         </button>))}
       {periode.type === "tot" ? <input type="date" value={periode.eind} onChange={(e) => onChange({ type: "tot", eind: e.target.value })} className={`w-full ${veld}`} aria-label={t("routes.kringKindId.periode.einddatum")}/> : null}
@@ -404,7 +418,7 @@ function PersoonDetail({ p, kindId, terug }) {
               <div className="mt-1 divide-y divide-border border-y border-border">
                 {onderdelen.map((o) => (<div key={o.id} className="flex justify-between gap-3 py-2.5 text-sm">
                     <span>{o.titel}</span>
-                    <span className="text-right text-ink-soft">{o.niveaus.find((n) => n.id === niveau(p, k, o.id)).label}</span>
+                    <span className="text-right text-ink-soft">{o.niveaus.find((n) => n.id === niveau(p, k, o.id))?.label ?? o.niveaus[0].label}</span>
                   </div>))}
               </div>
             </section>))}

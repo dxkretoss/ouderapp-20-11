@@ -8,6 +8,8 @@ export const keuzeLabel = {
     get een() { return i18n.t("lib.aanwezigheidStore.keuze.een"); },
     get afzonderlijk() { return i18n.t("lib.aanwezigheidStore.keuze.afzonderlijk"); },
     get later() { return i18n.t("lib.aanwezigheidStore.keuze.later"); },
+    get halen() { return i18n.t("lib.aanwezigheidStore.keuze.halen"); },
+    get brengen() { return i18n.t("lib.aanwezigheidStore.keuze.brengen"); },
 };
 /**
  * Aanwezigheid afstemmen per gedeelde afspraak (bron: manage-agenda). Eén actueel voorstel per afspraak;
@@ -27,6 +29,7 @@ const rel = (r) => (r === "ik" ? "sanne" : r === "ander" ? "joris" : r ?? undefi
 const naarRel = (w) => (w === "sanne" ? "ik" : w === "joris" ? "ander" : w ?? null);
 const beschrijving = (a) => a.keuze === "samen" ? i18n.t("lib.aanwezigheidStore.beschrijving.samen")
     : a.keuze === "een" ? (a.wieGaat && a.wieGaat !== "onbekend" ? i18n.t("lib.aanwezigheidStore.beschrijving.eenWie", { wie: wieNaamKort(a.wieGaat).toLowerCase() }) : i18n.t("lib.aanwezigheidStore.beschrijving.een"))
+        : a.keuze === "halen" || a.keuze === "brengen" ? (a.wieGaat && a.wieGaat !== "onbekend" ? i18n.t(`lib.aanwezigheidStore.beschrijving.${a.keuze}Wie`, { wie: wieNaamKort(a.wieGaat).toLowerCase() }) : i18n.t(`lib.aanwezigheidStore.beschrijving.${a.keuze}`))
         : a.keuze === "afzonderlijk" ? i18n.t("lib.aanwezigheidStore.beschrijving.afzonderlijk")
             : i18n.t("lib.aanwezigheidStore.beschrijving.later");
 const UITKOMST = { mogelijk: "mogelijk", "wacht-op-school": "wachtOpSchool", "niet-mogelijk": "nietMogelijk", "contact-opgenomen": "vastgelegd" };

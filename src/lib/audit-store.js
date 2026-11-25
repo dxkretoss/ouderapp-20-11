@@ -66,6 +66,8 @@ const sync = serverBron({
     },
     wis: () => zetEvents([]),
 });
+/** Laadstatus voor de schermen (useStatus / ververs). */
+export const auditBron = sync;
 /** Opnieuw ophalen (na een actie van een andere store die server-side heeft gelogd). */
 export const verversAudit = () => sync.ververs();
 const oudeActie = { toegevoegd: "CREATED", gewijzigd: "UPDATED", verwijderd: "DELETED" };

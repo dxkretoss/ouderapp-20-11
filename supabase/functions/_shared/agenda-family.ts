@@ -1,7 +1,7 @@
 // Domain 2 (Agenda & care) helpers: family scope, viewer-relative parent tokens, proposal rules and audit.
 // Always called with the SESSION user id (requireUser) — never with an id from the request body.
 import { db } from "./db.ts";
-import { check, err } from "./respond.ts";
+import { check, err, HttpError } from "./respond.ts";
 import { childIdsFor, coParentIdsFor } from "./access.ts";
 import { isUuid } from "./util.ts";
 
@@ -34,21 +34,40 @@ export async function familyScope(me: string): Promise<Scope> {
   return { me, kids, coParents, coParentsByChild };
 }
 
-/** Active co-parents who share at least one of these children with the caller. */
+/**
+ * The active co-parent who shares ALL these children with the caller (at most one: a child has two
+ * parents). Empty for Solo children, and for children of different co-parents (see assertOnePair).
+ */
 export function coParentsFor(s: Scope, childIds: string[]): string[] {
-  const out = new Set<string>();
-  for (const k of childIds) for (const p of s.coParentsByChild.get(k) ?? []) out.add(p);
-  return [...out];
+  const kids = [...new Set(childIds)].filter(Boolean);
+  if (!kids.length) return [];
+  const first = [...(s.coParentsByChild.get(kids[0]) ?? [])];
+  return first.filter((p) => kids.every((k) => s.coParentsByChild.get(k)?.has(p)));
+}
+
+/**
+ * A shared record may only concern children of ONE co-parent (child 1 with A and child 2 with B
+ * cannot share one appointment). Solo children are fine (nobody else sees it).
+ */
+export function assertOnePair(s: Scope, childIds: string[]): void {
+  const kids = [...new Set(childIds)].filter(Boolean);
+  const withSomeone = kids.filter((k) => (s.coParentsByChild.get(k)?.size ?? 0) > 0);
+  if (!withSomeone.length) return;
+  if (withSomeone.length === kids.length && coParentsFor(s, kids).length === 1) return;
+  throw new HttpError(400, "MIXED_CHILDREN", "These children are not all shared with the same other parent");
 }
 
 /**
  * May the caller see a family record? Own records always; a co-parent's record only when it is
- * shared and concerns a child both parents are linked to (and the co-parent is still connected).
+ * shared and EVERY child of it is linked to both parents (and the co-parent is still connected).
+ * So with child 1 shared with father A and child 2 with father B, B never sees anything of child 1.
+ * Records without children stay with their creator.
  */
 export function canSee(s: Scope, row: { created_by: string; child_ids?: string[] | null; is_shared?: boolean | null }): boolean {
   if (row.created_by === s.me) return true;
   if (row.is_shared === false) return false;
-  return (row.child_ids ?? []).some((k) => (s.coParentsByChild.get(k) ?? new Set()).has(row.created_by));
+  const kids = row.child_ids ?? [];
+  return kids.length > 0 && kids.every((k) => (s.coParentsByChild.get(k) ?? new Set()).has(row.created_by));
 }
 
 /** Only the other parent may answer a proposal; the proposer may only withdraw. */
@@ -99,7 +118,9 @@ export const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export function optDateStr(v: unknown, field: string): string | null {
   if (v === undefined || v === null || v === "") return null;
-  if (typeof v !== "string" || !DATE_RE.test(v) || Number.isNaN(Date.parse(v))) throw err.validation(`${field} must be YYYY-MM-DD`);
+  if (typeof v !== "string" || !DATE_RE.test(v)) throw err.validation(`${field} must be YYYY-MM-DD`);
+  const d = new Date(`${v}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) throw err.validation(`${field} is not a valid date`);
   return v;
 }
 export function reqDateStr(v: unknown, field: string): string {

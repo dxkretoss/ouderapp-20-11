@@ -4,6 +4,7 @@ import i18n, { taalLocale } from "@/i18n";
 import { api, foutTekst } from "@/lib/api";
 import { authState, opAuth } from "@/lib/auth-store";
 import { start, startState } from "@/lib/start-store";
+import { useVoorkeuren } from "@/lib/voorkeuren-store";
 /**
  * Berichten tussen de twee gekoppelde ouders (Phase 2): één bron, gespiegeld van edge function
  * `manage-messages`. Gesprekken per onderwerp, berichten, ongelezen-tellers en de eigen
@@ -13,12 +14,16 @@ import { start, startState } from "@/lib/start-store";
  * - Geen realtime: verversen bij focus en elke 25 s zolang Berichten open staat (`usePeilBerichten`).
  * - Versturen is optimistisch met een client_id (dubbel versturen bij opnieuw proberen kan niet).
  * Vorm van een gesprek (zoals de schermen al kenden): { id, onderwerp, icoon, laatste, laatsteTijd, ongelezen, ... }.
- * Vorm van een bericht: { id, van: "ik" | "ander", afzender, tekst, tijd, at, toon, wacht?, mislukt? }.
+ * Vorm van een bericht: { id, van: "ik" | "ander", afzender, tekst, tijd, at, toon, systeem, wacht?, mislukt? }.
+ * - Concept per gesprek (`mijnConcept`) staat op de server (save-draft) en is alleen voor jou.
+ * - Akkoorden in een gesprek (`akkoorden[gesprekId][berichtId]`) komen van de server: beide ouders zien ze.
+ * - "Even pauze" (voorkeur `berichtenPauzeTot`): zolang die loopt telt de badge geen ongelezen berichten.
  */
 const NS = "lib.berichtenStore";
 const PEIL_MS = 25_000;
 const MAX_VAST = 3;
-const leeg = { status: "leeg", gesprekken: [], coOuders: [], ongelezen: 0, berichten: {}, laatsteLading: 0, gebruikerId: null };
+const leeg = { status: "leeg", gesprekken: [], coOuders: [], ongelezen: 0, berichten: {}, akkoorden: {}, laatsteLading: 0, gebruikerId: null };
+const MAX_CONCEPT = 4000;
 let state = leeg;
 const luisteraars = new Set();
 function zet(p) {
@@ -73,6 +78,7 @@ function gesprekUit(c) {
         anderId: c.other_parent?.id ?? null,
         anderNaam: c.other_parent?.name ?? "",
         gearchiveerd: !!c.archived,
+        mijnConcept: c.my_draft ?? "",
         berichten: state.berichten[c.id] ?? [],
     };
 }
@@ -85,6 +91,7 @@ function berichtUit(m) {
         at: m.created_at,
         get tijd() { return tijdVan(this.at); },
         toon: m.tone_level ?? "geen",
+        systeem: !!m.is_system,
         clientId: m.client_id ?? null,
     };
 }
@@ -119,7 +126,11 @@ async function zetOudeOnderwerpenOver() {
     for (const o of oud) {
         try {
             const r = await api("manage-messages", "create", { title: String(o.naam ?? "").slice(0, 120) || i18n.t(`${NS}.zonderTitel`) });
-            verplaatsConcept(o.id, r.conversation.id);
+            const c = leesOudConcept(o.id);
+            if (c) {
+                await api("manage-messages", "save-draft", { conversation_id: r.conversation.id, draft: c.slice(0, MAX_CONCEPT) }, { stil: true });
+                wisOudConcept(o.id);
+            }
             klaar.push(o.id);
         }
         catch { /* volgende keer opnieuw */ }
@@ -173,7 +184,7 @@ export function laadBerichten(id) {
             // vervang optimistische berichten die intussen echt zijn opgeslagen
             const samen = [...nu.filter((b) => !(b.wacht && clientIds.has(b.clientId))), ...nieuw.filter((b) => !bekend.has(b.id))];
             samen.sort((a, b) => Number(!!a.wacht || !!a.mislukt) - Number(!!b.wacht || !!b.mislukt) || String(a.at).localeCompare(String(b.at)));
-            zet({ berichten: { ...state.berichten, [id]: samen } });
+            zet({ berichten: { ...state.berichten, [id]: samen }, akkoorden: { ...state.akkoorden, [id]: akkoordenUit(r.agreements) } });
             vervangGesprek(r.conversation);
         }
         catch (e) {
@@ -265,17 +276,108 @@ export function dempGesprek(id, uren) {
     return voorkeur(id, { muted_until: tot }, { gedemptTot: tot });
 }
 export const isGedempt = (g) => !!g?.gedemptTot && new Date(g.gedemptTot).getTime() > Date.now();
-/** Concept dat op dit apparaat bij een voorbereid onderwerp hoort, meenemen naar het nieuwe gesprek-id. */
-function verplaatsConcept(van, naar) {
+/* ---------------------------------------------------------------- concepten (alleen voor jou, op de server) */
+/** Oud concept van vóór de serveropslag (alleen nog om één keer over te zetten). */
+export function leesOudConcept(id) {
     try {
-        const c = localStorage.getItem(`onzeapp-concept-${van}`);
-        if (c) {
-            localStorage.setItem(`onzeapp-concept-${naar}`, c);
-            localStorage.removeItem(`onzeapp-concept-${van}`);
-        }
+        return localStorage.getItem(`onzeapp-concept-${id}`) ?? "";
+    }
+    catch {
+        return "";
+    }
+}
+export function wisOudConcept(id) {
+    try {
+        localStorage.removeItem(`onzeapp-concept-${id}`);
     }
     catch { /* geen opslag */ }
 }
+const conceptWacht = new Map();
+const conceptVan = (id) => state.gesprekken.find((g) => g.id === id)?.mijnConcept ?? "";
+async function stuurConcept(id, tekst) {
+    conceptWacht.delete(id);
+    const vorig = conceptVan(id);
+    if (tekst === vorig || !state.gesprekken.some((g) => g.id === id))
+        return true;
+    patchGesprek(id, { mijnConcept: tekst });
+    try {
+        if (tekst.trim())
+            await api("manage-messages", "save-draft", { conversation_id: id, draft: tekst }, { stil: true });
+        else
+            await api("manage-messages", "clear-draft", { conversation_id: id }, { stil: true });
+        return true;
+    }
+    catch (e) {
+        if (conceptVan(id) === tekst)
+            patchGesprek(id, { mijnConcept: vorig });
+        if (e?.code !== "UNAUTHORIZED")
+            toast.error(foutTekst(e), { id: "concept-fout" });
+        return false;
+    }
+}
+/**
+ * Concept bewaren (privé, per gesprek). Gewoon typen wordt gebundeld (na 1,2 s stilte één aanroep);
+ * `direct` slaat meteen op en geeft true/false terug.
+ */
+export function bewaarConcept(id, tekst, { direct = false } = {}) {
+    if (!id || !mijnId())
+        return Promise.resolve(false);
+    const inhoud = String(tekst ?? "").slice(0, MAX_CONCEPT);
+    clearTimeout(conceptWacht.get(id)?.timer);
+    if (direct)
+        return stuurConcept(id, inhoud);
+    if (inhoud === conceptVan(id)) {
+        conceptWacht.delete(id);
+        return Promise.resolve(true);
+    }
+    conceptWacht.set(id, { tekst: inhoud, timer: setTimeout(() => void stuurConcept(id, inhoud), 1200) });
+    return Promise.resolve(true);
+}
+/** Openstaand concept meteen versturen (bij het verlaten van een gesprek). */
+export function spoelConcept(id) {
+    const w = conceptWacht.get(id);
+    if (!w)
+        return;
+    clearTimeout(w.timer);
+    void stuurConcept(id, w.tekst);
+}
+/** Openstaand concept vergeten (na versturen: de server wist het concept zelf). */
+export function vergeetConcept(id) {
+    clearTimeout(conceptWacht.get(id)?.timer);
+    conceptWacht.delete(id);
+    patchGesprek(id, { mijnConcept: "" });
+}
+/* ---------------------------------------------------------------- akkoord in een gesprek */
+function akkoordenUit(lijst) {
+    return Object.fromEntries((lijst ?? []).map((a) => [a.message_id, { label: a.label, mijn: !!a.mine, inAgenda: !!a.in_agenda, eventId: a.event_id ?? null, at: a.created_at }]));
+}
+/**
+ * Akkoord op een vraag van de andere ouder: de server legt het vast, zet een bevestiging in het gesprek
+ * (en `notitie` als gewoon bericht) en koppelt de afspraak die al in de gedeelde agenda is gezet.
+ * Geeft true bij succes; bij een fout een melding en false (er verandert dan niets).
+ */
+export async function geefAkkoord(id, berichtId, { label, eventId = null, notitie = "" } = {}) {
+    try {
+        const r = await api("manage-messages", "agree", { conversation_id: id, message_id: berichtId, label: String(label ?? "").trim().slice(0, 200), ...(eventId ? { event_id: eventId } : {}), ...(notitie.trim() ? { note: notitie.trim(), client_id: nieuwClientId() } : {}) });
+        const nieuw = (r.messages ?? []).map(berichtUit);
+        const nu = state.berichten[id] ?? [];
+        const bekend = new Set(nu.map((b) => b.id));
+        const a = r.agreement;
+        zet({
+            berichten: { ...state.berichten, [id]: [...nu, ...nieuw.filter((b) => !bekend.has(b.id))] },
+            akkoorden: { ...state.akkoorden, [id]: { ...(state.akkoorden[id] ?? {}), [a.message_id]: { label: a.label, mijn: !!a.mine, inAgenda: !!a.in_agenda, eventId: a.event_id ?? null, at: a.created_at } } },
+        });
+        vervangGesprek(r.conversation);
+        return true;
+    }
+    catch (e) {
+        meldFout(e);
+        return false;
+    }
+}
+/* ---------------------------------------------------------------- even pauze */
+/** Loopt er een berichtenpauze (voorkeur `berichtenPauzeTot`, ISO)? */
+export const pauzeLoopt = (vk) => !!vk?.berichtenPauzeTot && Date.parse(vk.berichtenPauzeTot) > Date.now();
 /* ---------------------------------------------------------------- account, focus en peilen */
 let gekoppeld = false;
 function koppel() {
@@ -307,11 +409,13 @@ export function useBerichten() {
 /** Totaal ongelezen voor de badge in de onderste balk; ververst hooguit elke 15 s bij het openen van een pagina. */
 export function useOngelezenTotaal() {
     const s = useBerichten();
+    const vk = useVoorkeuren();
     useEffect(() => {
         if (mijnId() && s.status !== "laden" && Date.now() - s.laatsteLading > 15_000)
             void laadGesprekken();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
-    return s.ongelezen;
+    // Even pauze: berichten komen binnen, maar de badge blijft stil tot de pauze voorbij is.
+    return pauzeLoopt(vk) ? 0 : s.ongelezen;
 }
 /** Zolang Berichten open staat: elke 25 s verversen (en het open gesprek), plus bij terugkeren naar het venster. */
 export function usePeilBerichten(actiefId) {

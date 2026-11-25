@@ -5,7 +5,11 @@ import { check, HttpError, ok, serveActions } from "../_shared/respond.ts";
 import { assertPasswordPolicy, hashPassword, verifyPassword } from "../_shared/password.ts";
 import {
   assertCodeRateLimit,
+  assertIpRate,
   checkCode,
+  guardCodeCheck,
+  IP_LOGIN_FAILS_PER_15_MIN,
+  recordIpEvent,
   CodePurpose,
   countRateEvents,
   isCodeRateLimited,
@@ -49,11 +53,9 @@ Deno.serve(serveActions("custom-auth", {
     const passwordHash = await hashPassword(password);
     let userId: string;
     if (existing) {
-      // unverified account: whoever proves the mailbox owns it -> overwrite
-      check(
-        await db().from("profiles").update({ password: passwordHash, name }).eq("id", existing.id),
-        "update unverified profile",
-      );
+      // Unverified account: never overwrite the password here (anyone could do that before the
+      // owner verifies). Just send a new code; verify-email sets the password the mailbox owner
+      // typed in their own browser.
       userId = existing.id;
     } else {
       const created = check(
@@ -80,17 +82,36 @@ Deno.serve(serveActions("custom-auth", {
 
   // -------------------------------------------------------------------------
   async "verify-email"(req, body) {
+    await guardCodeCheck(req);
     const email = normalizeEmail(body.email);
     const profile = await findProfileByEmailWithSecrets(email);
+    // Validate the new password (if sent) before the code is consumed.
+    const newPassword = body.password !== undefined && body.password !== null && body.password !== ""
+      ? assertPasswordPolicy(body.password)
+      : null;
     await checkCode(profile as any, "verify", body.code, true);
+    // The code proves mailbox ownership: the password typed by that person becomes the password,
+    // so a password set earlier by someone else (pre-registration) stops working.
+    // Without a password (e.g. verified in another browser) we cannot know who chose the stored one: it
+    // may be an attacker's pre-registration. It is replaced by an unusable random hash and the user must
+    // set a password now (set-password, allowed once with this session).
+    const update: Record<string, unknown> = { is_verified: true, last_login_at: new Date().toISOString() };
+    if (newPassword) {
+      update.password = await hashPassword(newPassword);
+      update.password_must_be_set = false;
+    } else {
+      const random = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
+      update.password = await hashPassword(random);
+      update.password_must_be_set = true;
+    }
     check(
-      await db().from("profiles").update({ is_verified: true, last_login_at: new Date().toISOString() }).eq(
+      await db().from("profiles").update(update).eq(
         "id",
         profile!.id,
       ),
       "mark verified",
     );
-    return ok(await sessionPayload(profile!.id, req));
+    return ok({ ...(await sessionPayload(profile!.id, req)), needs_password_reset: !newPassword });
   },
 
   // -------------------------------------------------------------------------
@@ -118,10 +139,12 @@ Deno.serve(serveActions("custom-auth", {
     if ((await countRateEvents(email, "login_fail", 15)) >= LOGIN_FAILS_PER_15_MIN) {
       throw new HttpError(429, "RATE_LIMITED", "Too many failed logins, try again later");
     }
+    await assertIpRate(req, "ip_login_fail", IP_LOGIN_FAILS_PER_15_MIN);
     const profile = await findProfileByEmailWithSecrets(email);
     const valid = await verifyPassword(body.password, profile?.password);
     if (!profile || !valid) {
       await recordRateEvent(email, "login_fail");
+      await recordIpEvent(req, "ip_login_fail");
       throw new HttpError(401, "INVALID_CREDENTIALS", "Invalid e-mail or password");
     }
     if (!profile.is_verified) {
@@ -152,7 +175,8 @@ Deno.serve(serveActions("custom-auth", {
   },
 
   // -------------------------------------------------------------------------
-  async "verify-reset-code"(_req, body) {
+  async "verify-reset-code"(req, body) {
+    await guardCodeCheck(req);
     const email = normalizeEmail(body.email);
     const profile = await findProfileByEmailWithSecrets(email);
     await checkCode(profile as any, "reset", body.code, false);
@@ -161,6 +185,7 @@ Deno.serve(serveActions("custom-auth", {
 
   // -------------------------------------------------------------------------
   async "reset-password"(req, body) {
+    await guardCodeCheck(req);
     const email = normalizeEmail(body.email);
     const password = assertPasswordPolicy(body.password);
     const profile = await findProfileByEmailWithSecrets(email);
@@ -170,6 +195,7 @@ Deno.serve(serveActions("custom-auth", {
         .from("profiles")
         .update({
           password: await hashPassword(password),
+          password_must_be_set: false,
           // the code proved ownership of the mailbox
           is_verified: true,
           last_login_at: new Date().toISOString(),
@@ -179,6 +205,28 @@ Deno.serve(serveActions("custom-auth", {
     );
     await revokeAllSessions(profile!.id);
     return ok(await sessionPayload(profile!.id, req));
+  },
+
+  // -------------------------------------------------------------------------
+  /**
+   * Session required. Sets the password once after verify-email answered needs_password_reset (the stored
+   * password was replaced by an unusable one). Every other password change goes through reset-password.
+   */
+  async "set-password"(req, body) {
+    const user = await requireUser(req);
+    const password = assertPasswordPolicy(body.password);
+    const flag = check(
+      await db().from("profiles").select("password_must_be_set").eq("id", user.id).single(),
+      "load password flag",
+    ) as { password_must_be_set: boolean | null };
+    if (!flag.password_must_be_set) throw new HttpError(403, "FORBIDDEN", "Use the password reset to change your password");
+    const done = check(
+      await db().from("profiles").update({ password: await hashPassword(password), password_must_be_set: false })
+        .eq("id", user.id).eq("password_must_be_set", true).select("id"),
+      "set password",
+    ) as Array<{ id: string }> | null;
+    if (!done?.length) throw new HttpError(403, "FORBIDDEN", "Use the password reset to change your password");
+    return ok({});
   },
 
   // -------------------------------------------------------------------------

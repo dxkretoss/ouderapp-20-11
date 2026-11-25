@@ -5,7 +5,9 @@
 import { db } from "../_shared/db.ts";
 import { check, err, ok, serveActions } from "../_shared/respond.ts";
 import { requireUser } from "../_shared/session.ts";
-import { familyFor, familyMembers, namesFor } from "../_shared/practical-scope.ts";
+import { caregiverProfilesFor, familyFor, familyMembers, namesFor } from "../_shared/practical-scope.ts";
+import { caregiverGrantsFor } from "../_shared/family-caregivers.ts";
+import { linkedParents } from "../_shared/parent-permissions.ts";
 
 const COLS = "id, user_id, actor_id, type, category, title, link, is_read, read_at, metadata, entity_type, entity_id, child_ids, created_at";
 const MAX_IDS = 500;
@@ -42,10 +44,23 @@ Deno.serve(serveActions("send-notification", {
       db().from("notifications").select(COLS).eq("user_id", me.id).order("created_at", { ascending: false }).limit(200),
       db().from("activity_reads").select("item_id").eq("user_id", me.id).order("read_at", { ascending: false }).limit(2000),
     ]);
-    const members = familyMembers(f);
+    // Parents and the live circle members (caregivers with an account) of my children.
+    const members = [...familyMembers(f), ...(await caregiverProfilesFor(f.childIds))];
     // Access changes apply at once: hide notifications from people / about children no longer shared.
-    const rows = ((check(n, "list notifications") ?? []) as Row[]).filter((x) =>
-      (!x.actor_id || members.includes(x.actor_id)) && (x.child_ids ?? []).every((id: string) => f.childIds.includes(id)));
+    const all = (check(n, "list notifications") ?? []) as Row[];
+    const asParent = (x: Row) =>
+      (!x.actor_id || members.includes(x.actor_id)) &&
+      // every child must still be shared with that parent (per child a different co-parent is possible)
+      (x.child_ids ?? []).every((id: string) => f.childIds.includes(id) && (!x.actor_id || x.actor_id === me.id || !f.coParents.includes(x.actor_id) || (f.shared[x.actor_id] ?? []).includes(id)));
+    // Caregiver accounts (circle members): a notification about children this account currently has live
+    // grants for (EVERY child), from a parent of those children (or the system), e.g. pick-ups and help requests.
+    const grants = await caregiverGrantsFor(me.id);
+    const cgKids = new Set(grants.map((g) => g.child_id));
+    const cgCandidates = all.filter((x) => !asParent(x) && (x.child_ids ?? []).length > 0 && (x.child_ids as string[]).every((id) => cgKids.has(id)));
+    const parentsOf = cgCandidates.length ? (await linkedParents(cgCandidates.flatMap((x) => x.child_ids as string[]))).parents : new Map<string, Set<string>>();
+    const asCaregiver = (x: Row) => cgCandidates.includes(x) &&
+      (!x.actor_id || (x.child_ids as string[]).every((id) => parentsOf.get(id)?.has(x.actor_id) ?? false));
+    const rows = all.filter((x) => asParent(x) || asCaregiver(x));
     const names = await namesFor(rows.map((x) => x.actor_id));
     return ok({
       notifications: rows.map((x) => ({

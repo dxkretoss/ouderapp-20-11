@@ -3,7 +3,8 @@ import { useState } from "react";
 import { FilterBalk } from "@/components/ui-kit";
 import { AppShell, Card, PageHeader } from "@/components/AppShell";
 import { AppIcon } from "@/components/AppIcon";
-import { eventKop, useAudit } from "@/lib/audit-store";
+import { laadWeergave } from "@/components/Laden";
+import { auditBron, eventKop, useAudit } from "@/lib/audit-store";
 import { geschiedenisDatum as nlDatum, useAfspraken } from "@/lib/afspraken-store";
 import { magAudit } from "@/lib/export-rechten";
 import { useTranslation } from "react-i18next";
@@ -37,6 +38,7 @@ function vanAudit(g) {
 function Tijdlijn() {
     const { t } = useTranslation();
     const audit = useAudit();
+    const laadStatus = auditBron.useStatus();
     const afspraken = useAfspraken();
     const regels = [
         ...audit.map(vanAudit).filter((r) => !!r),
@@ -65,7 +67,7 @@ function Tijdlijn() {
               </div>
             </Card>
           </li>))}
-        {zicht.length === 0 && <p className="text-sm text-ink-soft">{t("routes.tijdlijn.leeg")}</p>}
+        {zicht.length === 0 && (laadWeergave(laadStatus, auditBron.ververs) ?? <p className="text-sm text-ink-soft">{t("routes.tijdlijn.leeg")}</p>)}
       </ol>
     </AppShell>);
 }

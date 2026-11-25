@@ -41,7 +41,44 @@ export async function countRateEvents(email: string, kind: string, windowMinutes
 
 export async function recordRateEvent(email: string, kind: string): Promise<void> {
   const { error } = await db().from("auth_rate_events").insert({ email, kind });
-  if (error) console.warn("[rate] record failed:", error);
+  if (error) console.warn("[rate] record failed:", error.code ?? error.message);
+  // Occasional cleanup: rows older than a day are never counted again.
+  if (Math.random() < 0.02) {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const res = await db().from("auth_rate_events").delete().lt("created_at", cutoff);
+    if (res.error) console.warn("[rate] prune failed:", res.error.code ?? res.error.message);
+  }
+}
+
+/** Caller IP as seen by the Supabase edge (first x-forwarded-for hop). */
+export function clientIp(req: Request): string | null {
+  const fwd = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip") ?? "";
+  const ip = fwd.split(",")[0].trim();
+  return ip && ip.length <= 64 ? ip : null;
+}
+
+/** Per-IP limits on top of the per-e-mail ones (credential stuffing / code guessing across accounts). */
+export const IP_LOGIN_FAILS_PER_15_MIN = 30;
+export const IP_CODE_CHECKS_PER_15_MIN = 30;
+
+/** Throws RATE_LIMITED when this IP already has `max` events of `kind` in the window. */
+export async function assertIpRate(req: Request, kind: string, max: number, windowMinutes = 15): Promise<void> {
+  const ip = clientIp(req);
+  if (!ip) return;
+  if ((await countRateEvents(`ip:${ip}`, kind, windowMinutes)) >= max) {
+    throw new HttpError(429, "RATE_LIMITED", "Too many attempts from this network, try again later");
+  }
+}
+
+export async function recordIpEvent(req: Request, kind: string): Promise<void> {
+  const ip = clientIp(req);
+  if (ip) await recordRateEvent(`ip:${ip}`, kind);
+}
+
+/** For endpoints that check a code: every call counts against the IP. */
+export async function guardCodeCheck(req: Request): Promise<void> {
+  await assertIpRate(req, "ip_code", IP_CODE_CHECKS_PER_15_MIN);
+  await recordIpEvent(req, "ip_code");
 }
 
 /** Max CODES_PER_HOUR codes per email per hour (counted whether or not the account exists). */
@@ -98,35 +135,45 @@ export async function checkCode(
   consume: boolean,
 ): Promise<void> {
   const code = typeof submitted === "string" ? submitted.trim() : String(submitted ?? "");
-  if (!profile || !profile.code_hash || profile.code_purpose !== purpose || !/^\d{6}$/.test(code)) {
-    if (profile && profile.code_hash && profile.code_purpose === purpose) {
-      await bumpAttempts(profile);
-    }
+  if (!profile || !profile.code_hash || profile.code_purpose !== purpose) {
     throw new HttpError(400, "CODE_INVALID", "Code is invalid");
   }
-  const attempts = profile.code_attempts ?? 0;
-  if (attempts >= CODE_MAX_ATTEMPTS) {
+  if ((profile.code_attempts ?? 0) >= CODE_MAX_ATTEMPTS) {
     throw new HttpError(429, "TOO_MANY_ATTEMPTS", "Too many attempts, request a new code");
   }
   if (!profile.code_expires_at || new Date(profile.code_expires_at).getTime() <= Date.now()) {
     throw new HttpError(400, "CODE_EXPIRED", "Code has expired, request a new code");
   }
-  const expected = await hashCode(purpose, profile.id, code);
-  if (!safeEqual(expected, profile.code_hash)) {
-    const now = await bumpAttempts(profile);
-    if (now >= CODE_MAX_ATTEMPTS) {
-      throw new HttpError(429, "TOO_MANY_ATTEMPTS", "Too many attempts, request a new code");
-    }
+  // Claim an attempt atomically BEFORE comparing: parallel guesses each consume one of the
+  // CODE_MAX_ATTEMPTS slots, so the cap cannot be raced. A correct code also costs one attempt.
+  const claimed = await claimAttempt(profile, purpose);
+  if (!claimed) {
+    throw new HttpError(429, "TOO_MANY_ATTEMPTS", "Too many attempts, request a new code");
+  }
+  const expected = /^\d{6}$/.test(code) ? await hashCode(purpose, profile.id, code) : "";
+  if (!expected || !safeEqual(expected, profile.code_hash)) {
     throw new HttpError(400, "CODE_INVALID", "Code is invalid");
   }
   if (consume) await clearCode(profile.id);
 }
 
-async function bumpAttempts(profile: CodeState): Promise<number> {
+/**
+ * Atomically increments code_attempts if still below the cap (SQL function claim_code_attempt,
+ * migration 20261125000001). Returns false when no attempt is left.
+ * Fallback for a database without the function: the old, non-atomic increment.
+ */
+async function claimAttempt(profile: CodeState, purpose: CodePurpose): Promise<boolean> {
+  const { data, error } = await db().rpc("claim_code_attempt", {
+    p_id: profile.id,
+    p_purpose: purpose,
+    p_max: CODE_MAX_ATTEMPTS,
+  });
+  if (!error) return data === true;
+  console.warn("[codes] claim_code_attempt unavailable, falling back:", error.code ?? error.message);
   const next = (profile.code_attempts ?? 0) + 1;
-  const { error } = await db().from("profiles").update({ code_attempts: next }).eq("id", profile.id);
-  if (error) console.warn("[codes] attempt bump failed:", error);
-  return next;
+  const res = await db().from("profiles").update({ code_attempts: next }).eq("id", profile.id);
+  if (res.error) console.warn("[codes] attempt bump failed:", res.error.code ?? res.error.message);
+  return next <= CODE_MAX_ATTEMPTS;
 }
 
 export async function clearCode(userId: string): Promise<void> {

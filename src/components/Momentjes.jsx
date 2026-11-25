@@ -9,7 +9,9 @@ import { useGezin } from "@/lib/gezin";
 import { ProfielBeeld } from "@/components/ProfielBeeld";
 import { verkleinFoto } from "@/lib/praktisch-sync";
 import { Link } from "@tanstack/react-router";
-import { momentLabel, mijlpaalLabel, mijlpalen, reacties, reageer, voegMomentjeToe, } from "@/lib/momentjes-store";
+import { momentLabel, mijlpaalLabel, mijlpalen, reacties, reageer, verwijderMomentje, voegMomentjeToe, zetMomentGedeeld } from "@/lib/momentjes-store";
+import { DeelLabel, VerwijderDialoog } from "@/components/DelenKeuze";
+import { bevestig } from "@/lib/feedback";
 /** Reactie-id (uit momentjes-store) → lucide-icoon. "tekst" = eigen korte reactie, "duim" = lege eigen reactie. */
 const REACTIE_ICOON = { leuk: Heart, lief: HandHeart, trots: PartyPopper, watGoed: ThumbsUp, tekst: MessageCircle, duim: ThumbsUp };
 function ReactieIcoon({ id, className = "size-4" }) {
@@ -22,11 +24,30 @@ export function MomentjeKaart({ m, kijker }) {
     const g = useGezin();
     const [tekstOpen, setTekstOpen] = useState(false);
     const [tekst, setTekst] = useState("");
+    const [weg, setWeg] = useState(false);
+    const [bezig, setBezig] = useState(false);
     const kind = st.kinderen.find((k) => k.id === m.kindId) ?? { naam: "", kleur: "#8A7E72" };
     const ik = g.ik?.id;
-    const anderNaam = g.ander?.naam || t("common.deAndereOuder");
     const vanMij = kijker ? m.auteurId === kijker : m.van === ik;
-    const auteur = m.van === "kring" ? wieNaam(m.auteurId) : vanMij ? t("components.Momentjes.kaart.jou") : g.ander && m.van === g.ander.id ? anderNaam : t("common.deAndereOuder");
+    // De andere ouder van DIT moment (per kind kan dat een andere ouder zijn).
+    const anderId = vanMij ? m.anderId ?? g.anderVoor([m.kindId])?.id : m.van;
+    const anderNaam = g.coOuders.find((c) => c.id === anderId)?.naam || t("common.deAndereOuder");
+    const auteur = m.van === "kring" ? wieNaam(m.auteurId) : vanMij ? t("components.Momentjes.kaart.jou") : g.coOuders.some((c) => c.id === m.van) ? anderNaam : t("common.deAndereOuder");
+    // Iets van een ander is altijd met jou gedeeld; eigen momenten: gedeeld of alleen jij.
+    const gedeeld = !vanMij || !!m.gedeeld;
+    const kanDelen = vanMij && !kijker && g.isSamen(m.kindId);
+    const wissel = async () => {
+        setBezig(true);
+        const nu = !m.gedeeld;
+        if (await zetMomentGedeeld(m.id, nu))
+            bevestig(nu ? t("components.Momentjes.kaart.nuGedeeld") : t("components.Momentjes.kaart.nuPrive"));
+        setBezig(false);
+    };
+    const verwijder = async () => {
+        setWeg(false);
+        if (await verwijderMomentje(m.id))
+            bevestig(t("components.Momentjes.kaart.verwijderd"));
+    };
     const kringTekst = m.kringIds?.length ? ` · ${m.kringIds.map((id) => wieNaam(id)).join(", ")}` : "";
     const getoond = tekstMetIcoon(m.tekst);
     return (<div className="overflow-hidden rounded-[22px] border border-white/85 bg-white/60">
@@ -50,8 +71,16 @@ export function MomentjeKaart({ m, kijker }) {
                 </button>))}
               <button onClick={() => setTekstOpen(true)} aria-label={t("components.Momentjes.kaart.korteReactie")} className="grid size-10 place-items-center rounded-full text-ink-soft"><AppIcon functie="berichten" maat="sm" vorm="kaal"/></button>
             </div>)) : null}
-        <p className="mt-2.5 text-xs text-ink-soft">{kijker ? t("components.Momentjes.kaart.gedeeldMetJou") : m.prive ? t("components.Momentjes.kaart.alleenVoorJou") : m.van === "kring" ? t("components.Momentjes.kaart.gedeeldMetOuders") : t("components.Momentjes.kaart.gedeeldMet", { wie: `${vanMij ? anderNaam : t("components.Momentjes.kaart.jou")}${kringTekst.replace(" · ", ", ")}` })}</p>
+        {kijker ? <p className="mt-2.5 text-xs text-ink-soft">{t("components.Momentjes.kaart.gedeeldMetJou")}</p> : (<div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <DeelLabel gedeeld={gedeeld || (!!m.kringIds?.length && !m.prive)}/>
+            {!m.prive && (gedeeld || m.kringIds?.length) ? <span className="text-xs text-ink-soft">{m.van === "kring" ? t("components.Momentjes.kaart.gedeeldMetOuders") : t("components.Momentjes.kaart.gedeeldMet", { wie: [gedeeld ? (vanMij ? anderNaam : t("components.Momentjes.kaart.jou")) : null, kringTekst.replace(" · ", "")].filter(Boolean).join(", ") })}</span> : null}
+          </div>)}
+        {vanMij && !kijker ? (<div className="mt-1 flex flex-wrap gap-x-4">
+            {kanDelen ? <button disabled={bezig} onClick={wissel} className="min-h-11 text-xs font-semibold text-brand disabled:opacity-50">{m.gedeeld ? t("components.Momentjes.kaart.maakPrive") : t("components.Momentjes.kaart.deelMet", { naam: anderNaam })}</button> : null}
+            <button onClick={() => setWeg(true)} className="min-h-11 text-xs font-semibold text-ink-soft">{t("common.verwijderen")}</button>
+          </div>) : null}
       </div>
+      <VerwijderDialoog open={weg} onOpenChange={setWeg} titel={t("components.Momentjes.kaart.verwijderTitel")} tekst={m.gedeeld ? t("components.Momentjes.kaart.verwijderTekstGedeeld") : t("components.Momentjes.kaart.verwijderTekst")} onBevestig={verwijder}/>
     </div>);
 }
 export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
@@ -74,11 +103,12 @@ export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
         return () => { weg = true; };
     }, [alsKring]);
     const kinderen = alsKring ? kringKids : st.kinderen;
-    const anderNaam = g.ander?.naam || t("components.Momentjes.deel.andereOuder");
-    // Zonder gekoppelde ouder kan een momentje niet met "de andere ouder" gedeeld worden: alleen jij en/of de kring.
-    const metAnder = g.gekoppeld;
     const kindKeuze = kinderen;
     const [kindId, setKindId] = useState(startKind ?? kindKeuze[0]?.id ?? kinderen[0]?.id ?? "");
+    // De andere ouder van DIT kind; een Solo-kind kan niet met "de andere ouder" gedeeld worden: alleen jij en/of de kring.
+    const anderVanKind = kindId ? g.anderVoor([kindId]) : null;
+    const anderNaam = anderVanKind?.naam || t("components.Momentjes.deel.andereOuder");
+    const metAnder = !!kindId && g.isSamen(kindId);
     const [bezig, setBezig] = useState(false);
     // Kinderen komen na het inloggen van de server: kies het eerste zodra ze er zijn.
     useEffect(() => { if (!kindId && kindKeuze[0])
@@ -90,7 +120,8 @@ export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
     const [tekst, setTekst] = useState("");
     const [moment, setMoment] = useState("geen");
     const [mijlpaal, setMijlpaal] = useState();
-    const [priveKeuze, setPrive] = useState(!metAnder);
+    // Nieuw moment = standaard "Alleen jij".
+    const [priveKeuze, setPrive] = useState(true);
     // Zonder gekoppelde ouder en zonder gekozen kringleden blijft het altijd privé.
     const prive = priveKeuze || (!metAnder && !kringIds.length);
     if (!open)
@@ -110,7 +141,7 @@ export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
         setFoto(undefined);
         setMoment("geen");
         setMijlpaal(undefined);
-        setPrive(!metAnder);
+        setPrive(true);
         setKringIds([]);
         onSluit();
     };

@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import i18n from "@/i18n";
 import { api } from "@/lib/api";
 import { dt } from "@/lib/agenda-datum";
-import { geldigeRegeling, maandagVan, plekOp, startState } from "@/lib/start-store";
+import { regelingVoorKind, geldigeRegeling, maandagVan, plekOp, startState } from "@/lib/start-store";
 import { herlaad, meldFout, online, opAgendaLijst, startAgendaSync } from "@/lib/agenda-store";
 /**
  * Zorgverdeling van het eigen gezin: wijzigingsvoorstellen ("Alleen deze keer" / "Vanaf nu"), geaccepteerde
@@ -45,7 +45,8 @@ const reden = () => i18n.t("lib.zorgStore.eenmaligeWijziging");
 /** De regeling die op deze datum voor dit kind geldt: de laatste geaccepteerde versie, anders de basisregeling. */
 export function regelingOp(s, kind, datum) {
     const v = s.versies.filter((x) => x.kind === kind && x.vanaf <= datum).at(-1);
-    const r = v?.regeling ?? startState().regeling;
+    // Per kind een eigen vaste verdeling (kind 1 met ouder A kan anders lopen dan kind 2 met ouder B).
+    const r = v?.regeling ?? regelingVoorKind(kind);
     return geldigeRegeling(r) ? r : null;
 }
 /** Bij wie is dit kind op deze datum? Uitzondering gaat voor; anders de regeling die dan geldt. */

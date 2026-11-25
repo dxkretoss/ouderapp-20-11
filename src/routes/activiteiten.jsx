@@ -1,4 +1,6 @@
 import i18n from "@/i18n";
+import { laadWeergave } from "@/components/Laden";
+import { meldingenBron } from "@/lib/meldingen-store";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
@@ -32,6 +34,7 @@ function ActiviteitenPagina() {
     const zoek = Route.useSearch();
     const router = useRouter();
     const { lijst, gelezen, voorstellen } = useActiviteiten();
+    const laadStatus = meldingenBron.useStatus();
     const [open, setOpen] = useState(null);
     const [alles, setAlles] = useState(zoek.onderdeel === "regelen");
     const lees = (a) => markeerGelezen(markeerIds(a));
@@ -63,7 +66,7 @@ function ActiviteitenPagina() {
 
       {nieuweFeed.length ? <FeedGroep titel={t("routes.activiteiten.nieuw")} items={nieuweFeed} gelezen={gelezen} onOpen={(a) => { lees(a); setOpen(a); }}/> : null}
       {eerdereFeed.length ? <FeedGroep titel={t("routes.activiteiten.eerder")} items={eerdereFeed} gelezen={gelezen} onOpen={(a) => setOpen(a)}/> : null}
-      {!wacht.length && !feed.length ? (<div className="mt-16 text-center">
+      {!wacht.length && !feed.length ? (laadWeergave(laadStatus, meldingenBron.ververs) ?? <div className="mt-16 text-center">
           <span className="mx-auto grid size-16 place-items-center rounded-full border border-[#C9D6C3] bg-[#E9EFE3]"><Check className="size-7 text-[#3F5747]" strokeWidth={2.2}/></span>
           <p className="lora mt-3 text-[24px]">{t("routes.activiteiten.leeg.titel")}</p>
           <p className="mt-1 text-sm text-ink-soft">{t("routes.activiteiten.leeg.tekst")}</p>
@@ -103,7 +106,7 @@ function Details({ a, onClose }) {
     const { t } = useTranslation();
     const router = useRouter();
     return (<Sheet open={!!a} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+      <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto">
         {a ? (<>
             <SheetHeader className="text-left">
               <SheetTitle className="lora text-[24px] leading-tight">{a.titel}</SheetTitle>

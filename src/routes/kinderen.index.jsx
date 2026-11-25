@@ -46,7 +46,7 @@ function Kinderen() {
                   <ProfielBeeld beeld={k.beeld} naam={k.naam} kleur={k.kleur} maat={48}/>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-display text-[17px] font-bold">{k.naam}</p>
-                    <p className="text-[13px] text-ink-soft">{leeftijdTekst(k.geboortedatum) || t(N + "profielAanvullen")}</p>
+                    <p className="text-[13px] text-ink-soft">{leeftijdTekst(k.geboortedatum) || t(N + "profielAanvullen")}{String(k.id).startsWith("tmp-") ? "" : ` · ${k.samen ? t(N + "samen") : t(N + "solo")}`}</p>
                   </div>
                   <Chevron className="size-4 text-ink-soft"/>
                 </Link>))}

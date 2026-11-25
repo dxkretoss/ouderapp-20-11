@@ -9,8 +9,9 @@
 //
 // Rules
 // - actorId is ALWAYS the session user (requireUser), never a body field.
-// - Family scope is derived when reading (see log-audit "list"): the actor + the actor's active
-//   co-parents who share one of childIds (or every co-parent when childIds is empty).
+// - Family scope is derived when reading (see log-audit "list"): the actor + the co-parent who shares
+//   ALL childIds with the actor; with familyIds only that pair. Without children and without familyIds
+//   an event is visible to the actor only.
 // - Private items (private agenda items, private moments, solo notes, Co chats) are never logged:
 //   pass private: true (or simply don't call logAudit).
 // - Never put private content, legal evidence or health details into label/changes/meta.
@@ -50,6 +51,11 @@ export interface AuditInput {
   meta?: Record<string, string | number | boolean | null>;
   origin?: "server" | "client";
   private?: boolean;
+  /**
+   * The parent pair a shared record is addressed to ([actor, other_parent_id]). Required for records
+   * without children: without it such an event is visible to the actor only.
+   */
+  familyIds?: (string | null | undefined)[];
 }
 
 const clip = (v: unknown, n: number) => (v === undefined || v === null ? null : String(v).slice(0, n));
@@ -73,7 +79,7 @@ export async function logAudit(e: AuditInput): Promise<string | null> {
         meta: e.meta ?? {},
         origin: e.origin ?? "server",
         // same shape as the agenda/costs helpers write, for readers of `details`
-        details: { item_naam: clip(e.label, 300), kinderen: [...new Set(e.childIds ?? [])], ...(changes.length === 1 ? { wijziging: changes[0] } : changes.length ? { wijzigingen: changes } : {}), meta: e.meta ?? {} },
+        details: { item_naam: clip(e.label, 300), kinderen: [...new Set(e.childIds ?? [])], ...(e.familyIds ? { family_ids: [...new Set(e.familyIds.filter(Boolean))] } : {}), ...(changes.length === 1 ? { wijziging: changes[0] } : changes.length ? { wijzigingen: changes } : {}), meta: e.meta ?? {} },
       })
       .select("id")
       .single();

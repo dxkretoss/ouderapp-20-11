@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { useSyncExternalStore } from "react";
 import { foutTekst } from "@/lib/api";
 import { authState, opAuth } from "@/lib/auth-store";
 /**
@@ -37,13 +38,24 @@ function start() {
 export function serverBron({ laad, wis }) {
     let laatst = 0;
     let bezig = null;
+    // Laadstatus voor de schermen: "leeg" (nog niets), "laden" (eerste keer onderweg), "klaar", "fout" (eerste keer mislukt).
+    let status = "leeg";
+    const statusLuisteraars = new Set();
+    const zetStatus = (s) => { if (status !== s) {
+        status = s;
+        statusLuisteraars.forEach((l) => l());
+    } };
     const b = {
-        wis,
+        wis: () => { zetStatus("leeg"); wis(); },
         ververs(direct) {
             if (bezig || (!direct && Date.now() - laatst < MIN_TUSSEN))
                 return bezig ?? Promise.resolve();
             laatst = Date.now();
-            bezig = Promise.resolve().then(laad).catch((e) => meldFout(e)).finally(() => { bezig = null; });
+            if (status !== "klaar")
+                zetStatus("laden");
+            bezig = Promise.resolve().then(laad)
+                .then(() => zetStatus("klaar"), (e) => { zetStatus(status === "klaar" ? "klaar" : "fout"); meldFout(e); })
+                .finally(() => { bezig = null; });
             return bezig;
         },
     };
@@ -54,6 +66,8 @@ export function serverBron({ laad, wis }) {
             controleer(); },
         ververs: () => b.ververs(true),
         isEigen: () => voorId !== null,
+        /** "leeg" | "laden" | "klaar" | "fout" — voor laad- en foutweergaven (zie LaadStatus in components/Laden). */
+        useStatus: () => useSyncExternalStore((l) => { statusLuisteraars.add(l); return () => statusLuisteraars.delete(l); }, () => status, () => status),
     };
 }
 /** Rustige foutmelding (één toast tegelijk per bron), zoals start-store. */

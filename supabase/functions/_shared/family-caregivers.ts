@@ -63,9 +63,11 @@ export async function liveCaregiverRows(userId: string): Promise<Record<string, 
   return rows.filter((r) => hasLiveAccess(r, today));
 }
 
-/** Every live grant of this account as a caregiver (only levels above "geen", only for its children). */
-export async function caregiverGrantsFor(userId: string): Promise<Grant[]> {
-  const rows = await liveCaregiverRows(userId);
+/**
+ * Grants (levels above "geen") of these circle records, only for children the record belongs to.
+ * The caller decides whether the records themselves are live (see hasLiveAccess / liveCaregiverRows).
+ */
+export async function rowGrants(rows: Record<string, any>[]): Promise<Grant[]> {
   if (!rows.length) return [];
   const perms = (check(
     await db().from("caregiver_permissions").select("caregiver_id, child_id, section, permission_level").in(
@@ -84,6 +86,21 @@ export async function caregiverGrantsFor(userId: string): Promise<Grant[]> {
     out.push({ caregiver_id: p.caregiver_id, child_id: p.child_id, section: p.section, level });
   }
   return out;
+}
+
+/** Every live grant of this account as a caregiver (only levels above "geen", only for its children). */
+export async function caregiverGrantsFor(userId: string): Promise<Grant[]> {
+  return rowGrants(await liveCaregiverRows(userId));
+}
+
+/**
+ * Does this record grant one of `sections` (at least `min`) for EVERY given child?
+ * Used for pick-up assignments (wissel/agenda) and help requests (wissel/agenda/taken).
+ */
+export function grantsAll(grants: Grant[], caregiverId: string, childIds: string[], sections: string[], min = "bekijken"): boolean {
+  return childIds.length > 0 && childIds.every((c) =>
+    grants.some((g) => g.caregiver_id === caregiverId && g.child_id === c && sections.includes(g.section) && (min === "bekijken" || g.level === "bijdragen"))
+  );
 }
 
 /** May this account (as caregiver) use `section` of `childId` at least at `min` ("bekijken" | "bijdragen")? */

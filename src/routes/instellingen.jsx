@@ -10,9 +10,8 @@ import { TaalKiezer } from "@/components/TaalKiezer";
 import { AfmeldenRij } from "@/components/Afmelden";
 import { ProfielBeeld } from "@/components/ProfielBeeld";
 import { start, useStart } from "@/lib/start-store";
-import { useAbonnement } from "@/lib/abonnement";
 import { useAuth } from "@/lib/auth-store";
-import { setCheckinAan, toonVoorbeeld, useCheckin } from "@/lib/checkin-store";
+import { setCheckinAan, useCheckin } from "@/lib/checkin-store";
 import { regioLabel, regioUitleg, useRegio, zetRegio } from "@/lib/schoolvakanties";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
@@ -29,10 +28,6 @@ export const Route = createFileRoute("/instellingen")({
     }),
     component: Instellingen,
 });
-function Schakelaar({ label }) {
-    const { t } = useTranslation();
-    return <div className="flex w-full items-center justify-between gap-3 py-3 text-left"><p className="text-sm font-semibold">{label}</p><span className="text-xs text-ink-soft">{t("common.nogNietBeschikbaar")}</span></div>;
-}
 function Keuze({ opties, waarde, onKies }) {
     return (<div className="space-y-2">
       {opties.map(([id, titel, uitleg]) => (<button key={id} onClick={() => onKies(id)} className={`flex w-full items-start gap-3 rounded-[16px] px-3 py-2.5 text-left ${waarde === id ? "border-2 border-brand bg-white" : "border border-[#E6DED2] bg-white/60"}`}>
@@ -82,7 +77,6 @@ function Instellingen() {
     const gebruik = st.gebruik === "zelf" || st.gebruik === "alleen" ? "alleen" : "samen";
     const setGebruik = (g) => start.zetGebruik(g === "alleen" ? "zelf" : "samen");
     const regio = useRegio();
-    const ab = useAbonnement();
     const aantalAan = (...w) => w.filter(Boolean).length;
     return (<AppShell>
       <div className="flex items-center gap-3">
@@ -108,7 +102,7 @@ function Instellingen() {
             ["samen", t("routes.instellingen.gebruik.samenTitel"), t("routes.instellingen.gebruik.samenUitleg")],
             ["alleen", t("routes.instellingen.gebruik.alleenTitel"), t("routes.instellingen.gebruik.alleenUitleg")],
         ]}/>
-          <div className="mt-1 flex flex-wrap gap-x-4"><Link to="/solo" className="inline-flex min-h-10 items-center text-xs font-extrabold text-[#3F5747]"><MetChevron>{t("routes.instellingen.gebruik.persoonlijk")}</MetChevron></Link><Link to="/solo" hash="email-koppeling" className="inline-flex min-h-10 items-center text-xs font-extrabold text-[#3F5747]"><MetChevron>{t("routes.instellingen.gebruik.emailKoppeling")}</MetChevron></Link></div>
+          <div className="mt-1 flex flex-wrap gap-x-4"><Link to="/solo" className="inline-flex min-h-10 items-center text-xs font-extrabold text-[#3F5747]"><MetChevron>{t("routes.instellingen.gebruik.persoonlijk")}</MetChevron></Link></div>
         </Uitklap>
         <Uitklap icoon="vakantie" titel={t("routes.instellingen.schoolvakanties.titel")} waarde={regioLabel[regio]}>
           <p className="mb-2 text-xs text-ink-soft">{t("routes.instellingen.schoolvakanties.uitleg")}</p>
@@ -117,7 +111,7 @@ function Instellingen() {
       </Groep>
 
       <Groep titel={t("routes.instellingen.groep.account")}>
-        <Rij to="/abonnement" icoon="kosten" titel={t("routes.instellingen.abonnement.titel")} uitleg={ab.status === "actief" ? t("routes.instellingen.abonnement.actief") : t("routes.instellingen.abonnement.bekijk")}/>
+        {/* Abonnementen: Milestone 3 (zie lib/fase.js) */}
         <Rij to="/privacy" icoon="oog" titel={t("routes.instellingen.wieZiet.titel")} uitleg={t("routes.instellingen.wieZiet.uitleg")}/>
         <Rij to="/exporteren" icoon="exporteren" titel={t("routes.instellingen.overzicht.titel")} uitleg={t("routes.instellingen.overzicht.uitleg")}/>
         <Rij to="/juridisch" icoon="juridisch" titel={t("routes.instellingen.voorwaarden.titel")} uitleg={t("routes.instellingen.voorwaarden.uitleg")}/>
@@ -160,7 +154,7 @@ function Instellingen() {
           <Wissel label={t("routes.instellingen.w.rustigRegelen.label")} uitleg={t("routes.instellingen.w.rustigRegelen.uitleg")} aan={vk.gestructureerdAfstemmen} onWissel={() => zetVoorkeur("gestructureerdAfstemmen", !vk.gestructureerdAfstemmen)}/>
           <Wissel label={t("routes.instellingen.w.herinneringen.label")} uitleg={t("routes.instellingen.w.herinneringen.uitleg")} aan={vk.herinneringenGepauzeerd} onWissel={() => zetVoorkeur("herinneringenGepauzeerd", !vk.herinneringenGepauzeerd)}/>
         </Uitklap>
-        <Rij to="/gesprekken" icoon="bellen" titel={t("routes.instellingen.bellen.titel")} uitleg={t("routes.instellingen.bellen.uitleg")}/>
+        {/* Bellen: niet in deze fase (zie lib/fase.js) */}
       </Groep>
 
       <Groep titel={t("routes.instellingen.groep.meldingen")}>
@@ -178,7 +172,6 @@ function Instellingen() {
           <Wissel label={t("routes.instellingen.w.overdracht.label")} uitleg={t("routes.instellingen.w.overdracht.uitleg")} aan={vk.overdrachtHulp} onWissel={() => zetVoorkeur("overdrachtHulp", !vk.overdrachtHulp)}/>
           <Wissel label={t("routes.instellingen.w.agenda.label")} uitleg={t("routes.instellingen.w.agenda.uitleg")} aan={vk.conflictControle} onWissel={() => zetVoorkeur("conflictControle", !vk.conflictControle)}/>
           <Wissel label={t("routes.instellingen.w.checkin.label")} uitleg={t("routes.instellingen.w.checkin.uitleg")} aan={checkin.aan} onWissel={() => setCheckinAan(!checkin.aan)}/>
-          <Link to="/" onClick={toonVoorbeeld} className="inline-flex min-h-10 items-center text-xs font-extrabold text-[#3F5747]"><MetChevron>{t("routes.instellingen.slim.bekijkCheckin")}</MetChevron></Link>
         </Uitklap>
       </Groep>
 
