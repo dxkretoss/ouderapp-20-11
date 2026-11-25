@@ -34,13 +34,13 @@ export function ContextToevoegen({ titel, acties, toegestaan = true, open, onOpe
                 const Icon = actie.icoon;
                 const t = TINTEN[acties.indexOf(actie) % TINTEN.length];
                 return (<SheetClose asChild key={actie.titel}>
-                    <button type="button" onClick={actie.onKies} className="flex w-full items-center gap-3 py-3 text-left transition-transform active:scale-[.99]">
+                    <button type="button" onClick={actie.onKies} className="flex min-h-14 w-full items-center gap-3 py-3 text-left transition-transform active:scale-[.99]">
                       {actie.functie ? (<span className="grid size-10 shrink-0 place-items-center rounded-[13px]" style={{ background: actie.tint ?? t.bg }}><AppIcon functie={actie.functie} maat="sm" vorm="kaal"/></span>) : (<span className="grid size-10 shrink-0 place-items-center rounded-[13px]" style={{ background: actie.tint ?? t.bg, color: t.ink }}><Icon strokeWidth={1.9} className="size-5"/></span>)}
                       <span className="min-w-0 flex-1">
                         <span className="block text-[15.5px] font-black text-ink">{actie.titel}</span>
                         <span className="mt-0.5 block text-xs leading-snug text-ink-soft">{actie.uitleg}</span>
                       </span>
-                      <Chevron className="size-4 text-ink-soft"/>
+                      <Chevron className="size-4 shrink-0 text-ink-soft"/>
                     </button>
                   </SheetClose>);
             })}

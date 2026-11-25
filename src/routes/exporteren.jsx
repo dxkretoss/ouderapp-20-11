@@ -513,8 +513,8 @@ function Exporteren() {
             {deelCheck ? (<div className="rounded-md border border-border p-3">
                 <p className="text-sm">{t("routes.exporteren.controleerDelen")}</p>
                 <div className="mt-3 flex gap-2">
-                  <button onClick={() => setDeelCheck(false)} className="min-h-11 flex-1 rounded-md border border-border py-2 text-sm">{t("routes.exporteren.nogNiet")}</button>
-                  <button onClick={deel} className="min-h-11 flex-1 rounded-md bg-brand py-2 text-sm font-semibold text-primary-foreground">{t("routes.exporteren.delenKnop")}</button>
+                  <button onClick={() => setDeelCheck(false)} className="min-h-11 flex-1 rounded-full border border-border bg-card px-3 text-sm">{t("routes.exporteren.nogNiet")}</button>
+                  <button onClick={deel} className="min-h-11 flex-1 rounded-full bg-brand px-3 text-sm font-semibold text-primary-foreground">{t("routes.exporteren.delenKnop")}</button>
                 </div>
               </div>) : (<button onClick={() => setDeelCheck(true)} className={secundair}><Share2 className="size-4" strokeWidth={1.8}/>{t("routes.exporteren.delenKnop")}</button>)}
           </div>

@@ -2484,9 +2484,9 @@
         "bonUitleg": "Zo ziet {{naam}} waarvoor het geld van de kindrekening is gebruikt.",
         "voor": "Voor",
         "alleenBijhouden": "Je houdt deze uitgave alleen bij, zonder verdeling. Dit kun je aanpassen bij Kostenafspraken.",
-        "voorlopig": "Voorlopige verdeling",
-        "hoeVerdelen": "Hoe verdelen jullie deze kosten?",
-        "volgensAfspraak": "Volgens jouw afspraak ({{sanne}} / {{joris}})",
+        "voorlopig": "voorlopig, nog niet bevestigd",
+        "hoeVerdelen": "Hoe verdelen?",
+        "volgensAfspraak": "Jullie verdeling ({{sanne}} / {{joris}})",
         "volgensStandaard": "Volgens standaardverdeling ({{sanne}} / {{joris}})",
         "anderPercentage": "Ander percentage",
         "volledig": "Helemaal voor mij (niet verrekenen)",
@@ -2499,7 +2499,7 @@
           "voorstellenSub": "Telt pas mee als {{naam}} instemt"
         },
         "meerOpties": "Meer opties",
-        "meerOptiesSub": "Categorie ({{categorie}}), bon of bijlage",
+        "meerOptiesSub": "Categorie ({{categorie}}) of een extra bijlage",
         "toelichting": "Toelichting (vrijwillig)",
         "opslaan": "Uitgave opslaan",
         "eerstBudget": "Dit is meer dan jullie grensbedrag van {{grens}}. Daarvoor komt er eerst een budgetvoorstel.",
@@ -2507,7 +2507,12 @@
         "bonVerplicht": "Boven het grensbedrag is een bon nodig.",
         "extraMislukt": "De uitgave is opgeslagen, maar het extra deel van {{bedrag}} niet. Voeg dat deel opnieuw toe.",
         "alleenJijUitleg": "Alleen jij ziet deze uitgave. Kies Gedeeld om hem met de andere ouder te verrekenen.",
-        "meerOptiesSubGeen": "Categorie (vrijwillig), bon of bijlage"
+        "meerOptiesSubGeen": "Categorie (optioneel) of een extra bijlage",
+        "minderOpties": "Minder opties",
+        "optioneel": "(optioneel)",
+        "deelAnder": "Deel van de andere ouder",
+        "deelJij": "Jouw deel",
+        "nietVerrekend": "Helemaal voor jou: deze uitgave wordt niet verrekend."
       },
       "bon": {
         "bonnetje": "Bonnetje",
@@ -5122,7 +5127,8 @@
         "uitlegZonder": "Jullie zijn daarna niet meer met elkaar verbonden in de app.",
         "geschiedenis": "De geschiedenis van wat jullie samen deden blijft bewaard. Je kunt later opnieuw uitnodigen.",
         "ja": "Ontkoppelen",
-        "klaar": "Ontkoppeld"
+        "klaar": "Ontkoppeld",
+        "begrepen": "Ik begrijp dat ik de verbinding met {{naam}} verbreek."
       }
     }
   },
@@ -5686,7 +5692,8 @@
       "jijBetaaltAnder": "Jij betaalt de andere ouder",
       "vraagVerzoek": "Vraag de andere ouder om een betaalverzoek",
       "verzoekGevraagd": "De andere ouder heeft een melding gekregen en kan een betaalverzoek of rekeningnummer delen.",
-      "nietsOpen": "Er staat nu niets open om te verrekenen."
+      "nietsOpen": "Er staat nu niets open om te verrekenen.",
+      "hoeBetalen": "Hoe wil je betalen?"
     },
     "BonScanner": {
       "docCategorie": {
@@ -5767,8 +5774,10 @@
         "stortKnop": "Storten",
         "gestort": "Opgeslagen.",
         "nogNiets": "Nog geen stortingen.",
-        "uitleg": "Een spaarpotje is een overzicht van wat jullie apart zetten. Er gaat geen geld via de app."
-      }
+        "uitleg": "Een spaarpotje is een overzicht van wat jullie apart zetten. Er gaat geen geld via de app.",
+        "toevoegKnop": "Spaarpotje toevoegen"
+      },
+      "toevoegKnop": "Vaste last toevoegen"
     },
     "VerdeelHulp": {
       "titel": "Hulp bij verdelen",

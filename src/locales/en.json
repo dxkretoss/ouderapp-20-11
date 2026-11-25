@@ -2484,9 +2484,9 @@
         "bonUitleg": "That way {{naam}} can see what the money from the children's account was used for.",
         "voor": "For",
         "alleenBijhouden": "You're only tracking this expense, without a split. You can change this under Cost agreements.",
-        "voorlopig": "Provisional split",
-        "hoeVerdelen": "How are you splitting this cost?",
-        "volgensAfspraak": "As per your agreement ({{sanne}} / {{joris}})",
+        "voorlopig": "provisional, not confirmed yet",
+        "hoeVerdelen": "How to split?",
+        "volgensAfspraak": "Your split ({{sanne}} / {{joris}})",
         "volgensStandaard": "As per the default split ({{sanne}} / {{joris}})",
         "anderPercentage": "Different percentage",
         "volledig": "Fully mine (don't settle)",
@@ -2499,7 +2499,7 @@
           "voorstellenSub": "Only counts once {{naam}} agrees"
         },
         "meerOpties": "More options",
-        "meerOptiesSub": "Category ({{categorie}}), receipt or attachment",
+        "meerOptiesSub": "Category ({{categorie}}) or an extra attachment",
         "toelichting": "Explanation (optional)",
         "opslaan": "Save expense",
         "eerstBudget": "This is more than your approval limit of {{grens}}. A budget proposal comes first.",
@@ -2507,7 +2507,12 @@
         "bonVerplicht": "Above the approval limit a receipt is needed.",
         "extraMislukt": "The expense was saved, but the extra part of {{bedrag}} wasn't. Please add that part again.",
         "alleenJijUitleg": "Only you can see this expense. Choose Shared to settle it with the other parent.",
-        "meerOptiesSubGeen": "Category (optional), receipt or attachment"
+        "meerOptiesSubGeen": "Category (optional) or an extra attachment",
+        "minderOpties": "Fewer options",
+        "optioneel": "(optional)",
+        "deelAnder": "The other parent's share",
+        "deelJij": "Your share",
+        "nietVerrekend": "Fully yours: this expense isn't settled."
       },
       "bon": {
         "bonnetje": "Receipt",
@@ -5122,7 +5127,8 @@
         "uitlegZonder": "Afterwards you are no longer connected in the app.",
         "geschiedenis": "The history of what you did together is kept. You can invite again later.",
         "ja": "Disconnect",
-        "klaar": "Disconnected"
+        "klaar": "Disconnected",
+        "begrepen": "I understand that I am disconnecting from {{naam}}."
       }
     }
   },
@@ -5686,7 +5692,8 @@
       "jijBetaaltAnder": "You pay the other parent",
       "vraagVerzoek": "Ask the other parent for a payment request",
       "verzoekGevraagd": "The other parent got a notification and can share a payment request or account number.",
-      "nietsOpen": "There is nothing to settle right now."
+      "nietsOpen": "There is nothing to settle right now.",
+      "hoeBetalen": "How would you like to pay?"
     },
     "BonScanner": {
       "docCategorie": {
@@ -5767,8 +5774,10 @@
         "stortKnop": "Deposit",
         "gestort": "Saved.",
         "nogNiets": "No deposits yet.",
-        "uitleg": "A savings pot is an overview of what you put aside. No money goes through the app."
-      }
+        "uitleg": "A savings pot is an overview of what you put aside. No money goes through the app.",
+        "toevoegKnop": "Add a savings pot"
+      },
+      "toevoegKnop": "Add a regular cost"
     },
     "VerdeelHulp": {
       "titel": "Help with dividing",

@@ -149,6 +149,6 @@ function AllesMeegekomen({ moment, daarna, items, onKlaar }) {
       </ul>
       {niet.length ? <p className="mt-3 rounded-2xl bg-[rgba(220,230,210,.85)] px-4 py-3 text-[15px] text-[#2F4A3A]">{t("components.SlimmeMeeLijst.komtWeer", { count: niet.length, items: namen.join(", ") })}</p> : null}
       <button onClick={bevestigen} disabled={bezig} className="mt-5 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground disabled:opacity-50">{t("components.SlimmeMeeLijst.bevestigen")}</button>
-      <button onClick={onKlaar} className="mt-2 w-full py-2 text-sm font-bold text-ink-soft">{t("components.SlimmeMeeLijst.terugLijst")}</button>
+      <button onClick={onKlaar} className="mt-2 min-h-11 w-full text-sm font-bold text-ink-soft">{t("components.SlimmeMeeLijst.terugLijst")}</button>
     </section>);
 }

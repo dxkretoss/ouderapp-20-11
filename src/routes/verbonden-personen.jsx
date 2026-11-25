@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
+import { Unlink, Loader2 } from "lucide-react";
 import i18n, { taalLocale } from "@/i18n";
 import { AppShell, BackButton } from "@/components/AppShell";
 import { AppIcon } from "@/components/AppIcon";
@@ -68,7 +68,9 @@ function VerbondenPersonen() {
                 <AppIcon functie="akkoord" maat="sm" vorm="kaal"/>
               </div>
               <p className="mt-2 text-xs text-ink-soft">{c.child_ids?.length ? t(N + "ouders.deelt", { kinderen: namen(c.child_ids) }) : t(N + "ouders.geenKinderen")}{c.connected_at ? ` · ${t(N + "ouders.sinds", { datum: datum(c.connected_at) })}` : ""}</p>
-              <button type="button" onClick={() => setOntkoppel(c)} className="mt-1 min-h-11 text-xs font-semibold text-accent-warm">{t(N + "ouders.ontkoppelen")}</button>
+              <button type="button" onClick={() => setOntkoppel(c)} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[#A4533E]/35 bg-[#A4533E]/[0.06] px-4 text-sm font-semibold text-[#A4533E]">
+                <Unlink aria-hidden="true" strokeWidth={1.8} className="size-4"/>{t(N + "ouders.ontkoppelen")}
+              </button>
             </div>))}
           {st.coOuders.length === 0 ? <p className="py-3 text-sm text-ink-soft">{t(N + "ouders.leeg")}</p> : null}
           <div className="pb-3">
@@ -98,17 +100,17 @@ function VerbondenPersonen() {
           {beheerbaar.length ? (<button type="button" onClick={() => setToevoegen(true)} className="flex min-h-[58px] w-full items-center gap-3 py-2.5 text-left">
               <AppIcon functie="toevoegen" maat="md"/>
               <span className="min-w-0 flex-1"><span className="block text-[15px] font-black">{t(N + "kring.toevoegen")}</span><span className="block text-xs text-ink-soft">{t(N + "kring.toevoegenUitleg")}</span></span>
-              <Chevron className="size-4 text-ink-soft"/>
+              <Chevron className="size-4 shrink-0 text-ink-soft"/>
             </button>) : (<Link to="/kinderen" className="flex min-h-[58px] items-center gap-3 py-2.5">
               <AppIcon functie="kinderen" maat="md"/>
               <span className="min-w-0 flex-1"><span className="block text-[15px] font-black">{t(N + "kring.eerstKind")}</span></span>
-              <Chevron className="size-4 text-ink-soft"/>
+              <Chevron className="size-4 shrink-0 text-ink-soft"/>
             </Link>)}
         </div>
         <p className="mt-2 px-1 text-[11px] text-ink-soft">{t(N + "kring.uitleg")}</p>
       </section>
 
-      <Link to="/privacy" className="mt-6 block text-center text-xs font-semibold text-brand">{t(N + "wieZietWat")}</Link>
+      <Link to="/privacy" className="mt-5 flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-card px-5 text-sm font-semibold text-brand">{t(N + "wieZietWat")}</Link>
 
       {toevoegen ? (<div className="app-modal-achter z-40" onClick={() => setToevoegen(false)}>
           <div className="app-modal" onClick={(e) => e.stopPropagation()}>
@@ -116,11 +118,11 @@ function VerbondenPersonen() {
             <div className="mt-3 divide-y divide-border border-y border-border">
               {beheerbaar.map((k) => (<Link key={k.id} to="/kring/$kindId" params={{ kindId: k.id }} search={{ toevoegen: true }} className="flex min-h-12 items-center gap-3 py-2">
                   <ProfielBeeld beeld={k.beeld} naam={k.naam} kleur={k.kleur} maat={32}/>
-                  <span className="flex-1 text-sm font-semibold">{k.naam}</span>
-                  <Chevron className="size-4 text-ink-soft"/>
+                  <span className="min-w-0 flex-1 text-sm font-semibold">{k.naam}</span>
+                  <Chevron className="size-4 shrink-0 text-ink-soft"/>
                 </Link>))}
             </div>
-            <button onClick={() => setToevoegen(false)} className="mt-4 w-full rounded-md border border-border py-3 text-sm">{t("common.annuleren")}</button>
+            <button onClick={() => setToevoegen(false)} className="mt-4 min-h-11 w-full rounded-full border border-border bg-card text-sm font-semibold text-ink-soft">{t("common.annuleren")}</button>
           </div>
         </div>) : null}
 
@@ -132,7 +134,11 @@ function Ontkoppelen({ ouder, namen, sluit }) {
     const { t } = useTranslation();
     const [bezig, setBezig] = useState(false);
     const [fout, setFout] = useState(null);
+    // Ontkoppelen is ingrijpend: eerst bewust bevestigen.
+    const [begrepen, setBegrepen] = useState(false);
     const doe = async () => {
+        if (!begrepen)
+            return;
         setBezig(true);
         setFout(null);
         try {
@@ -150,13 +156,20 @@ function Ontkoppelen({ ouder, namen, sluit }) {
     };
     return (<div className="app-modal-achter z-40" onClick={() => !bezig && sluit()}>
       <div className="app-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-        <p className="font-display text-lg">{t(N + "ontkoppel.titel", { naam: ouder.name })}</p>
-        <p className="mt-2 text-sm text-ink-soft">{namen ? t(N + "ontkoppel.uitleg", { kinderen: namen }) : t(N + "ontkoppel.uitlegZonder")}</p>
-        <p className="mt-2 text-xs text-ink-soft">{t(N + "ontkoppel.geschiedenis")}</p>
+        <span aria-hidden="true" className="mx-auto grid size-12 place-items-center rounded-full bg-[#A4533E]/10 text-[#A4533E]"><Unlink className="size-5" strokeWidth={1.8}/></span>
+        <p className="mt-3 text-center font-display text-lg font-bold">{t(N + "ontkoppel.titel", { naam: ouder.name })}</p>
+        <ul className="mt-3 space-y-2 rounded-[16px] border border-border bg-card p-3 text-sm text-ink-soft">
+          <li className="flex gap-2"><span aria-hidden="true">•</span><span>{namen ? t(N + "ontkoppel.uitleg", { kinderen: namen }) : t(N + "ontkoppel.uitlegZonder")}</span></li>
+          <li className="flex gap-2"><span aria-hidden="true">•</span><span>{t(N + "ontkoppel.geschiedenis")}</span></li>
+        </ul>
+        <label className="mt-4 flex cursor-pointer items-start gap-3 text-sm">
+          <input type="checkbox" checked={begrepen} onChange={(e) => setBegrepen(e.target.checked)} disabled={bezig} className="mt-0.5 size-5 shrink-0 accent-[#A4533E]"/>
+          <span>{t(N + "ontkoppel.begrepen", { naam: ouder.name })}</span>
+        </label>
         {fout ? <p role="alert" className="mt-3 text-xs font-semibold text-[#A4533E]">{foutTekst(fout)}</p> : null}
-        <div className="mt-5 flex gap-2">
-          <button disabled={bezig} onClick={sluit} className="flex-1 rounded-md border border-border py-3 text-sm">{t("common.annuleren")}</button>
-          <button disabled={bezig} onClick={doe} className={`flex flex-1 items-center justify-center gap-2 ${knop}`}>{bezig ? <Loader2 className="size-4 animate-spin" aria-hidden="true"/> : null}{t(N + "ontkoppel.ja")}</button>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button disabled={bezig} onClick={sluit} className="min-h-12 rounded-full border border-border bg-card text-sm font-semibold">{t("common.annuleren")}</button>
+          <button disabled={bezig || !begrepen} onClick={doe} className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#A4533E] px-4 text-sm font-semibold text-white disabled:opacity-40">{bezig ? <Loader2 className="size-4 animate-spin" aria-hidden="true"/> : null}{t(N + "ontkoppel.ja")}</button>
         </div>
       </div>
     </div>);

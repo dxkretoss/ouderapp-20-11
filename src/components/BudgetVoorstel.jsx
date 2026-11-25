@@ -27,7 +27,7 @@ const stapLabel = (wat) => (STAP_SLEUTELS[wat] ? i18n.t(`components.BudgetVoorst
 /** "Meer tijd gevraagd" leest de laatste stap; het voorstel blijft gewoon open. */
 const meerTijd = (v) => v.stappen.at(-1)?.wat.startsWith("Meer tijd gevraagd") === true;
 const veld = "w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-brand";
-const chip = (a) => `rounded-full border px-3 py-1.5 text-xs font-semibold ${a ? "border-brand bg-brand-soft text-brand" : "border-border text-ink-soft"}`;
+const chip = (a) => `min-h-9 rounded-full border px-3.5 text-xs font-semibold ${a ? "border-brand bg-brand-soft text-brand" : "border-border text-ink-soft"}`;
 /** filter "actie": alleen voorstellen die op jou wachten (voor "Nog te regelen"); "rest": de overige, met kop. Zelfde brondata. */
 export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId, bronItem, onUitgave, filter = "alles", zonderKop = false, onKlaar }) {
     const { t } = useTranslation();
@@ -71,7 +71,7 @@ export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId,
         </div>
       </div>}
 
-      <div className={filter === "actie" ? "divide-y divide-border" : "mt-2 divide-y divide-border border-y border-border"}>
+      <div className={filter === "actie" || !lijst.length ? "divide-y divide-border" : "mt-2 divide-y divide-border border-y border-border"}>
         {lijst.map((v) => {
             const laatste = [...v.stappen].reverse().find((s) => s.bedrag)?.bedrag ?? v.max;
             const bevestigd = bevestigdBudget(v);
@@ -98,11 +98,11 @@ export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId,
                         setTegenId(null);
                         setTegen("");
                     } }} className="min-h-11 px-4 text-sm font-semibold">{t("components.BudgetVoorstel.stuur")}</Button>
-                </div>) : (<div className="mt-2 flex flex-wrap gap-2">
-                  <Button disabled={bezig} onClick={() => doe(() => reageer(v.id, "ik", "akkoord"), t("components.BudgetVoorstel.melding.akkoord"))} className="flex-1 min-h-11 px-2 py-2 text-xs font-semibold">{t("common.akkoord")}</Button>
-                  <Button variant="outline" onClick={() => { setTegenId(v.id); setTegen(String(laatste)); }} className="flex-1 min-h-11 px-2 py-2 text-xs font-semibold">{t("common.anderVoorstel")}</Button>
-                  <Button disabled={bezig} variant="outline" onClick={() => doe(() => reageer(v.id, "ik", "geweigerd"), t("components.BudgetVoorstel.melding.afgewezen"))} className="flex-1 min-h-11 px-2 py-2 text-xs font-semibold text-ink-soft">{t("common.nietAkkoord")}</Button>
-                  <Button variant="ghost" onClick={() => { setUitstelId(v.id); setUitstelKeuze(null); setUitstelDatum(""); setUitstelTijd("20:00"); setUitstelFout(""); }} className="flex-1 min-h-11 px-2 py-2 text-xs font-semibold text-ink-soft">{t("common.meerTijdNodig")}</Button>
+                </div>) : (<div className="mt-2 grid grid-cols-2 gap-2">
+                  <Button disabled={bezig} onClick={() => doe(() => reageer(v.id, "ik", "akkoord"), t("components.BudgetVoorstel.melding.akkoord"))} className="h-auto min-h-11 w-full whitespace-normal px-2 py-2 text-xs font-semibold">{t("common.akkoord")}</Button>
+                  <Button variant="outline" onClick={() => { setTegenId(v.id); setTegen(String(laatste)); }} className="h-auto min-h-11 w-full whitespace-normal px-2 py-2 text-xs font-semibold">{t("common.anderVoorstel")}</Button>
+                  <Button disabled={bezig} variant="outline" onClick={() => doe(() => reageer(v.id, "ik", "geweigerd"), t("components.BudgetVoorstel.melding.afgewezen"))} className="h-auto min-h-11 w-full whitespace-normal px-2 py-2 text-xs font-semibold text-ink-soft">{t("common.nietAkkoord")}</Button>
+                  <Button variant="outline" onClick={() => { setUitstelId(v.id); setUitstelKeuze(null); setUitstelDatum(""); setUitstelTijd("20:00"); setUitstelFout(""); }} className="h-auto min-h-11 w-full whitespace-normal px-2 py-2 text-xs font-semibold">{t("common.meerTijdNodig")}</Button>
                 </div>)) : null}
               {v.aanZet === "ander" && (v.status === "wacht" || v.status === "tegenvoorstel") ? (<span className="mt-2 flex flex-wrap items-center gap-2">
                   {magHerinnering({ verstuurd: v.stappen.filter((s) => s.wat === "Herinnering verstuurd").map((s) => s.moment), reactieDatum: v.reactieDatum, gepauzeerd: vk.herinneringenGepauzeerd }).mag ? (<Button variant="ghost" size="sm" className="text-xs" onClick={async () => { if (await stuurBudgetHerinnering(v.id))
@@ -149,7 +149,7 @@ export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId,
             bevestig(t("components.BudgetVoorstel.uitstel.vastgelegd"));
             onKlaar?.();
         }}>{t("components.BudgetVoorstel.uitstel.bevestigen")}</Button>
-            <Button variant="ghost" className="w-full" onClick={() => setUitstelId(null)}>{t("common.terug")}</Button>
+            <Button variant="outline" className="min-h-11 w-full" onClick={() => setUitstelId(null)}>{t("common.terug")}</Button>
           </div>
         </SheetContent>
       </Sheet>
@@ -173,6 +173,7 @@ export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId,
             <label className="block text-xs font-semibold">{t("components.BudgetVoorstel.form.reactieDatum")}<input type="date" value={form.reactieDatum} onChange={(e) => setForm({ ...form, reactieDatum: e.target.value })} className={`${veld} mt-1`}/></label>
             <p className="-mt-2 text-xs text-ink-soft">{t("components.BudgetVoorstel.form.verzoek")}</p>
             {!wijzigId && delen.gemengd ? <p role="alert" className="text-xs font-semibold text-accent-warm">{t("lib.api.fout.MIXED_CHILDREN")}</p> : !kanVoorstellen ? <p role="alert" className="text-xs font-semibold text-accent-warm">{t("components.BudgetVoorstel.form.geenAndereOuder")}</p> : null}
+            <div className="voet-vast-sheet">
             <Button disabled={bezig || !form.wat.trim() || !(max > 0) || !kanVoorstellen} onClick={async () => {
             if (wijzigId) {
                 setBezig(true);
@@ -196,7 +197,8 @@ export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId,
             setForm(leeg);
             setOpen(false);
             bevestig(t("components.BudgetVoorstel.melding.toegevoegd"), { uitleg: form.wat.trim() });
-        }} className="min-h-11 w-full bg-brand text-sm font-semibold text-primary-foreground">{t("components.BudgetVoorstel.form.versturen")}</Button>
+        }} className="min-h-12 w-full rounded-full bg-brand text-sm font-semibold text-primary-foreground">{t("components.BudgetVoorstel.form.versturen")}</Button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>

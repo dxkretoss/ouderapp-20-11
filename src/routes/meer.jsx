@@ -197,7 +197,7 @@ function Meer() {
 
       {/* Alle overige onderdelen */}
       <section className="mt-2">
-        {q ? <><MeerSectie titel={t("routes.meer.gevonden")} klein compact onBezoek={registreerMeerBezoek} items={resultaten.map(metAantal)}/>{!resultaten.length ? <p className="mt-2 text-sm text-ink-soft">{t("routes.meer.nietsGevonden")}</p> : null}{/persoon|contact|familie|verzorger|person|people|family|carer/.test(q) ? <Button variant="link" className="min-h-11 px-0" onClick={() => setPersonenOpen(true)}>{t("routes.meer.personenBekijken")}</Button> : null}</> : <>
+        {q ? <><MeerSectie titel={t("routes.meer.gevonden")} klein compact onBezoek={registreerMeerBezoek} items={resultaten.map(metAantal)}/>{!resultaten.length ? <p className="mt-2 rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t("routes.meer.nietsGevonden")}</p> : null}{/persoon|contact|familie|verzorger|person|people|family|carer/.test(q) ? <Button variant="link" className="min-h-11 px-0" onClick={() => setPersonenOpen(true)}>{t("routes.meer.personenBekijken")}</Button> : null}</> : <>
           <MeerSectie titel={t("routes.meer.sectie.dagelijks")} klein compact onBezoek={registreerMeerBezoek} items={dagelijks.map(metAantal)}/>
           <MeerSectie titel={t("routes.meer.sectie.gezin")} klein compact onBezoek={registreerMeerBezoek} items={[...gezinItems.map(metAantal), { to: "#personen", icoon: "contact", titel: t("routes.meer.personen.titel"), tekst: t("routes.meer.personen.tekst"), onKies: () => setPersonenOpen(true) }]}/>
           {[{ id: "voorJeKind", titel: t("routes.meer.sectie.voorJeKind"), items: voorJeKind }, { id: "samenOuders", titel: t("routes.meer.sectie.samenOuders"), items: samenOuders.map((i) => i.to === "/evaluatie" ? { ...i, tekst: evaluatieTekst } : i) }, { id: "account", titel: t("routes.meer.sectie.account"), items: account }].map((c) => <MeerSectie key={c.id} titel={c.titel} klein compact onBezoek={registreerMeerBezoek} items={c.items.map(metAantal)}/>)}
@@ -214,7 +214,7 @@ function Meer() {
           <Link to="/rondleiding" className="mt-4 flex items-center gap-3 rounded-[22px] border-2 border-[#A9BCA8] px-4 py-3.5 [background:linear-gradient(135deg,rgba(220,230,210,.95),rgba(233,239,227,.9))]">
             <AppIcon functie="hulp"/>
             <span className="min-w-0 flex-1"><span className="block text-[16px] font-black text-[#2F4A3A]">{t("routes.meer.hulp.rondleiding")}</span><span className="block text-[13.5px] leading-snug text-[#3F5747]">{t("routes.meer.hulp.rondleidingUitleg")}</span></span>
-            <Chevron className="size-4 text-[#3F5747]"/>
+            <Chevron className="size-4 shrink-0 text-[#3F5747]"/>
           </Link>
           <p className="mt-5 px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft">{t("routes.meer.hulp.faq")}</p>
           <div className="mt-2 divide-y divide-[#E9E1D5] rounded-[22px] border border-white/85 bg-white/60 px-4">
@@ -222,7 +222,7 @@ function Meer() {
             [t("routes.meer.hulp.vraag1.v"), t("routes.meer.hulp.vraag1.a")],
             [t("routes.meer.hulp.vraag2.v"), t("routes.meer.hulp.vraag2.a")],
         ].map(([v, a]) => (<details key={v} className="group py-3">
-                <summary className="flex cursor-pointer list-none items-start gap-2 text-[15px] font-black"><span className="flex-1">{v}</span><Chevron className="mt-0.5 size-4 text-ink-soft group-open:rotate-90"/></summary>
+                <summary className="flex min-h-10 cursor-pointer list-none items-start gap-2 text-[15px] font-black"><span className="min-w-0 flex-1">{v}</span><Chevron className="mt-0.5 size-4 shrink-0 text-ink-soft group-open:rotate-90"/></summary>
                 <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{a}</p>
               </details>))}
           </div>
@@ -234,17 +234,17 @@ function Meer() {
         ].map(([to, icoon, titel, tekst]) => (<Link key={to} to={to} className="flex min-h-14 items-center gap-3 py-2.5">
                 <AppIcon functie={icoon} maat="sm"/>
                 <span className="min-w-0 flex-1"><span className="block text-[15px] font-black">{titel}</span><span className="block text-[13px] text-ink-soft">{tekst}</span></span>
-                <Chevron className="size-4 text-ink-soft"/>
+                <Chevron className="size-4 shrink-0 text-ink-soft"/>
               </Link>))}
           </nav>
           {introBevestigen ? (<div className="mt-4 rounded-[22px] border border-white/85 bg-white/60 p-4">
               <p className="text-[15px] font-black">{t("routes.meer.hulp.introVraag")}</p>
               <p className="mt-1 text-sm leading-relaxed text-ink-soft">{t("routes.meer.hulp.introUitleg")}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button onClick={() => setIntroBevestigen(false)} className="h-11 rounded-full border border-[#C9D6C3] bg-white px-4 text-sm font-black">{t("common.terug")}</button>
-                <Link to="/welkom" className="inline-flex h-11 items-center rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{t("routes.meer.hulp.introOpen")}</Link>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button onClick={() => setIntroBevestigen(false)} className="min-h-11 w-full rounded-full border border-[#C9D6C3] bg-white px-4 text-sm font-black">{t("common.terug")}</button>
+                <Link to="/welkom" className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-brand px-4 text-center text-sm font-black text-primary-foreground">{t("routes.meer.hulp.introOpen")}</Link>
               </div>
-            </div>) : (<button onClick={() => setIntroBevestigen(true)} className="mx-auto mt-4 block min-h-10 text-sm font-extrabold text-brand">{t("routes.meer.hulp.introKnop")}</button>)}
+            </div>) : (<button onClick={() => setIntroBevestigen(true)} className="mt-4 min-h-11 w-full rounded-full border border-border bg-card px-5 text-sm font-extrabold text-brand">{t("routes.meer.hulp.introKnop")}</button>)}
         </SheetContent>
       </Sheet>
     </AppShell>);

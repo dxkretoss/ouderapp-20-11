@@ -34,7 +34,7 @@ function Keuze({ opties, waarde, onKies }) {
           <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border ${waarde === id ? "border-brand" : "border-ink-soft/40"}`}>
             {waarde === id ? <span className="size-2 rounded-full bg-brand"/> : null}
           </span>
-          <span><span className="block text-sm font-black">{titel}</span><span className="block text-xs text-ink-soft">{uitleg}</span></span>
+          <span className="min-w-0"><span className="block text-sm font-black">{titel}</span><span className="block text-xs text-ink-soft">{uitleg}</span></span>
         </button>))}
     </div>);
 }
@@ -197,7 +197,7 @@ function Rij({ to, icoon, titel, uitleg }) {
     return (<Link to={to} className="flex min-h-[58px] items-center gap-3 py-2.5">
       <AppIcon functie={icoon} maat="md"/>
       <span className="min-w-0 flex-1"><span className="block text-[15px] font-black">{titel}</span><span className="block truncate text-xs text-ink-soft">{uitleg}</span></span>
-      <Chevron className="size-4 text-ink-soft"/>
+      <Chevron className="size-4 shrink-0 text-ink-soft"/>
     </Link>);
 }
 function Uitklap({ icoon, titel, waarde, children }) {
@@ -206,7 +206,7 @@ function Uitklap({ icoon, titel, waarde, children }) {
       <button onClick={() => setOpen(!open)} aria-expanded={open} className="flex min-h-[58px] w-full items-center gap-3 py-2.5 text-left">
         <AppIcon functie={icoon} maat="md"/>
         <span className="min-w-0 flex-1"><span className="block text-[15px] font-black">{titel}</span><span className="block truncate text-xs text-ink-soft">{waarde}</span></span>
-        <Chevron className={`size-4 text-ink-soft ${open ? "rotate-90" : ""}`}/>
+        <Chevron className={`size-4 shrink-0 text-ink-soft ${open ? "rotate-90" : ""}`}/>
       </button>
       {open ? <div className="pb-3 pl-12">{children}</div> : null}
     </div>);

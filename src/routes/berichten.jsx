@@ -128,85 +128,85 @@ function BerichtenPagina() {
         {pauzeLoopt(vk) ? (<div className="mt-3 flex items-center gap-3 rounded-[18px] border border-white/85 bg-white/60 px-4 py-3" role="status">
             <BellOff className="size-[18px] shrink-0 text-[#3F5747]" strokeWidth={2} aria-hidden/>
             <span className="min-w-0 flex-1 text-[13px] text-ink-soft">{t("routes.berichten.pauzeBanner.tekst", { tijd: new Date(vk.berichtenPauzeTot).toLocaleString(taalLocale(), { weekday: "long", hour: "2-digit", minute: "2-digit" }) })}</span>
-            <button onClick={() => zetVoorkeur("berichtenPauzeTot", null)} className="text-[13px] font-extrabold text-[#3F5747]">{t("routes.berichten.pauzeBanner.stoppen")}</button>
+            <button onClick={() => zetVoorkeur("berichtenPauzeTot", null)} className="min-h-10 shrink-0 text-[13px] font-extrabold text-[#3F5747]">{t("routes.berichten.pauzeBanner.stoppen")}</button>
           </div>) : null}
         {startSt.eigen || zoekActief ? null : (<button onClick={() => setNaOpen(true)} className="mt-4 flex w-full items-center gap-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5 text-left">
             <span className="min-w-0 flex-1">
               <span className="block text-[15px] font-black text-[#2F4A3A]">{t("routes.berichten.vandaagRegelen")}</span>
               <span className="block text-xs text-ink-soft">{t("routes.berichten.vandaagUitleg")}</span>
             </span>
-            <ChevronRight className="size-4 text-ink-soft" strokeWidth={1.8}/>
+            <ChevronRight className="size-4 shrink-0 text-ink-soft" strokeWidth={1.8}/>
           </button>)}
         {!startSt.eigen && openNuAfstemmen(nuAfstemmen).map((n) => <NuAfstemmenKaart key={n.id} n={n}/>)}
 
         <div className="mt-3 space-y-2.5">
-          {emailKoppelingAan && koppeling ? (<button onClick={() => setActief("__email")} className="flex w-full items-center gap-3 rounded-md border border-border bg-card p-3 text-left">
+          {emailKoppelingAan && koppeling ? (<button onClick={() => setActief("__email")} className="flex w-full items-center gap-3 rounded-[22px] border border-white/85 bg-white/60 px-3.5 py-3 text-left">
               <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand"><Mail className="size-5" strokeWidth={1.8}/></div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{t("components.EmailGesprek.titel")}</p>
                 <p className="truncate text-xs text-ink-soft">{t("components.EmailGesprek.viaEmailNaam", { naam: mails[mails.length - 1]?.tekst ?? t("routes.berichten.nogGeenBerichten") })}</p>
               </div>
             </button>) : null}
-          {!verbonden && concept ? (<section className="rounded-lg border border-brand/30 bg-brand-soft p-4" role="status">
+          {!verbonden && concept ? (<section className="rounded-[22px] border border-brand/30 bg-brand-soft px-4 py-3.5" role="status">
               <p className="text-sm font-semibold">{t("routes.berichten.eigen.conceptKlaar")}</p>
               <p className="mt-1 line-clamp-3 text-xs text-ink-soft">“{concept}”</p>
             </section>) : null}
-          {!verbonden && !(emailKoppelingAan && koppeling) ? (<section className="rounded-lg border border-border bg-card p-4">
+          {!verbonden && !(emailKoppelingAan && koppeling) ? (<section className="rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5">
               <p className="font-display text-lg font-bold">{t("routes.berichten.eigen.titel")}</p>
               <p className="mt-1 text-sm text-ink-soft">{startSt.uitgenodigd ? t("routes.berichten.eigen.uitgenodigd") : t("routes.berichten.eigen.nietUitgenodigd")} {t("routes.berichten.eigen.alvast")}</p>
-              {!startSt.uitgenodigd ? <Link to="/solo" className="mt-3 inline-flex min-h-[44px] items-center rounded-xl bg-brand px-4 text-sm font-semibold text-primary-foreground">{t("routes.berichten.uitnodigen")}</Link> : null}
+              {!startSt.uitgenodigd ? <Link to="/solo" className="mt-3 flex min-h-12 w-full items-center justify-center rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{t("routes.berichten.uitnodigen")}</Link> : null}
             </section>) : null}
-          {voorbereid.map((o) => (<button key={o.id} onClick={() => setActief(o.id)} className="flex w-full items-center gap-3 rounded-md border border-border p-3 text-left">
+          {voorbereid.map((o) => (<button key={o.id} onClick={() => setActief(o.id)} className="flex w-full items-center gap-3 rounded-[22px] border border-white/85 bg-white/60 px-3.5 py-3 text-left">
               <AppIcon functie="berichten" maat="sm"/>
               <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{o.onderwerp}</p><p className="truncate text-xs text-ink-soft">{t("routes.berichten.voorbereid")}</p></div>
             </button>))}
           {verbonden && bs.status === "laden" && !lijst.length ? <InhoudLaden hoogte="min-h-[45dvh]"/> : null}
           {bs.status === "fout" && !lijst.length && !voorbereid.length ? <LaadFout onOpnieuw={laadGesprekken}/> : null}
-          {verbonden && bs.status !== "laden" && bs.status !== "fout" && !zoekActief && !lijst.length && !voorbereid.length ? (<section className="rounded-lg border border-border bg-card p-4">
+          {verbonden && bs.status !== "laden" && bs.status !== "fout" && !zoekActief && !lijst.length && !voorbereid.length ? (<section className="rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5">
               <p className="font-display text-lg font-bold">{t("routes.berichten.leeg.titel")}</p>
               <p className="mt-1 text-sm text-ink-soft">{t("routes.berichten.leeg.tekst")}</p>
             </section>) : null}
           {zoekActief && !lijst.length ? <p className="py-6 text-center text-sm text-ink-soft">{t("routes.berichten.geenGevonden", { zoek: zoek.trim() })}</p> : null}
-          {lijst.map(({ g, treffer }) => {
+          {lijst.length ? <div className="overflow-hidden rounded-[22px] border border-border bg-white/70">{lijst.map(({ g, treffer }) => {
                 const vast = g.vastgezet;
                 const stil = isGedempt(g);
-                return (<button key={g.id} onClick={() => setActief(g.id)} className="flex w-full items-center gap-3 rounded-[22px] border border-white/85 bg-white/60 px-3.5 py-3 text-left">
-                <div className="grid size-[42px] shrink-0 place-items-center rounded-[14px] bg-brand-soft text-lg">
-                  <Pictogram waarde={g.icoon} maat="md" vorm="kaal"/>
+                return (<button key={g.id} onClick={() => setActief(g.id)} className="flex w-full items-center gap-3 border-b border-border px-3.5 py-3 text-left last:border-b-0 active:bg-brand-soft/60">
+                <div className="grid size-12 shrink-0 place-items-center rounded-full bg-brand-soft font-display text-lg font-black text-brand" aria-hidden="true">
+                  {(g.onderwerp || "?").trim().charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`flex items-center gap-1.5 text-[15.5px] ${g.ongelezen > 0 ? "font-black text-ink" : "font-extrabold"}`}>
+                  <p className={`flex items-center gap-1.5 text-[16px] ${g.ongelezen > 0 ? "font-black text-ink" : "font-extrabold"}`}>
                     {vast ? <Pin aria-label={t("routes.berichten.vastgezet")} className="size-3 shrink-0 text-ink-soft" strokeWidth={1.8}/> : null}
                     <span className="truncate">{g.onderwerp}</span>
                     {stil ? <BellOff aria-label={t("routes.berichten.gedempt")} className="size-3 shrink-0 text-ink-soft" strokeWidth={1.8}/> : null}
                   </p>
                   <p className={`truncate text-[13px] ${g.ongelezen > 0 ? "font-bold text-ink" : "text-ink-soft"}`}>{treffer ?? (g.laatste || t("routes.berichten.nogGeenBerichten"))}</p>
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-xs text-ink-soft">{g.laatsteTijd}</span>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className={`text-xs ${g.ongelezen > 0 ? "font-bold text-brand" : "text-ink-soft"}`}>{g.laatsteTijd}</span>
                   {g.ongelezen > 0 ? <span className="grid h-[22px] min-w-[22px] place-items-center rounded-full bg-brand px-1.5 text-xs font-black text-primary-foreground" aria-label={t("routes.berichten.ongelezen", { count: g.ongelezen })}>{g.ongelezen}</span> : null}
                 </div>
             </button>);
-            })}
+            })}</div> : null}
         </div>
 
-        <button onClick={() => setRustOpen(true)} className="mt-4 flex w-full items-center gap-2 px-1 text-left">
+        <button onClick={() => setRustOpen(true)} className="mt-3 flex min-h-12 w-full items-center gap-2.5 rounded-[18px] border border-border bg-white/50 px-4 text-left">
           <Moon className="size-[17px] shrink-0 text-ink-soft" strokeWidth={2}/>
-          <span className="flex-1 text-[13px] text-ink-soft">{vk.rustmodus ? t("routes.berichten.rust.aan", { van: vk.rustVan, tot: vk.rustTot }) : t("routes.berichten.rust.uit")}</span>
-          <span className="text-[13px] font-extrabold text-[#3F5747]">{vk.rustmodus ? t("routes.berichten.rust.aanpassen") : t("routes.berichten.rust.instellen")}</span>
+          <span className="min-w-0 flex-1 text-[13px] text-ink-soft">{vk.rustmodus ? t("routes.berichten.rust.aan", { van: vk.rustVan, tot: vk.rustTot }) : t("routes.berichten.rust.uit")}</span>
+          <span className="shrink-0 text-[13px] font-extrabold text-[#3F5747]">{vk.rustmodus ? t("routes.berichten.rust.aanpassen") : t("routes.berichten.rust.instellen")}</span>
         </button>
-        {!verbonden ? <div className="mt-4 rounded-md border border-border p-4">
+        {!verbonden ? <div className="mt-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5">
           <p className="text-sm font-semibold">{t("routes.berichten.onderwerpVoorbereiden")}</p>
           <p className="mt-1 text-xs text-ink-soft">
             {t("routes.berichten.onderwerpVoorbeelden")}
           </p>
           {nieuwOpen ? (<form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); void start(); }}>
               <input autoFocus value={naam} onChange={(e) => setNaam(e.target.value)} maxLength={120} placeholder={t("routes.berichten.naamOnderwerp")} className="min-w-0 flex-1 rounded-md border bg-background px-3 py-2.5 text-sm"/>
-              <button type="submit" disabled={!naam.trim()} className="rounded-md bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">
+              <button type="submit" disabled={!naam.trim()} className="min-h-11 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">
                 {t("routes.berichten.startKnop")}
               </button>
-            </form>) : (<button onClick={() => setNieuwOpen(true)} className="mt-3 w-full rounded-md border border-white/70 bg-white/70 py-2.5 text-sm font-semibold text-brand">
-              {t("routes.berichten.plusOnderwerp")}
+            </form>) : (<button onClick={() => setNieuwOpen(true)} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-soft px-4 text-sm font-semibold text-brand">
+              <Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0"/>{t("routes.berichten.plusOnderwerp").replace(/^\+\s*/, "")}
             </button>)}
         </div> : null}
       </AppShell>);
@@ -288,7 +288,21 @@ function NieuwBericht({ open, voorinvul, gesprekken, onSluit, onStart }) {
 const stijlen = ["Rustiger", "Korter", "Neutraler", "Duidelijker", "Meer kindgericht"];
 /** Stijlen blijven Nederlandse ids voor de schrijfcoach; alleen het label wordt vertaald. */
 const stijlSleutel = { "Rustiger": "rustiger", "Korter": "korter", "Neutraler": "neutraler", "Duidelijker": "duidelijker", "Meer kindgericht": "kindgericht" };
+/** Bij openen en bij een nieuw bericht naar het laatste bericht scrollen. */
+function ScrollNaarLaatste({ eindRef, aantal }) {
+    useEffect(() => {
+        const el = eindRef.current;
+        if (!el)
+            return;
+        const tijd = window.setTimeout(() => el.scrollIntoView({ block: "end", behavior: aantal ? "smooth" : "auto" }), 60);
+        return () => window.clearTimeout(tijd);
+    }, [eindRef, aantal]);
+    return null;
+}
 function Gesprek({ id, concept = "", onTerug }) {
+    const eindRef = useRef(null);
+    // Anker onder de hulp-/waarschuwingspanelen: bij openen daar naartoe scrollen.
+    const panelEindRef = useRef(null);
     const { t } = useTranslation();
     const bs = useBerichten();
     const startSt = useStart();
@@ -602,10 +616,15 @@ function Gesprek({ id, concept = "", onTerug }) {
         }
     };
     return (<AppShell>
-      <div className="flex items-center gap-3">
+      <ScrollNaarLaatste eindRef={eindRef} aantal={berichten.length}/>
+      <ScrollNaarLaatste eindRef={panelEindRef} aantal={[voorstel, waarschuwing, beledigingCheck, ruimte, pauzeTot].filter(Boolean).length ? `${voorstel?.tekst ?? ""}|${!!waarschuwing}|${!!beledigingCheck}|${!!ruimte}|${!!pauzeTot}` : 0}/>
+      {/* Chat zoals een chat-app: vaste kop bovenaan, berichten scrollen, schrijfveld direct boven het menu. */}
+      <div className="app-canvas fixed inset-x-0 top-0 z-10 mx-auto flex w-full max-w-md flex-col" style={{ bottom: "calc(75px + max(12px, env(safe-area-inset-bottom, 0px)))" }}>
+      <div className="flex shrink-0 items-center gap-3 border-b border-border bg-[color-mix(in_oklab,var(--card)_80%,transparent)] px-4 pb-3 backdrop-blur" style={{ paddingTop: "max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem))" }}>
         <TerugKnop onClick={onTerug}/>
+        <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-soft font-display text-base font-black text-brand">{(gesprek.onderwerp || "?").trim().charAt(0).toUpperCase()}</span>
         <div className="min-w-0 flex-1">
-          <h1 className="lora text-[26px] leading-tight">{gesprek.onderwerp}</h1>
+          <h1 className="truncate font-display text-[18px] font-black leading-tight">{gesprek.onderwerp}</h1>
           <p className="text-xs text-ink-soft">{eigen ? (eigen.concept ? t("routes.berichten.gesprek.conceptNietGekoppeld") : t("routes.berichten.gesprek.nietMeerGekoppeld")) : t("routes.berichten.gesprek.jullieTweeen")}</p>
         </div>
         {eigen ? null : <GesprekOpties id={gesprek.id} onderwerp={gesprek.onderwerp} onSamenvatten={vkG.aiSchrijfhulp && berichten.length ? async () => { setVatBezig(true); setFout(null); try {
@@ -618,13 +637,16 @@ function Gesprek({ id, concept = "", onTerug }) {
         setVatBezig(false);
     } } : undefined}/>}
       </div>
+      <div className="flex min-h-0 flex-1 flex-col px-3 pb-3">
 
-      {samenvatting ? (<div className="mt-3 rounded-[18px] border border-white/85 bg-white/70 p-3 text-sm">
+      {samenvatting ? (<div className="mt-3 max-h-[35%] shrink-0 overflow-y-auto rounded-[18px] border border-white/85 bg-white/70 p-3 text-sm">
           <div className="flex items-center justify-between"><p className="text-xs font-semibold text-ink-soft">{t("routes.berichten.samenvatting.titel")}</p><button onClick={() => setSamenvatting(null)} className="knop-kruis size-7 text-xs" aria-label={t("common.sluiten")}><Kruis className="size-3.5"/></button></div>
           <p className="mt-1 whitespace-pre-line text-ink">{samenvatting}</p>
         </div>) : vatBezig ? <p className="mt-3 text-center text-xs text-ink-soft">{t("routes.berichten.samenvatting.bezig")}</p> : null}
 
-      <div className="mt-4 space-y-3">
+      {/* Chatvenster: stippelachtergrond, vult het scherm, berichten staan onderaan (zoals een chat-app). */}
+      <div className="chat-veld mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[24px] px-3 py-4">
+        <div className="flex min-h-full flex-col justify-end gap-3">
         {berichten.map((b, i) => {
             const dag = dagLabel(b.at);
             const nieuweDag = i === 0 || dag !== dagLabel(berichten[i - 1].at);
@@ -634,8 +656,8 @@ function Gesprek({ id, concept = "", onTerug }) {
             return (<div key={b.id}>
               {nieuweDag ? <p className="mb-3 mt-1 text-center"><span className="rounded-full bg-white/60 px-2.5 py-1 text-[11.5px] font-extrabold text-ink-soft">{dag}</span></p> : null}
               <div className={`flex ${vanMij ? "justify-end" : "justify-start"}`}>
-                <div className="min-w-0 max-w-[80%] break-words">
-                  <button type="button" onClick={() => setActiesVoor(actiesVoor === b.id ? null : b.id)} aria-expanded={actiesVoor === b.id} aria-label={vanMij ? t("routes.berichten.bericht.vanJouLabel") : t("routes.berichten.bericht.vanAnderLabel", { naam: anderKlein })} className={`block w-full rounded-[20px] px-4 py-2.5 text-left text-[15px] leading-snug ${vanMij ? "rounded-br-md bg-brand text-primary-foreground" : "rounded-bl-md border border-white/95 bg-white/90 text-ink"}`}>{b.tekst}</button>
+                <div className={`flex min-w-0 max-w-[80%] flex-col break-words ${vanMij ? "items-end" : "items-start"}`}>
+                  <button type="button" onClick={() => setActiesVoor(actiesVoor === b.id ? null : b.id)} aria-expanded={actiesVoor === b.id} aria-label={vanMij ? t("routes.berichten.bericht.vanJouLabel") : t("routes.berichten.bericht.vanAnderLabel", { naam: anderKlein })} className={`block w-auto max-w-full rounded-[20px] px-4 py-2.5 text-left text-[15px] leading-snug ${vanMij ? "rounded-br-md bg-brand text-primary-foreground" : "rounded-bl-md border border-white/95 bg-white/90 text-ink"}`}>{b.tekst}</button>
                   {vraag ? (<button type="button" onClick={() => setAkkoordVoor(b)} className="mt-1.5 flex w-full items-center gap-2.5 rounded-[16px] border border-[#C9D6C3] bg-[#E9EFE3] px-3 py-2 text-left">
                       <AppIcon functie="agenda" maat="sm" vorm="kaal"/>
                       <span className="min-w-0"><span className="block text-[13.5px] font-black text-[#2F4A3A]">{vraag}</span><span className="block text-xs text-ink-soft">{t("routes.berichten.bericht.inAgendaVraag")}</span></span>
@@ -653,7 +675,7 @@ function Gesprek({ id, concept = "", onTerug }) {
                       <Link to="/afspraken" search={{ nieuw: "afspraak", bron: b.tekst }} className="flex items-center gap-2.5 border-b border-[#F0EAE1] px-3.5 py-3 font-extrabold"><AppIcon functie="afspraak" maat="sm" vorm="kaal"/>{t("routes.berichten.bericht.vastleggen")}</Link>
                       {vindDeadline(b.tekst) ? <Link to="/taken" search={{ taak: b.tekst.slice(0, 60), deadline: vindDeadline(b.tekst) }} className="flex items-center gap-2.5 px-3.5 py-3 font-extrabold"><AppIcon functie="tijd" maat="sm" vorm="kaal"/>{t("routes.berichten.bericht.deadline")}</Link> : null}
                     </div>) : null}
-                  {laatsteVanAnder && vkG.aiSchrijfhulp && actiesVoor !== b.id && !akkoorden[b.id] ? (<button type="button" disabled={bezig} onClick={() => void helpAntwoorden(b)} className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full border border-[#E6DED2] bg-white/75 pl-1 pr-3 text-[13px] font-extrabold text-[#2F4A3A] disabled:opacity-50">
+                  {laatsteVanAnder && vkG.aiSchrijfhulp && actiesVoor !== b.id && !akkoorden[b.id] ? (<button type="button" disabled={bezig} onClick={() => void helpAntwoorden(b)} className="mt-2 inline-flex h-10 items-center gap-2.5 rounded-full border border-[#E6DED2] bg-white/85 py-1 pl-1.5 pr-4 text-[13.5px] font-extrabold text-[#2F4A3A] shadow-[0_1px_2px_rgba(60,50,40,.06)] disabled:opacity-50">
                       <AppIcon functie="co" maat="sm"/>{bezig ? t("routes.berichten.evenKijken") : t("routes.berichten.bericht.helpReageren")}
                     </button>) : null}
                 </div>
@@ -671,7 +693,7 @@ function Gesprek({ id, concept = "", onTerug }) {
                 </div>) : null}
             </div>);
         })}
-      </div>
+        <div ref={eindRef} aria-hidden="true"/>
 
       <Sheet open={!!akkoordVoor} onOpenChange={(o) => { if (!o) {
         setAkkoordVoor(null);
@@ -706,10 +728,10 @@ function Gesprek({ id, concept = "", onTerug }) {
             </>)}
           {waarschuwing.afwijking ? <div className={waarschuwing.niveau === "geen" ? "" : "mt-3"}><AfwijkingHint /></div> : null}
           <div className="mt-3 flex flex-col gap-2">
-            {waarschuwing.niveau === "geen" ? null : <button onClick={() => herschrijf("Rustiger")} className="flex items-center justify-center gap-1.5 rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground"><AppIcon functie="slim" maat="sm" vorm="kaal"/>{t("routes.berichten.waarschuwing.bekijkVoorstel")}</button>}
+            {waarschuwing.niveau === "geen" ? null : <button onClick={() => herschrijf("Rustiger")} className="flex items-center justify-center gap-1.5 min-h-11 rounded-full bg-brand px-4 text-sm font-semibold text-primary-foreground"><AppIcon functie="slim" maat="sm" vorm="kaal"/>{t("routes.berichten.waarschuwing.bekijkVoorstel")}</button>}
             <div className="flex gap-2">
-              <button onClick={() => verstuur(tekst)} className="flex-1 rounded-md border border-border py-2.5 text-sm font-semibold text-ink-soft">{t("routes.berichten.tochVersturen")}</button>
-              <button onClick={() => setWaarschuwing(null)} className="flex-1 rounded-md border border-border py-2.5 text-sm font-semibold">{t("routes.berichten.terugNaarBericht")}</button>
+              <button onClick={() => verstuur(tekst)} className="flex-1 min-h-11 rounded-full border border-border bg-card px-4 text-sm font-semibold text-ink-soft">{t("routes.berichten.tochVersturen")}</button>
+              <button onClick={() => setWaarschuwing(null)} className="flex-1 min-h-11 rounded-full border border-border bg-card px-4 text-sm font-semibold">{t("routes.berichten.terugNaarBericht")}</button>
             </div>
           </div>
           {waarschuwing.niveau === "dreigend" ? <div className="mt-3"><HulpKaart /></div> : null}
@@ -720,16 +742,16 @@ function Gesprek({ id, concept = "", onTerug }) {
           <p className="mt-1 text-sm text-ink-soft">{t("routes.berichten.belediging.tekst")}</p>
           <p className="mt-2 rounded-md bg-muted p-2.5 text-sm text-ink">{tekst}</p>
           <div className="mt-3 flex flex-col gap-2">
-            <button onClick={() => herschrijf("Rustiger")} className="flex items-center justify-center gap-1.5 rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground"><AppIcon functie="slim" maat="sm" vorm="kaal"/>{t("routes.berichten.belediging.helpFormuleren")}</button>
-            <button onClick={() => setBeledigingCheck(false)} className="rounded-md border border-border py-2.5 text-sm font-semibold">{t("routes.berichten.terugNaarBericht")}</button>
-            <button onClick={() => verstuur(tekst)} className="py-1.5 text-xs text-ink-soft underline-offset-2 hover:underline">{t("routes.berichten.tochVersturen")}</button>
+            <button onClick={() => herschrijf("Rustiger")} className="flex items-center justify-center gap-1.5 min-h-11 rounded-full bg-brand px-4 text-sm font-semibold text-primary-foreground"><AppIcon functie="slim" maat="sm" vorm="kaal"/>{t("routes.berichten.belediging.helpFormuleren")}</button>
+            <button onClick={() => setBeledigingCheck(false)} className="min-h-11 rounded-full border border-border bg-card px-4 text-sm font-semibold">{t("routes.berichten.terugNaarBericht")}</button>
+            <button onClick={() => verstuur(tekst)} className="min-h-10 text-xs text-ink-soft underline-offset-2 hover:underline">{t("routes.berichten.tochVersturen")}</button>
           </div>
         </div>) : null}
 
       {voorstel ? (<div className="mt-4 space-y-3 rounded-md border border-brand/20 bg-brand-soft p-4">
           <div className="flex items-start justify-between gap-2">
             <p className="flex items-center gap-1.5 font-display text-base font-semibold"><AppIcon functie="slim" maat="sm" vorm="kaal"/>{t("routes.berichten.voorstel.titel")}</p>
-            <button type="button" onClick={() => setInfoOpen((o) => !o)} aria-label={t("routes.berichten.voorstel.over")} className="text-ink-soft"><Info className="size-4"/></button>
+            <button type="button" onClick={() => setInfoOpen((o) => !o)} aria-label={t("routes.berichten.voorstel.over")} className="-mr-2 -mt-2 grid size-10 shrink-0 place-items-center text-ink-soft"><Info className="size-4"/></button>
           </div>
           <p className="text-xs text-ink-soft">{t("routes.berichten.voorstel.intro")}</p>
           {infoOpen ? (<p className="rounded-md bg-card p-2.5 text-[11px] text-ink-soft">
@@ -747,11 +769,11 @@ function Gesprek({ id, concept = "", onTerug }) {
               <p className="text-sm text-ink-soft">{voorstel.nieuweDetails?.length ? t("routes.berichten.voorstel.detailsUitleg") : t("routes.berichten.voorstel.geenAndereUitleg")}</p>
               {voorstel.afwijking ? <AfwijkingHint /> : null}
               <Button variant="outline" onClick={() => { setVoorstel(null); setWaarschuwing(null); }} className="h-auto w-full whitespace-normal py-2.5">{t("routes.berichten.voorstel.verder")}</Button>
-            </div>) : voorstel.soort === "antwoord" && voorstel.alGereageerd && !voorstel.tekst.trim() ? (<button onClick={() => setVoorstel(null)} className="w-full rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{t("common.sluiten")}</button>) : voorstel.soort === "antwoord" && !voorstel.reactieNodig && !voorstel.toonToch ? (<div className="space-y-2">
+            </div>) : voorstel.soort === "antwoord" && voorstel.alGereageerd && !voorstel.tekst.trim() ? (<button onClick={() => setVoorstel(null)} className="w-full min-h-11 rounded-full bg-brand px-4 text-sm font-semibold text-primary-foreground">{t("common.sluiten")}</button>) : voorstel.soort === "antwoord" && !voorstel.reactieNodig && !voorstel.toonToch ? (<div className="space-y-2">
               <p className="text-sm text-ink">{t("routes.berichten.voorstel.nietNodig")}</p>
               <div className="flex gap-2">
-                <button onClick={() => setVoorstel(null)} className="flex-1 rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{t("routes.berichten.voorstel.latenRusten")}</button>
-                {voorstel.tekst.trim() ? <button onClick={() => setVoorstel({ ...voorstel, toonToch: true })} className="flex-1 rounded-md border border-border bg-card py-2.5 text-sm font-semibold">{t("routes.berichten.voorstel.tochAntwoord")}</button> : null}
+                <button onClick={() => setVoorstel(null)} className="flex-1 min-h-11 rounded-full bg-brand px-4 text-sm font-semibold text-primary-foreground">{t("routes.berichten.voorstel.latenRusten")}</button>
+                {voorstel.tekst.trim() ? <button onClick={() => setVoorstel({ ...voorstel, toonToch: true })} className="flex-1 min-h-11 rounded-full border border-border bg-card px-4 text-sm font-semibold">{t("routes.berichten.voorstel.tochAntwoord")}</button> : null}
               </div>
             </div>) : voorstel.tekst.trim() ? (<>
               <label className="block">
@@ -781,14 +803,14 @@ function Gesprek({ id, concept = "", onTerug }) {
                     setWaarschuwing(null);
                 }} className="h-auto min-h-11 w-full whitespace-normal py-2.5">{voorstel.soort === "antwoord" ? t("routes.berichten.voorstel.gebruikAntwoord") : t("routes.berichten.voorstel.gebruikVoorstel")}</Button>
                 <div className="flex gap-2">
-                  {voorstel.soort === "schrijven" ? <button disabled={bezig} onClick={() => anderVoorstel(voorstel.origineel)} className="flex-1 rounded-md border border-border bg-card py-2.5 text-sm font-semibold text-brand disabled:opacity-50">{bezig ? t("routes.berichten.evenKijken") : t("common.anderVoorstel")}</button> : null}
+                  {voorstel.soort === "schrijven" ? <button disabled={bezig} onClick={() => anderVoorstel(voorstel.origineel)} className="flex-1 min-h-11 rounded-full border border-border bg-card px-4 text-sm font-semibold text-brand disabled:opacity-50">{bezig ? t("routes.berichten.evenKijken") : t("common.anderVoorstel")}</button> : null}
                   {voorstel.soort === "antwoord" ? <Button variant="outline" disabled={bezig} onClick={() => { const bron = berichten.find((b) => b.id === voorstel.bronId); if (bron)
                 void helpAntwoorden(bron, Math.min(100, (voorstel.variant ?? 0) + 1)); }} className="h-auto min-h-11 flex-1 whitespace-normal">{t("common.anderVoorstel")}</Button> : null}
                   <button onClick={() => { if (voorstel.soort === "schrijven")
-                setTekst(voorstel.origineel); setVoorstel(null); }} className="flex-1 rounded-md border border-border bg-card py-2.5 text-sm font-semibold text-ink-soft">{voorstel.soort === "antwoord" ? t("common.terug") : t("routes.berichten.voorstel.terugMijnTekst")}</button>
+                setTekst(voorstel.origineel); setVoorstel(null); }} className="flex-1 min-h-11 rounded-full border border-border bg-card px-4 text-sm font-semibold text-ink-soft">{voorstel.soort === "antwoord" ? t("common.terug") : t("routes.berichten.voorstel.terugMijnTekst")}</button>
                 </div>
               </div>
-            </>) : (<button onClick={() => setVoorstel(null)} className="w-full rounded-md border border-border bg-card py-2.5 text-sm font-semibold">{t("common.sluiten")}</button>)}
+            </>) : (<button onClick={() => setVoorstel(null)} className="w-full min-h-11 rounded-full border border-border bg-card px-4 text-sm font-semibold">{t("common.sluiten")}</button>)}
           <p className="text-[11px] text-ink-soft">{t("routes.berichten.voorstel.nietsVanzelf", { wie: ander })}</p>
         </div>) : null}
 
@@ -797,10 +819,10 @@ function Gesprek({ id, concept = "", onTerug }) {
           <p className="font-semibold">{t("routes.berichten.ruimte.titel")}</p>
           <p className="mt-1 text-sm text-ink-soft">{t("routes.berichten.ruimte.tekst")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={() => { setRuimte(false); }} className="rounded-md bg-brand px-4 py-2 text-xs font-semibold text-primary-foreground">{t("routes.berichten.ruimte.later")}</button>
-            <button onClick={() => setRuimte(false)} className="rounded-md border border-border px-4 py-2 text-xs font-semibold">{t("routes.berichten.ruimte.nogEens")}</button>
-            <button onClick={() => { setRuimte(false); setStijlOpen(true); }} className="rounded-md border border-border px-4 py-2 text-xs font-semibold text-brand">{t("routes.berichten.ruimte.rustiger")}</button>
-            <button onClick={() => { setRuimte(false); verstuur(tekst, true); }} className="px-2 py-2 text-xs text-ink-soft">{t("routes.berichten.tochVersturen")}</button>
+            <button onClick={() => { setRuimte(false); }} className="min-h-10 rounded-full bg-brand px-4 text-xs font-semibold text-primary-foreground">{t("routes.berichten.ruimte.later")}</button>
+            <button onClick={() => setRuimte(false)} className="min-h-10 rounded-full border border-border px-4 text-xs font-semibold">{t("routes.berichten.ruimte.nogEens")}</button>
+            <button onClick={() => { setRuimte(false); setStijlOpen(true); }} className="min-h-10 rounded-full border border-border px-4 text-xs font-semibold text-brand">{t("routes.berichten.ruimte.rustiger")}</button>
+            <button onClick={() => { setRuimte(false); verstuur(tekst, true); }} className="min-h-10 px-2 text-xs text-ink-soft">{t("routes.berichten.tochVersturen")}</button>
           </div>
         </div>) : null}
 
@@ -811,7 +833,12 @@ function Gesprek({ id, concept = "", onTerug }) {
           <div className="mt-2"><HulpKaart /></div>
         </div>) : null}
 
-      <div className="relative mt-4 rounded-[26px] bg-white p-1.5 shadow-[0_6px_18px_rgba(60,50,40,.10)]">
+      <div ref={panelEindRef} aria-hidden="true"/>
+        </div>
+      </div>
+      </div>
+      <div className="shrink-0 px-3 pb-2 pt-1">
+      <div className="relative rounded-[26px] border border-border bg-white p-1.5 shadow-[0_6px_18px_rgba(60,50,40,.10)]">
         {fijn ? <FijnGecommuniceerd key={fijn}/> : null}
         <div className="flex items-end gap-2">
           {vkG.aiSchrijfhulp ? <EvenMeedenken alsKnop gesprekId={id} berichten={berichten} huidigConcept={tekst} onOvernemen={(t) => { schrijfNummer.current++; setBezig(false); setVoorstel(null); setWaarschuwing(null); setBeledigingCheck(false); setTekst(t); }}/> : null}
@@ -823,7 +850,7 @@ function Gesprek({ id, concept = "", onTerug }) {
         <CommunicatieSuggestie concept={tekst} berichten={berichten} namen={suggestieNamen} gesprekId={id} veiligheid={huidigeBeoordeling?.niveau === "dreigend" || huidigeBeoordeling?.afstemming === "druk" || waarschuwing?.niveau === "dreigend" || voorstel?.niveau === "dreigend" || mogelijkeOnveiligheid(tekst)} verwerkt={bezig || !!voorstel || stijlOpen || !!waarschuwing || ruimte || !!pauzeTot} onAanvullen={(t) => { schrijfNummer.current++; setTekst(t); }}/>
         {afstemmingNodig && !signaalVraagtHerformulering(huidigSignaal) && !voorstel ? <div className="mt-1 px-1 text-xs text-ink-soft"><p>{t("routes.berichten.afstemming.vraagt")}</p><Button variant="link" disabled={bezig} onClick={() => herschrijf("Duidelijker", true)} className="h-auto whitespace-normal p-0 text-xs"><MetChevron>{t("routes.berichten.afstemming.alsVoorstel")}</MetChevron></Button></div> : signaalVraagtHerformulering(huidigSignaal) && !voorstel ? <Button variant="link" disabled={bezig} onClick={() => herschrijf("Rustiger")} className="mt-1 h-auto px-1 text-xs text-accent-foreground">{t("routes.berichten.afstemming.andereFormulering")}</Button> : null}
         {stijlOpen ? (<div className="mt-2 flex flex-wrap gap-2">
-            {stijlen.map((s) => (<button key={s} onClick={() => herschrijf(s)} className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-brand">{t(`routes.berichten.stijl.${stijlSleutel[s]}`)}</button>))}
+            {stijlen.map((s) => (<button key={s} onClick={() => herschrijf(s)} className="min-h-9 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-brand">{t(`routes.berichten.stijl.${stijlSleutel[s]}`)}</button>))}
           </div>) : null}
         {fout || traag ? <div className="mt-2 text-xs text-ink"><p>{fout ?? t("routes.berichten.traag")}</p><div className="mt-2 flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => { schrijfNummer.current++; cache.current.wis(); herschrijf(laatsteStijl.current, afstemmingNodig); }}>{t("routes.berichten.opnieuw")}</Button>{!eigen ? <Button size="sm" onClick={probeerVersturen}>{t("routes.berichten.gewoonVersturen")}</Button> : null}</div></div> : null}
         {conceptHersteld && tekst.trim() ? (<p className="mt-1 px-1 text-[11px] text-ink-soft">
@@ -837,14 +864,16 @@ function Gesprek({ id, concept = "", onTerug }) {
             {eigen ? <button disabled={!tekst.trim()} onClick={async () => { if (await bewaarConcept(id, tekst, { direct: true })) {
                 setConceptHersteld(true);
                 bevestig(t("routes.berichten.conceptBewaardToast"), { uitleg: t("routes.berichten.bewaardApparaat") });
-            } }} className="rounded-full bg-brand px-4 py-2 text-sm font-black text-primary-foreground disabled:opacity-50">{t("routes.berichten.conceptBewaren")}</button> : null}
+            } }} className="min-h-10 rounded-full bg-brand px-4 text-sm font-black text-primary-foreground disabled:opacity-50">{t("routes.berichten.conceptBewaren")}</button> : null}
           </div>) : null}
         </div>
       </div>
-      {eigen ? (<div className="mt-3 rounded-md border border-border bg-card p-3 text-sm">
+      {eigen ? (<div className="mt-2 rounded-[18px] border border-border bg-card p-3 text-sm">
           <p className="text-ink-soft">{t("routes.berichten.eigen.conceptApparaat")}</p>
           {!eigen.uitgenodigd ? <Link to="/solo" className="mt-2 inline-flex min-h-[44px] items-center font-semibold text-brand"><MetChevron>{t("routes.berichten.uitnodigenPijl")}</MetChevron></Link> : null}
         </div>) : null}
+      </div>
+      </div>
     </AppShell>);
 }
 /** Compact venster voor de bestaande rustmodus; geen omweg via Instellingen. */
@@ -888,7 +917,7 @@ function RustSheet({ open, onSluit }) {
           <label className="block text-xs font-semibold text-ink-soft">{t("routes.berichten.rust.vanaf")}<input type="time" value={vk.rustVan} onChange={(e) => e.target.value && zetVoorkeur("rustVan", e.target.value)} className={veld}/></label>
           <label className="block text-xs font-semibold text-ink-soft">{t("routes.berichten.rust.tot")}<input type="time" value={vk.rustTot} onChange={(e) => e.target.value && zetVoorkeur("rustTot", e.target.value)} className={veld}/></label>
         </div>
-        <button onClick={onSluit} className="mt-5 w-full rounded-md bg-brand py-3 text-sm font-semibold text-primary-foreground">{t("common.klaar")}</button>
+        <button onClick={onSluit} className="mt-5 min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{t("common.klaar")}</button>
       </SheetContent>
     </Sheet>);
 }
@@ -898,7 +927,7 @@ function AfwijkingHint() {
     return (<div className="rounded-md border border-border bg-card p-3">
       <p className="text-sm text-ink">{t("routes.berichten.afwijking.tekst")}</p>
       <p className="mt-1 text-[11px] text-ink-soft">{t("routes.berichten.afwijking.uitleg")}</p>
-      <Link to="/zorgregeling" search={{ actie: "wijziging", bron: "berichten" }} className="mt-2 inline-flex rounded-md border border-border px-3 py-2 text-xs font-semibold text-brand">{t("routes.berichten.afwijking.knop")}</Link>
+      <Link to="/zorgregeling" search={{ actie: "wijziging", bron: "berichten" }} className="mt-2 inline-flex min-h-10 items-center rounded-full border border-border px-4 text-xs font-semibold text-brand">{t("routes.berichten.afwijking.knop")}</Link>
     </div>);
 }
 /**

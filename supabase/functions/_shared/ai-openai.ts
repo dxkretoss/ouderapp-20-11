@@ -108,9 +108,24 @@ async function failFrom(res: Response, path: string): Promise<never> {
 
 interface ChatOptions {
   messages: ChatMessage[];
+  /**
+   * Language of every user-facing text in the answer (the app language). The prompts are written in Dutch,
+   * so a single line at the end of a long Dutch prompt is often ignored: this adds a separate, final
+   * system message that the model reads last.
+   */
+  lang?: "nl" | "en";
   temperature?: number;
   maxTokens?: number;
   model?: string;
+}
+
+const TAAL_REGEL = {
+  en: "LANGUAGE (highest priority): write EVERY text meant for the user — suggestions, suggested replies, rewritten messages, summaries, explanations, titles, lists — in natural, everyday British English. Do this even though the instructions above are written in Dutch and ask for Dutch text, and even if the conversation contains Dutch. Keep names, dates, amounts and places exactly as given. JSON keys and enum values stay exactly as defined in the schema.",
+  nl: "TAAL (hoogste prioriteit): schrijf ALLE tekst voor de gebruiker — voorstellen, antwoordsuggesties, herschreven berichten, samenvattingen, uitleg, titels, lijsten — in natuurlijk, alledaags Nederlands. Houd namen, data, bedragen en plaatsen precies zoals ze zijn. JSON-sleutels en enum-waarden blijven exact zoals in het schema.",
+};
+/** Adds the final language instruction (see ChatOptions.lang). */
+function metTaal(messages: ChatMessage[], lang?: "nl" | "en"): ChatMessage[] {
+  return lang ? [...messages, { role: "system", content: TAAL_REGEL[lang] }] : messages;
 }
 
 async function chat(body: Record<string, unknown>): Promise<string> {
@@ -137,7 +152,7 @@ export async function chatJson<T = Record<string, unknown>>(
 ): Promise<T> {
   const text = await chat({
     model: opts.model || aiModel(),
-    messages: opts.messages,
+    messages: metTaal(opts.messages, opts.lang),
     temperature: opts.temperature ?? 0.3,
     max_tokens: opts.maxTokens ?? 1200,
     response_format: { type: "json_schema", json_schema: { name: opts.name, strict: true, schema: opts.schema } },
@@ -154,7 +169,7 @@ export async function chatJson<T = Record<string, unknown>>(
 export async function chatText(opts: ChatOptions): Promise<string> {
   const text = await chat({
     model: opts.model || aiModel(),
-    messages: opts.messages,
+    messages: metTaal(opts.messages, opts.lang),
     temperature: opts.temperature ?? 0.3,
     max_tokens: opts.maxTokens ?? 600,
   });

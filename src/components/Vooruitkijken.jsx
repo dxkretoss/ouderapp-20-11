@@ -75,7 +75,7 @@ export function Vooruitkijken() {
                 </div>
                 {waarom === s.id ? <p className="mt-2 rounded-md bg-muted px-3 py-2 text-[11px] leading-relaxed text-ink-soft">{s.waarom}</p> : null}
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {s.acties.slice(0, 1).map((a) => a.to ? (<Link key={a.label} to={a.to} search={a.search} className="rounded-full border border-brand/40 px-3 py-1 text-xs font-semibold text-brand">{a.label}</Link>) : (<button key={a.label} onClick={a.doe} className="rounded-full border border-brand/40 px-3 py-1 text-xs font-semibold text-brand">{a.label}</button>))}
+                  {s.acties.slice(0, 1).map((a) => a.to ? (<Link key={a.label} to={a.to} search={a.search} className="inline-flex min-h-9 items-center rounded-full border border-brand/40 px-3.5 text-xs font-semibold text-brand">{a.label}</Link>) : (<button key={a.label} onClick={a.doe} className="inline-flex min-h-9 items-center rounded-full border border-brand/40 px-3.5 text-xs font-semibold text-brand">{a.label}</button>))}
                 </div>
               </li>))}
           </ul>

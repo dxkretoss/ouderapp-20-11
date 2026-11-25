@@ -65,6 +65,12 @@ function zorgVoorLaden() {
         laadKosten();
 }
 /** Alles opnieuw van de server halen. */
+/**
+ * Teller van eigen wijzigingen (toevoegen, reageren, verwijderen …). Een verversing die liep terwijl er
+ * iets gewijzigd werd, heeft oude gegevens: die gooien we weg en we laden direct opnieuw — anders zou een
+ * net toegevoegde uitgave verdwijnen tot de pagina herladen wordt.
+ */
+let wijzigingen = 0;
 export async function laadKosten() {
     const a = authState();
     if (a.status !== "aan" || !a.gebruiker)
@@ -77,11 +83,17 @@ export async function laadKosten() {
         meld();
     }
     laatsteLaad = Date.now();
+    const wijzigingenBijStart = wijzigingen;
+    let opnieuw = false;
     bezigMet = (async () => {
         try {
             const r = await api("manage-expenses", "overview");
             if (authState().gebruiker?.id !== voor)
                 return;
+            if (wijzigingen !== wijzigingenBijStart) {
+                opnieuw = true; // verouderd antwoord: niet over de nieuwe stand heen schrijven
+                return;
+            }
             ruw = { me: r.me, partner_id: r.partner_id ?? null, partner_ids: r.partner_ids ?? (r.partner_id ? [r.partner_id] : []), pairs: r.pairs ?? [], expenses: r.expenses ?? [], budgets: r.budgets ?? [], settlements: r.settlements ?? [], recurring: r.recurring ?? [], pots: r.pots ?? [], agreement: r.agreement ?? { current: null, pending: null } };
             status = "klaar";
             geladenVoor = voor;
@@ -106,6 +118,8 @@ export async function laadKosten() {
                 queueMicrotask(zorgVoorLaden);
             }
             meld();
+            if (opnieuw)
+                queueMicrotask(() => { void laadKosten(); });
         }
     })();
     return bezigMet;
@@ -113,8 +127,9 @@ export async function laadKosten() {
 /** Intern voor budget-store / vaste-lasten-store: ruwe bron lezen en één record vervangen. */
 export const kostenBron = {
     ruw: () => ruw,
-    zet(p) { ruw = { ...ruw, ...p }; meld(); },
+    zet(p) { wijzigingen++; ruw = { ...ruw, ...p }; meld(); },
     vervang(lijst, item) {
+        wijzigingen++;
         const oud = ruw[lijst];
         ruw = { ...ruw, [lijst]: oud.some((x) => x.id === item.id) ? oud.map((x) => (x.id === item.id ? item : x)) : [item, ...oud] };
         meld();

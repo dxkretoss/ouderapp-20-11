@@ -22,13 +22,16 @@ export function EigenLeeg({ titel, icoon, tekst, knop, onKnop, extra, toevoegLab
         <AppIcon functie={icoon} maat="lg" className="size-16 rounded-2xl"/>
         <p className="mt-4 font-display text-lg font-bold">{t("components.EigenLeeg.rustig")}</p>
         <p className="mt-1 max-w-xs text-sm text-ink-soft">{tekst}</p>
-        {onToevoeg ? (<button onClick={onToevoeg} className="mt-5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-primary-foreground">
-            {toevoegLabel ?? t("common.toevoegen")}
-          </button>) : null}
-        <button onClick={onKnop} className={onToevoeg ? "mt-3 min-h-11 text-sm font-semibold text-ink-soft" : "mt-5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-primary-foreground"}>
-          {knop}
-        </button>
-        {extra}
+        {/* Acties als één nette kolom met gelijke breedte: hoofdactie bovenaan, de rest eronder. */}
+        <div className="mt-6 flex w-full max-w-xs flex-col gap-2.5">
+          {onToevoeg ? (<button onClick={onToevoeg} className="min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">
+              {toevoegLabel ?? t("common.toevoegen")}
+            </button>) : null}
+          <button onClick={onKnop} className={onToevoeg ? "min-h-11 w-full rounded-full border border-border bg-card px-5 text-sm font-semibold text-ink-soft" : "min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground"}>
+            {knop}
+          </button>
+          {extra}
+        </div>
       </div>
     </AppShell>);
 }

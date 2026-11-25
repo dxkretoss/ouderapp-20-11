@@ -68,7 +68,7 @@ export function Afrekenen({ onTerug, onBerekening, startVerzoek = false }) {
     };
     const kanVerzoek = ikOntvang && (!v || v.status === "nog-te-betalen" || v.status === "betaalverzoek-gedeeld");
     return <AfrekenInhoud v={v} bedrag={bedrag} naam={naam} ikOntvang={ikOntvang} optie={optie} setOptie={setOptie} onTerug={onTerug} onBerekening={onBerekening}>
-    {optie === "verzoek" ? <section className="mt-4 space-y-3 border-t border-border pt-4">
+    {optie === "verzoek" ? <section className="mt-3 space-y-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-4">
       <h2 className="font-display text-lg font-bold">{t("components.Afrekenen.betaalverzoek")}</h2>
       <GeldInvoer label={t("components.Afrekenen.bedragVerzoek")} value={bedragTekst} onChange={setBedragTekst}/>
       {leesGeld(bedragTekst) !== bedrag ? <p className="text-sm text-accent-warm">{t("components.Afrekenen.gebruikBedrag")}</p> : null}
@@ -91,7 +91,7 @@ export function Afrekenen({ onTerug, onBerekening, startVerzoek = false }) {
       </> : null}
       <Button variant="outline" onClick={() => setOptie("bank")}>{t("components.Afrekenen.bankoverschrijving")}</Button>
     </section> : null}
-    {optie === "bank" ? <section className="mt-4 space-y-3 border-t border-border pt-4">
+    {optie === "bank" ? <section className="mt-3 space-y-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-4">
       <h2 className="font-display text-lg font-bold">{t("components.Afrekenen.bankoverschrijving")}</h2>
       {kanVerzoek ? <>
         <p className="text-sm text-ink-soft">{t("components.Afrekenen.bank.vraagIban")}</p>
@@ -109,14 +109,14 @@ export function Afrekenen({ onTerug, onBerekening, startVerzoek = false }) {
         <Kopieer label={t("components.Afrekenen.bank.omschrijving")} waarde={`${v.omschrijving || t("components.Afrekenen.standaardOmschrijving")} ${v.kenmerk}`.trim()}/>
       </> : <p className="text-sm text-ink-soft">{t("components.Afrekenen.bank.nogNiet")}</p>}
     </section> : null}
-    {optie === "betaald" || v?.status === "wacht-op-ontvanger" ? <section className="mt-4 space-y-3 border-t border-border pt-4">
+    {optie === "betaald" || v?.status === "wacht-op-ontvanger" ? <section className="mt-3 space-y-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-4">
       <p className="text-sm text-ink-soft">{t("components.Afrekenen.geenBewijs")}</p>
       {!ikOntvang && (!v || v.status === "nog-te-betalen" || v.status === "betaalverzoek-gedeeld") ? <Button disabled={bezig} onClick={() => reactie("aangegeven")}>{t("components.Afrekenen.ikHebBetaald", { bedrag: euro(bedrag) })}</Button> : null}
       {ikOntvang && (!v || ["nog-te-betalen", "betaalverzoek-gedeeld", "wacht-op-ontvanger"].includes(v.status)) ? <Button disabled={bezig} onClick={() => reactie("ontvangen")}>{t("components.Afrekenen.ikHebOntvangen")}</Button> : null}
       {v?.status === "wacht-op-ontvanger" && !ikOntvang ? <p className="text-sm text-ink-soft">{t("components.Afrekenen.wachtOpBevestiging", { naam: naam(v.aan) })}</p> : null}
     </section> : null}
-    {v?.status === "ontvangst-bevestigd" && ikOntvang ? <Button className="mt-4" disabled={bezig} onClick={() => reactie("afronden")}>{t("components.Afrekenen.afronden")}</Button> : null}
-    {v?.gebeurtenissen?.length ? <section className="mt-5 border-t border-border pt-3"><h2 className="text-sm font-semibold">{t("components.Afrekenen.geschiedenis")}</h2>{v.gebeurtenissen.map((g, i) => <p key={i} className="mt-1 text-xs text-ink-soft">{verrekeningStatus(g.status)} · {naam(g.door)} · {new Date(g.moment).toLocaleDateString(taalLocale())}</p>)}</section> : null}
+    {v?.status === "ontvangst-bevestigd" && ikOntvang ? <Button className="mt-4 min-h-12 w-full rounded-full" disabled={bezig} onClick={() => reactie("afronden")}>{t("components.Afrekenen.afronden")}</Button> : null}
+    {v?.gebeurtenissen?.length ? <section className="mt-4 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5"><h2 className="text-sm font-black">{t("components.Afrekenen.geschiedenis")}</h2>{v.gebeurtenissen.map((g, i) => <p key={i} className="mt-1 text-xs text-ink-soft">{verrekeningStatus(g.status)} · {naam(g.door)} · {new Date(g.moment).toLocaleDateString(taalLocale())}</p>)}</section> : null}
   </AfrekenInhoud>;
 }
 function AfrekenInhoud({ v, bedrag, naam, ikOntvang, optie, setOptie, onTerug, onBerekening, children }) {
@@ -124,15 +124,25 @@ function AfrekenInhoud({ v, bedrag, naam, ikOntvang, optie, setOptie, onTerug, o
     const ontvanger = v?.aan ?? (ikOntvang ? "ik" : "ander");
     const klaar = v?.status === "afgerond" || v?.status === "ontvangst-bevestigd";
     return <AppShell><div className="flex items-center gap-3"><TerugKnop onClick={onTerug}/><h1 className="lora text-[30px] leading-tight">{t("components.Afrekenen.titel")}</h1></div>
-    <section className="mt-5 border-y border-border py-4"><p className="font-display text-3xl font-extrabold tabular-nums">{euro(bedrag)}</p><p className="mt-1 text-sm">{ontvanger === "ik" ? t("components.Afrekenen.anderBetaaltJou") : t("components.Afrekenen.jijBetaaltAnder")}</p><Badge toon={klaar ? "klaar" : "actie"} className="mt-2">{verrekeningStatus(v?.status ?? "nog-te-betalen")}</Badge><div><Button variant="link" onClick={onBerekening} className="min-h-11 px-0"><MetChevron>{t("components.Afrekenen.bekijkBerekening")}</MetChevron></Button></div><Kopieer label={t("components.Afrekenen.bedrag")} waarde={taalLocale() === "nl-NL" ? bedrag.toFixed(2).replace(".", ",") : bedrag.toFixed(2)}/>{v?.iban && !ikOntvang ? <Kopieer label={t("components.Afrekenen.bank.iban")} waarde={v.iban}/> : null}</section>
-    {!v && bedrag < 0.01 ? <p role="status" className="mt-4 text-sm text-ink-soft">{t("components.Afrekenen.nietsOpen")}</p> : null}
-    {!klaar && bedrag > 0 ? <div className="mt-4 divide-y divide-border border-y border-border">{[{ id: "verzoek", tekst: t("components.Afrekenen.optie.verzoek"), icoon: "betaalverzoek" }, { id: "bank", tekst: t("components.Afrekenen.bankoverschrijving"), icoon: "kosten" }, { id: "betaald", tekst: ikOntvang ? t("components.Afrekenen.optie.ontvangstBevestigen") : t("components.Afrekenen.optie.alBetaald"), icoon: "akkoord" }].map((o) => <Button variant="ghost" key={o.id} aria-expanded={optie === o.id} onClick={() => setOptie(o.id)} className="h-auto min-h-14 w-full justify-start gap-3 whitespace-normal rounded-none px-0 text-left"><AppIcon functie={o.icoon} maat="sm"/><span className="flex-1">{o.tekst}</span><Chevron className="size-4 text-brand"/></Button>)}</div> : null}
+    {/* Bedrag en richting in één duidelijke kaart */}
+    <section className="mt-5 rounded-[24px] border border-[#C9D6C3] bg-[#E9EFE3] px-5 py-5">
+      <p className="text-[12px] font-black uppercase tracking-[0.1em] text-[#3F5747]">{ontvanger === "ik" ? t("components.Afrekenen.anderBetaaltJou") : t("components.Afrekenen.jijBetaaltAnder")}</p>
+      <p className="mt-1 font-display text-[40px] font-extrabold leading-tight tabular-nums text-ink">{euro(bedrag)}</p>
+      <Badge toon={klaar ? "klaar" : "actie"} className="mt-2">{verrekeningStatus(v?.status ?? "nog-te-betalen")}</Badge>
+      <div className="mt-4 space-y-2 rounded-[18px] bg-white/70 px-3.5 py-1.5">
+        <Kopieer label={t("components.Afrekenen.bedrag")} waarde={taalLocale() === "nl-NL" ? bedrag.toFixed(2).replace(".", ",") : bedrag.toFixed(2)}/>
+        {v?.iban && !ikOntvang ? <div className="border-t border-border"><Kopieer label={t("components.Afrekenen.bank.iban")} waarde={v.iban}/></div> : null}
+      </div>
+      <button type="button" onClick={onBerekening} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border border-[#C9D6C3] bg-white/80 px-4 text-sm font-semibold text-[#2F4A3A]">{t("components.Afrekenen.bekijkBerekening")}<Chevron className="size-4"/></button>
+    </section>
+    {!v && bedrag < 0.01 ? <p role="status" className="mt-4 rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t("components.Afrekenen.nietsOpen")}</p> : null}
+    {!klaar && bedrag > 0 ? <><h2 className="mt-6 px-1 text-[12px] font-black uppercase tracking-[0.1em] text-ink-soft">{t("components.Afrekenen.hoeBetalen")}</h2><div className="mt-2 divide-y divide-border overflow-hidden rounded-[22px] border border-white/85 bg-white/60">{[{ id: "verzoek", tekst: t("components.Afrekenen.optie.verzoek"), icoon: "betaalverzoek" }, { id: "bank", tekst: t("components.Afrekenen.bankoverschrijving"), icoon: "kosten" }, { id: "betaald", tekst: ikOntvang ? t("components.Afrekenen.optie.ontvangstBevestigen") : t("components.Afrekenen.optie.alBetaald"), icoon: "akkoord" }].map((o) => <Button variant="ghost" key={o.id} aria-expanded={optie === o.id} onClick={() => setOptie(o.id)} className={`h-auto min-h-[60px] w-full justify-start gap-3 whitespace-normal rounded-none px-4 text-left text-[15px] font-semibold ${optie === o.id ? "bg-brand-soft/70" : ""}`}><AppIcon functie={o.icoon} maat="sm"/><span className="min-w-0 flex-1">{o.tekst}</span><Chevron richting="omlaag" open={optie === o.id} className="size-4 text-brand"/></Button>)}</div></> : null}
     {children}
   </AppShell>;
 }
 function Kopieer({ label, waarde }) {
     const { t } = useTranslation();
-    return <div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 break-all"><span className="text-ink-soft">{label}: </span>{waarde}</span><Button variant="ghost" size="icon" className="size-11 shrink-0" aria-label={t("components.Afrekenen.kopieer.label", { label })} title={t("components.Afrekenen.kopieer.label", { label })} onClick={async () => { try {
+    return <div className="flex min-h-11 items-center justify-between gap-2 text-sm"><span className="min-w-0 break-all"><span className="text-ink-soft">{label}: </span><b className="tabular-nums">{waarde}</b></span><Button variant="ghost" size="icon" className="size-11 shrink-0" aria-label={t("components.Afrekenen.kopieer.label", { label })} title={t("components.Afrekenen.kopieer.label", { label })} onClick={async () => { try {
         await navigator.clipboard.writeText(waarde);
         bevestig(t("components.Afrekenen.kopieer.gekopieerd", { label }));
     }

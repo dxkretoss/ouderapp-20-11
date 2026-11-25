@@ -106,14 +106,16 @@ function Spullen() {
       {!spullen.length && !nieuw ? (laadWeergave(laadStatus, takenBron.ververs) ?? <div className="mt-8 flex flex-col items-center text-center">
           <p className="font-display text-lg font-bold">{t("routes.spullen.leeg.titel")}</p>
           <p className="mt-1 max-w-xs text-sm text-ink-soft">{t("routes.spullen.leeg.tekst")}</p>
-          <button onClick={() => setNieuw(true)} className="mt-5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-primary-foreground">{t("routes.spullen.leeg.eerste")}</button>
-          <button onClick={() => nav({ to: "/meer" })} className="mt-3 min-h-11 text-sm font-semibold text-ink-soft">{t("routes.spullen.leeg.terugMenu")}</button>
+          <div className="mt-6 flex w-full max-w-xs flex-col gap-2.5">
+            <button onClick={() => setNieuw(true)} className="min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{t("routes.spullen.leeg.eerste")}</button>
+            <button onClick={() => nav({ to: "/meer" })} className="min-h-11 w-full rounded-full border border-border bg-card px-5 text-sm font-semibold text-ink-soft">{t("routes.spullen.leeg.terugMenu")}</button>
+          </div>
         </div>) : null}
 
       <Link to="/overdracht" className="mt-4 flex items-center gap-3 rounded-[22px] border-2 border-[#A9BCA8] px-4 py-3.5 [background:linear-gradient(135deg,rgba(220,230,210,.95),rgba(233,239,227,.9))]">
         <span className="grid size-[38px] shrink-0 place-items-center rounded-[13px] bg-white/70"><AppIcon functie="overdracht" maat="sm" vorm="kaal"/></span>
         <span className="min-w-0 flex-1"><span className="block text-[15.5px] font-black">{t("routes.spullen.paklijstWissel")}</span><span className="block text-xs text-ink-soft">{mee.length ? t("routes.spullen.dingenMee", { count: mee.length }) : t("routes.spullen.bekijkWatMee")}</span></span>
-        <Chevron className="size-4 text-ink-soft"/>
+        <Chevron className="size-4 shrink-0 text-ink-soft"/>
       </Link>
 
       {["mee", "vast", "dubbel"].map((type) => {
@@ -128,10 +130,10 @@ function Spullen() {
                     const kids = [...new Set(groep.map((g) => naamVan(g.kind)))].join(` ${t("common.en")} `);
                     return (<li key={x.id}>
                   <button onClick={() => setOpen(x.id)} className="flex min-h-14 w-full items-center gap-3 px-3 py-3 text-left">
-                    <span className="flex-1"><span className="block text-[15.5px] font-black">{x.naam}</span>
+                    <span className="min-w-0 flex-1"><span className="block text-[15.5px] font-black">{x.naam}</span>
                       <span className="block text-xs text-ink-soft">{kids}{type === "vast" ? ` · ${plekTekst(x.plek, g)}` : ""}</span>
                       {g.gekoppeld && groep.some((y) => g.isSamen(y.kind)) ? <DeelLabel gedeeld={groep.every((y) => y.gedeeld)} className="mt-1"/> : null}</span>
-                    <Chevron className="size-4 text-ink-soft"/>
+                    <Chevron className="size-4 shrink-0 text-ink-soft"/>
                   </button>
                 </li>);
                 })}
@@ -146,7 +148,7 @@ function Spullen() {
         <KlapBlok titel={t("routes.spullen.routines.titel")} sub={t("routes.spullen.routines.sub")}>
           {mijnRoutines.length ? (<ul className="divide-y divide-[#E9E1D5]">
             {mijnRoutines.map((r) => <li key={r.id} className="py-2.5"><p className="text-[11px] font-semibold uppercase text-ink-soft">{t("routes.spullen.routines.elke", { dag: (tLijst("common.dagen")[DAGEN.indexOf(r.dag)] ?? r.dag).toLowerCase() })}</p><p className="text-sm">{r.item} · {naamVan(r.kind)}</p></li>)}
-          </ul>) : <p className="text-sm text-ink-soft">{t("routes.spullen.routines.leeg")}</p>}
+          </ul>) : <p className="rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t("routes.spullen.routines.leeg")}</p>}
         </KlapBlok>
         <KlapBlok titel={t("routes.spullen.paklijsten.titel")} sub={t("routes.spullen.paklijsten.sub")}>
           <div className="grid grid-cols-2 gap-2">
@@ -176,7 +178,7 @@ function KlapBlok({ titel, sub, children }) {
     return (<section className={GLAS}>
       <button onClick={() => setOpen(!open)} aria-expanded={open} className="flex min-h-12 w-full items-center px-4 py-3 text-left">
         <span className="min-w-0 flex-1"><span className="block text-[15.5px] font-black">{titel}</span><span className="block text-xs text-ink-soft">{sub}</span></span>
-        <Chevron richting="omlaag" open={open} className="size-4 text-ink-soft"/>
+        <Chevron richting="omlaag" open={open} className="size-4 shrink-0 text-ink-soft"/>
       </button>
       {open ? <div className="border-t border-[#E9E1D5] px-4 py-3">{children}</div> : null}
     </section>);
@@ -306,14 +308,14 @@ function NietVergeten({ lijst, voor }) {
     return (<>
       <Card className="mt-1 space-y-2">
         <input value={tekst} maxLength={200} onChange={(e) => setTekst(e.target.value)} placeholder={t("routes.spullen.vergeten.placeholder")} aria-label={t("routes.spullen.vergeten.titel")} className="w-full rounded-md bg-surface px-3 py-2 text-sm"/>
-        <div className="flex flex-wrap gap-2">
-          <select value={wie} onChange={(e) => setWie(e.target.value)} aria-label={t("routes.spullen.vergeten.naarWie")} className="min-w-[9rem] flex-1 rounded-md bg-surface px-3 py-2 text-sm">
+        <div className="grid grid-cols-2 gap-2">
+          <select value={wie} onChange={(e) => setWie(e.target.value)} aria-label={t("routes.spullen.vergeten.naarWie")} className="min-h-10 min-w-0 rounded-md bg-surface px-3 py-2 text-sm">
             {opties.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
           </select>
-          <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label={t("routes.spullen.form.vanWelkKind")} className="min-w-[6rem] flex-1 rounded-md bg-surface px-3 py-2 text-sm">
+          <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label={t("routes.spullen.form.vanWelkKind")} className="min-h-10 min-w-0 rounded-md bg-surface px-3 py-2 text-sm">
             {st.kinderen.map((k) => <option key={k.id} value={k.id}>{k.naam}</option>)}
           </select>
-          <button disabled={!tekst.trim() || !kind || !delen.ok || bezig} onClick={toevoegen} className="rounded-md bg-brand px-4 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("common.toevoegen")}</button>
+          <button disabled={!tekst.trim() || !kind || !delen.ok || bezig} onClick={toevoegen} className="col-span-2 min-h-11 w-full rounded-full bg-brand px-4 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("common.toevoegen")}</button>
         </div>
         {kind ? <DelenKeuze kindIds={[kind]} gedeeld={gedeeld} onGedeeld={setGedeeld}/> : null}
       </Card>
@@ -326,7 +328,7 @@ function NietVergeten({ lijst, voor }) {
                 <span className="block text-xs text-ink-soft">{label(i)} · {st.kinderen.find((k) => k.id === i.kind)?.naam ?? ""}</span>
                 {g.gekoppeld && g.isSamen(i.kind) ? <DeelLabel gedeeld={!!i.gedeeld} className="mt-1"/> : null}
               </span>
-              <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${i.klaar ? "bg-brand-soft text-brand" : "bg-accent-warm/30 text-ink"}`}>
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${i.klaar ? "bg-brand-soft text-brand" : "bg-accent-warm/30 text-ink"}`}>
                 {i.klaar ? t("routes.spullen.vergeten.terug") : t("routes.spullen.vergeten.moetTerug")}
               </span>
             </button>

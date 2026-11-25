@@ -21,7 +21,7 @@ Deno.serve(serveActions("co-assistant", {
       tekst: str(b?.tekst, `berichten[${i}].tekst`, 3000, { min: 1 }),
     }));
     const gezin = familyLine(user, await childrenForAi(user.id), isEn);
-    const r = await chatJson<{ antwoord: string; acties: string[]; concept: string }>({
+    const r = await chatJson<{ antwoord: string; acties: string[]; concept: string }>({ lang: isEn ? "en" : "nl",
       name: "verhaal",
       schema: verhaalSchema,
       temperature: 0.5,

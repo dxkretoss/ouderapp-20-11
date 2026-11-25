@@ -6,7 +6,7 @@ export function VoorstelIntrekken({ onBevestig }) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     return <>
-    <Button variant="ghost" size="sm" className="text-ink-soft" onClick={() => setOpen(true)}>{t("common.voorstelIntrekken")}</Button>
+    <Button variant="ghost" size="sm" className="min-h-11 text-ink-soft" onClick={() => setOpen(true)}>{t("common.voorstelIntrekken")}</Button>
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogContent className="max-w-[calc(100%-2rem)] rounded-xl shadow-none sm:max-w-md">
         <AlertDialogTitle>{t("components.VoorstelIntrekken.titel")}</AlertDialogTitle>

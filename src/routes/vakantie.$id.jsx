@@ -57,14 +57,14 @@ function VakantiePagina() {
               {["Sanne", "Joris", "Samen"].map((o) => (<button key={o} onClick={() => stelVerdelingVoor(v.id, o)} className="flex-1 rounded-md bg-surface py-2 text-xs font-medium">{o === "Sanne" ? t("routes.vakantieId.bijJou") : o === "Joris" ? t("routes.vakantieId.bijAnder") : t("routes.vakantieId.samen")}</button>))}
             </div>)}
           {melding ? <p role="status" className="mt-2 text-sm font-semibold text-brand">{melding}</p> : null}
-          {v.status === "voorstel" && v.van && v.van !== "Sanne" && (<div className="mt-3 grid gap-2 text-xs font-semibold">
+          {v.status === "voorstel" && v.van && v.van !== "Sanne" && (<div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold">
               <button onClick={() => { if (accepteerVakantie(v.id))
-            setMelding(t("routes.vakantieId.melding.akkoord")); }} className="min-h-11 rounded-md bg-brand text-primary-foreground">{t("common.akkoord")}</button>
-              <button onClick={() => setWijzig(true)} className="min-h-11 rounded-md border border-border">{t("common.anderVoorstel")}</button>
+            setMelding(t("routes.vakantieId.melding.akkoord")); }} className="min-h-11 rounded-full px-3 bg-brand text-primary-foreground">{t("common.akkoord")}</button>
+              <button onClick={() => setWijzig(true)} className="min-h-11 rounded-full px-3 border border-border">{t("common.anderVoorstel")}</button>
               <button onClick={() => { if (wijsVakantieAf(v.id))
-            setMelding(t("routes.vakantieId.melding.nietAkkoord")); }} className="min-h-11 rounded-md border border-border text-ink-soft">{t("common.nietAkkoord")}</button>
+            setMelding(t("routes.vakantieId.melding.nietAkkoord")); }} className="min-h-11 rounded-full px-3 border border-border text-ink-soft">{t("common.nietAkkoord")}</button>
               {!v.meerTijd ? <button onClick={() => { if (vraagMeerTijdVakantie(v.id))
-            setMelding(t("routes.vakantieId.melding.meerTijd")); }} className="min-h-11 rounded-md border border-border text-ink-soft">{t("common.meerTijdNodig")}</button> : <p className="text-xs font-normal text-ink-soft">{t("routes.vakantieId.meerTijdGevraagd")}</p>}
+            setMelding(t("routes.vakantieId.melding.meerTijd")); }} className="min-h-11 rounded-full px-3 border border-border text-ink-soft">{t("common.meerTijdNodig")}</button> : <p className="text-xs font-normal text-ink-soft">{t("routes.vakantieId.meerTijdGevraagd")}</p>}
             </div>)}
           {v.status !== "afgesproken" ? <div className="mt-2"><RustigTip moment="vakantie"/></div> : null}
           {v.status === "voorstel" && v.van === "Sanne" && (<div className="mt-3 flex gap-2 text-xs">
@@ -84,9 +84,9 @@ function VakantiePagina() {
         <Card>
           <p className="mb-2 font-display font-bold">{t("routes.vakantieId.voorbereiden")}</p>
           <div className="grid gap-2 text-sm">
-            <Link to="/agenda" className="rounded-md bg-surface px-3 py-2">{t("routes.vakantieId.links.agenda")}</Link>
-            <Link to="/taken" className="rounded-md bg-surface px-3 py-2">{t("routes.vakantieId.links.taken")}</Link>
-            <Link to="/kosten" className="rounded-md bg-surface px-3 py-2">{t("routes.vakantieId.links.kosten")}</Link>
+            <Link to="/agenda" className="flex min-h-11 items-center rounded-md bg-surface px-3 py-2">{t("routes.vakantieId.links.agenda")}</Link>
+            <Link to="/taken" className="flex min-h-11 items-center rounded-md bg-surface px-3 py-2">{t("routes.vakantieId.links.taken")}</Link>
+            <Link to="/kosten" className="flex min-h-11 items-center rounded-md bg-surface px-3 py-2">{t("routes.vakantieId.links.kosten")}</Link>
           </div>
         </Card>
       </div>

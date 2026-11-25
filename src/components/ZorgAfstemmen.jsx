@@ -140,9 +140,9 @@ export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bro
                 setNaar(v.naarOuder ?? "sanne");
                 router.navigate({ to: "/agenda", search: { zorgActie: v.soort === "structureel" ? "regeling" : "wijziging", zorgVoorstel: v.id, kind } });
             }}>{t("components.ZorgAfstemmen.knop.anderVoorstel")}</Button>
-                <Button variant="ghost" size="sm" onClick={() => { if (reageer(v.id, () => wijsAf(v.id)))
+                <Button variant="outline" size="sm" onClick={() => { if (reageer(v.id, () => wijsAf(v.id)))
             setBevestigd(ga ? nietAkkoordTekst(true) : t("components.ZorgAfstemmen.bevestigd.afgewezen")); }}>{t("components.ZorgAfstemmen.knop.afwijzen")}</Button>
-                <Button variant="ghost" size="sm" onClick={() => { if (vraagMeerTijd(v.id))
+                <Button variant="outline" size="sm" onClick={() => { if (vraagMeerTijd(v.id))
             setBevestigd(t("components.ZorgAfstemmen.bevestigd.meerTijd")); }}>{t("common.meerTijdNodig")}</Button>
               </div>
           </div>))}
@@ -185,7 +185,7 @@ export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bro
         {ga && eerderZonderAkkoord(zorg.voorstellen, { soort, kinderen: voor, dagen: soort === "eenmalig" ? Array.from({ length: Math.max(dagVan, dagTot) - dagVan + 1 }, (_, i) => dagVan + i) : [dagVan], datumLabel: "", naarOuder: naar }) ? <p className="text-xs text-ink-soft">{t("components.ZorgAfstemmen.sheet.eerderZonderAkkoord")}</p> : null}
       </div>
         <div className="shrink-0 border-t border-border bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-          <button disabled={!nieuw.trim() || !vanDatum || (soort === "eenmalig" && totDatum < vanDatum) || !!bronOmschrijving} onClick={verstuur} className="min-h-11 w-full rounded-xl bg-brand py-2 text-sm font-semibold text-primary-foreground disabled:opacity-40">
+          <button disabled={!nieuw.trim() || !vanDatum || (soort === "eenmalig" && totDatum < vanDatum) || !!bronOmschrijving} onClick={verstuur} className="min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground disabled:opacity-40">
             {t("components.ZorgAfstemmen.sheet.versturen")}
           </button>
         </div>

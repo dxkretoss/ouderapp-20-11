@@ -1,5 +1,11 @@
 # Ouderschap & Co — Complete Platform & Feature Documentation
 
+> **Note (25 November 2026):** this is the older per-screen reference, written before the November 2026
+> release (per-child co-parents, family-circle pick-ups, personal data on the server, new functions
+> `manage-pickups`, `manage-personal`, `handover-reminders`). Parts are outdated.
+> **[docs/PROJECT_HANDOVER.md](PROJECT_HANDOVER.md) is authoritative** wherever the two differ; use this
+> file for UI detail per screen.
+
 > Full functional and technical documentation of the **Ouderschap & Co** co-parenting app ("De app die ouders verbindt" — the app that connects parents), derived from a complete read of the source in this repository (`src/`).
 > Dutch UI labels are kept in quotes with an English gloss, e.g. "Wisselmoment" (handover moment).
 >

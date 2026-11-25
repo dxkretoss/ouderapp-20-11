@@ -72,18 +72,20 @@ function Taken() {
       {!taken.length && !nieuw ? (laadWeergave(laadStatus, takenBron.ververs) ?? <div className="mt-10 flex flex-col items-center text-center">
           <p className="font-display text-lg font-bold">{vt("routes.taken.leeg.titel")}</p>
           <p className="mt-1 max-w-xs text-sm text-ink-soft">{vt("routes.taken.leeg.tekst")}</p>
-          <button onClick={() => setNieuw(true)} className="mt-5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-primary-foreground">{vt("routes.taken.leeg.eerste")}</button>
-          <button onClick={() => nav({ to: "/meer" })} className="mt-3 min-h-11 text-sm font-semibold text-ink-soft">{vt("routes.taken.leeg.terugMenu")}</button>
+          <div className="mt-6 flex w-full max-w-xs flex-col gap-2.5">
+            <button onClick={() => setNieuw(true)} className="min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{vt("routes.taken.leeg.eerste")}</button>
+            <button onClick={() => nav({ to: "/meer" })} className="min-h-11 w-full rounded-full border border-border bg-card px-5 text-sm font-semibold text-ink-soft">{vt("routes.taken.leeg.terugMenu")}</button>
+          </div>
         </div>) : null}
 
       {voorJou.length ? <Groep titel={vt("routes.taken.groep.voorJou")} aantal={voorJou.length}>{voorJou.map(rij)}</Groep> : null}
       {nogAfstemmen.length ? <Groep titel={vt("routes.taken.groep.nogAfstemmen")} aantal={nogAfstemmen.length}>{nogAfstemmen.map(rij)}</Groep> : null}
       {andereOuder.length ? <Klap titel={vt("routes.taken.groep.bij", { naam: g.ander?.naam || vt("common.deAndereOuder") })} aantal={andereOuder.length}>{andereOuder.map(rij)}</Klap> : null}
       {later.length ? <Klap titel={vt("routes.taken.groep.later")} aantal={later.length}>{later.map(rij)}</Klap> : null}
-      {!actief.length && taken.length ? <p className="mt-6 text-sm text-ink-soft">{vt("routes.taken.allesGeregeld")}</p> : null}
+      {!actief.length && taken.length ? <p className="mt-5 rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{vt("routes.taken.allesGeregeld")}</p> : null}
 
       {klaar.length ? (<div className="mt-4">
-          <button onClick={() => setAfgerond(!afgerond)} className="min-h-11 text-sm font-semibold text-brand">{afgerond ? vt("routes.taken.verbergAfgerond") : <MetChevron>{vt("routes.taken.bekijkAfgerond")}</MetChevron>}</button>
+          <button onClick={() => setAfgerond(!afgerond)} aria-expanded={afgerond} className={`${GLAS} flex min-h-12 w-full items-center gap-3 px-4 py-3 text-left`}><span className="min-w-0 flex-1 text-[15.5px] font-black">{afgerond ? vt("routes.taken.verbergAfgerond") : vt("routes.taken.bekijkAfgerond")}<span className="ml-1.5 text-xs font-black text-ink-soft">· {klaar.length}</span></span><Chevron richting="omlaag" open={afgerond} className="size-4 shrink-0 text-ink-soft"/></button>
           {afgerond ? <Groep titel={vt("routes.taken.groep.afgerond")}>{klaar.map(rij)}</Groep> : null}
         </div>) : null}
 
@@ -109,8 +111,8 @@ function Klap({ titel, aantal, children }) {
     const [open, setOpen] = useState(false);
     return (<section className={`${GLAS} mt-4`}>
       <button onClick={() => setOpen(!open)} aria-expanded={open} className="flex min-h-12 w-full items-center px-4 py-3 text-left">
-        <span className="flex-1 text-[15.5px] font-black">{titel}<span className="ml-1.5 text-xs font-black text-ink-soft">· {aantal}</span></span>
-        <Chevron richting="omlaag" open={open} className="size-4 text-ink-soft"/>
+        <span className="min-w-0 flex-1 text-[15.5px] font-black">{titel}<span className="ml-1.5 text-xs font-black text-ink-soft">· {aantal}</span></span>
+        <Chevron richting="omlaag" open={open} className="size-4 shrink-0 text-ink-soft"/>
       </button>
       {open ? <ul className="divide-y divide-[#E9E1D5] border-t border-[#E9E1D5] px-1">{children}</ul> : null}
     </section>);
@@ -154,14 +156,14 @@ function TaakRij({ t, open, onOpen, onDicht }) {
           {t.overdragenAan ? <span className="block text-xs text-ink-soft">{aanMij ? vt("routes.taken.rij.gevraagdDoor", { naam: ouderNaam(t.gevraagdDoor) || vt("common.deAndereOuder") }) : vt("routes.taken.rij.gevraagdAan", { naam: ouderNaam(t.overdragenAan) })}</span> : null}
           {g.gekoppeld ? <DeelLabel gedeeld={!!t.gedeeld} className="mt-1"/> : null}
         </button>
-        <Chevron richting="omlaag" open={open} className="mt-1 size-4 text-ink-soft"/>
+        <Chevron richting="omlaag" open={open} className="mt-1 size-4 shrink-0 text-ink-soft"/>
       </div>
       {aanMij && !t.klaar ? (<div className="ml-9 mt-2 flex flex-wrap gap-2">
-          <button onClick={() => ikDoeHet(accepteerOverdracht)} className="inline-flex h-9 items-center rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{vt("routes.taken.rij.ikDoeHet")}</button>
-          <button onClick={() => weigerOverdracht(t.id)} className="inline-flex h-9 items-center rounded-full border border-[#E6DED2] bg-white px-4 text-sm font-black">{vt("routes.taken.rij.lieverNiet")}</button>
+          <button onClick={() => ikDoeHet(accepteerOverdracht)} className="inline-flex min-h-10 items-center rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{vt("routes.taken.rij.ikDoeHet")}</button>
+          <button onClick={() => weigerOverdracht(t.id)} className="inline-flex min-h-10 items-center rounded-full border border-[#E6DED2] bg-white px-4 text-sm font-black">{vt("routes.taken.rij.lieverNiet")}</button>
         </div>) : !t.wie && !t.overdragenAan && !t.klaar ? (<div className="ml-9 mt-2 flex flex-wrap gap-2">
-          <button onClick={() => ikDoeHet(neemTaakOp)} className="inline-flex h-9 items-center rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{vt("routes.taken.rij.ikDoeHet")}</button>
-          {ander ? <button onClick={() => vraagOverdracht(t.id, ander)} className="inline-flex h-9 items-center rounded-full border border-[#E6DED2] bg-white px-4 text-sm font-black">{vt("routes.taken.rij.vraag", { naam: anderNaam })}</button> : null}
+          <button onClick={() => ikDoeHet(neemTaakOp)} className="inline-flex min-h-10 items-center rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{vt("routes.taken.rij.ikDoeHet")}</button>
+          {ander ? <button onClick={() => vraagOverdracht(t.id, ander)} className="inline-flex min-h-10 items-center rounded-full border border-[#E6DED2] bg-white px-4 text-sm font-black">{vt("routes.taken.rij.vraag", { naam: anderNaam })}</button> : null}
         </div>) : null}
       {open ? (<div className="ml-9 mt-2 space-y-1 text-xs">
           <p className="text-ink-soft">{taakWieTekst(t.wie)}{t.herhaling !== "eenmalig" ? ` · ${t.herhaling === "aangepast" ? t.herhalingTekst ?? vt("routes.taken.terugkerend") : herhalingLabel(t.herhaling)}` : ""}{t.herinnerDagen ? ` · ${vt("routes.taken.rij.herinnering", { count: t.herinnerDagen })}` : ""}</p>

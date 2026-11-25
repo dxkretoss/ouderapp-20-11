@@ -204,7 +204,7 @@ export function Assistent({ pagina } = {}) {
                     </dl>) : null}
                   <p className="mt-3 text-[11px] text-ink-soft">{t(`${NS}.nogNietsVeranderd`)}</p>
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button onClick={aanpassen} className="rounded-md border border-border py-2.5 text-sm font-semibold text-ink-soft">{t(`${NS}.aanpassen`)}</button>
+                    <button onClick={aanpassen} className="min-h-11 rounded-full border border-border bg-card px-4 text-sm font-semibold text-ink-soft">{t(`${NS}.aanpassen`)}</button>
                     <button onClick={() => openFlow(antwoord)} className="rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{knopLabel(antwoord.actie)}</button>
                   </div>
                 </>) : null}

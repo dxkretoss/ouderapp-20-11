@@ -2,7 +2,7 @@ import { uur } from "@/lib/tijd-tekst";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { Bell, Check, Heart, Home, LogOut, Menu, ShieldPlus } from "lucide-react";
+import { Bell, Check, Heart, Home, LogOut, Menu, Plus, ShieldPlus } from "lucide-react";
 import { useMomentjes } from "@/lib/momentjes-store";
 import { DeelMomentje, MomentjeKaart } from "@/components/Momentjes";
 import { bekijkAls, geenRechten, isActief, laadAlsVerzorger, laadKring, laadRol, mag, meldAangekomenKring, meldOnderwegKring, mijnKringen, persoonLabel, reageerOphalen, rolNaam, toggleIngepakt, useAlsVerzorger, useKring, useOphalen, useRol, } from "@/lib/kring-store";
@@ -85,14 +85,14 @@ function Verzorger() {
         if (voorbeeld === "nietBeschikbaar") {
             return (<Kader>
           <p className="mt-6 text-sm text-ink-soft">{t(N + "nietBeschikbaar")}</p>
-          <Link to="/verzorger" className="mt-6 block text-xs font-semibold text-brand">{t(N + "verlopen.terug")}</Link>
+          <Link to="/verzorger" className="mt-6 flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-card px-5 text-sm font-semibold text-brand">{t(N + "verlopen.terug")}</Link>
         </Kader>);
         }
         if (!voorbeeld) {
             return (<Kader>
           <h1 className="lora text-[30px] leading-tight">{t(N + "verlopen.titel")}</h1>
           <p className="mt-2 text-sm text-ink-soft">{t(N + "verlopen.uitleg")}</p>
-          <Link to="/verzorger" className="mt-6 block text-xs font-semibold text-brand">{t(N + "verlopen.terug")}</Link>
+          <Link to="/verzorger" className="mt-6 flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-card px-5 text-sm font-semibold text-brand">{t(N + "verlopen.terug")}</Link>
         </Kader>);
         }
         const cid = voorbeeld.caregiver.id;
@@ -123,12 +123,12 @@ function Verzorger() {
       <h1 className="lora text-[30px] leading-tight">{t(N + "voorbeeld.titel")}</h1>
       <p className="mt-2 text-sm text-ink-soft">{t(N + "voorbeeld.uitleg")}</p>
       <div className="mt-6 divide-y divide-border border-y border-border">
-        {metApp.map((p) => (<Link key={p.id} to="/verzorger" search={{ p: p.id }} className="flex items-center justify-between py-3 text-sm">
-            <span><b>{persoonLabel(p)}</b><span className="block text-xs text-ink-soft">{rolNaam(p.rol)}{p.bevestigd === false && !p.ingetrokken ? t(N + "voorbeeld.nogNietBevestigd") : isActief(p) ? "" : t(N + "voorbeeld.geenToegang")}</span></span><Chevron className="size-4 text-ink-soft"/>
+        {metApp.map((p) => (<Link key={p.id} to="/verzorger" search={{ p: p.id }} className="flex min-h-12 items-center justify-between gap-3 py-3 text-sm">
+            <span className="min-w-0"><b>{persoonLabel(p)}</b><span className="block text-xs text-ink-soft">{rolNaam(p.rol)}{p.bevestigd === false && !p.ingetrokken ? t(N + "voorbeeld.nogNietBevestigd") : isActief(p) ? "" : t(N + "voorbeeld.geenToegang")}</span></span><Chevron className="size-4 shrink-0 text-ink-soft"/>
           </Link>))}
-        {metApp.length === 0 ? <p className="py-3 text-sm text-ink-soft">{t(N + "voorbeeld.leeg")}</p> : null}
+        {metApp.length === 0 ? <p className="py-3 text-center text-sm text-ink-soft">{t(N + "voorbeeld.leeg")}</p> : null}
       </div>
-      <Link to="/meer" className="mt-6 block text-center text-xs font-semibold text-brand">{t(N + "voorbeeld.terug")}</Link>
+      <Link to="/meer" className="mt-6 flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-card px-5 text-sm font-semibold text-brand">{t(N + "voorbeeld.terug")}</Link>
     </Kader>);
 }
 function Laden() {
@@ -160,15 +160,15 @@ function KanNiet({ onVerstuur, uit }) {
     const [open, setOpen] = useState(false);
     const [reden, setReden] = useState("");
     if (!open)
-        return <button disabled={uit} onClick={() => setOpen(true)} className="flex-1 rounded-md border border-border py-2.5 text-sm font-semibold disabled:opacity-40">{t(N + "kanNiet")}</button>;
+        return <button disabled={uit} onClick={() => setOpen(true)} className="min-h-11 flex-1 rounded-full border border-border bg-card px-3 text-sm font-semibold disabled:opacity-40">{t(N + "kanNiet")}</button>;
     return (<div className="w-full space-y-2">
       <label className="block text-xs text-ink-soft">{t(N + "redenOptioneel")}
         <input value={reden} maxLength={300} onChange={(e) => setReden(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-ink"/>
       </label>
       <div className="flex gap-2">
-        <button onClick={() => setOpen(false)} className="flex-1 rounded-md border border-border py-2.5 text-sm">{t("common.annuleren")}</button>
+        <button onClick={() => setOpen(false)} className="min-h-11 flex-1 rounded-full border border-border bg-card px-3 text-sm">{t("common.annuleren")}</button>
         <button disabled={uit} onClick={async () => { if (await onVerstuur(reden.trim()))
-            setOpen(false); }} className="flex-1 rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t(N + "kanNietVersturen")}</button>
+            setOpen(false); }} className="min-h-11 flex-1 rounded-full bg-brand px-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t(N + "kanNietVersturen")}</button>
       </div>
     </div>);
 }
@@ -255,19 +255,17 @@ function KringApp({ view, isVoorbeeld, andere, kies, huidig, ophalen }) {
           {meldingen.length ? (<section className="mt-8">
               <h2 className={kop}>{t(N + "meldingen")}</h2>
               <ul className="mt-2 divide-y divide-border border-y border-border text-sm">
-                {meldingen.map((m, i) => <li key={`${i}-${m}`} className="flex items-center gap-2 py-2.5"><Bell className="size-3.5 text-ink-soft" strokeWidth={1.6}/>{m}</li>)}
+                {meldingen.map((m, i) => <li key={`${i}-${m}`} className="flex items-center gap-2 py-2.5"><Bell className="size-3.5 shrink-0 text-ink-soft" strokeWidth={1.6}/>{m}</li>)}
               </ul>
             </section>) : null}
         </>) : null}
 
       {tab === "momentjes" ? (<>
-          <div className="mt-1 flex items-center justify-between">
-            <h1 className="lora text-[30px] leading-tight">{t(N + "tab.momenten")}</h1>
-            {magDelen ? <button onClick={() => setDeel(true)} className="text-xs font-semibold text-brand">{t(N + "deel")}</button> : null}
-          </div>
+          <h1 className="lora mt-1 text-[30px] leading-tight">{t(N + "tab.momenten")}</h1>
+          {magDelen ? <button type="button" onClick={() => setDeel(true)} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-soft px-4 text-sm font-semibold text-brand"><Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0"/>{t(N + "deel").replace(/^\+\s*/, "")}</button> : null}
           <div className="mt-5 space-y-3">
             {mijnMomentjes.map((m) => <MomentjeKaart key={m.id} m={m} kijker={p.id}/>)}
-            {mijnMomentjes.length === 0 ? <p className="text-sm text-ink-soft">{t(N + "geenMomenten")}</p> : null}
+            {mijnMomentjes.length === 0 ? <p className="rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t(N + "geenMomenten")}</p> : null}
           </div>
           {magDelen ? <DeelMomentje open={deel} onSluit={() => setDeel(false)} alsKring={p.id}/> : null}
         </>) : null}
@@ -284,7 +282,7 @@ function KringApp({ view, isVoorbeeld, andere, kies, huidig, ophalen }) {
               </div>
             </section>) : null}
           {noodKids.map((k) => <Noodkaart key={k.id} kind={k}/>)}
-          {!actief.length && !noodKids.length ? <p className="mt-4 text-sm text-ink-soft">{t(N + "nietsGedeeld")}</p> : null}
+          {!actief.length && !noodKids.length ? <p className="mt-4 rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t(N + "nietsGedeeld")}</p> : null}
           {!isVoorbeeld ? <Uitloggen /> : null}
         </>) : null}
     </Kader>);
@@ -302,7 +300,7 @@ function MijnMoment({ a, p, kids: alleKids, alleenKijken, vandaag }) {
     const opDeDag = a.datum === vandaag;
     const doe = async (f) => { setBezig(true); const r = await f(); setBezig(false); return r; };
     const uit = alleenKijken || bezig;
-    const knop = "flex-1 rounded-md border border-border py-2.5 text-sm font-semibold disabled:opacity-40";
+    const knop = "min-h-11 flex-1 rounded-full border border-border bg-card px-3 text-sm font-semibold disabled:opacity-40";
     return (<section className="border-t border-border pt-4">
       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">{dagTekst(a.datum)}</p>
       <p className="mt-1 font-display text-xl">{a.tijd ? `${uur(a.tijd)} · ` : ""}{a.soort === "wissel" ? t(N + "jijHaalt", { namen: kids.map((k) => k.naam).join(` ${t("common.en")} `) }) : a.titel}</p>
@@ -315,14 +313,14 @@ function MijnMoment({ a, p, kids: alleKids, alleenKijken, vandaag }) {
                 const ok = klaar.includes(x);
                 return (<li key={x}>
                   <button disabled={!spullenAanpassen} onClick={() => toggleIngepakt(a.id, x)} aria-pressed={ok} className="flex min-h-9 items-center gap-2 text-sm">
-                    <span className={`grid size-5 place-items-center rounded-full border ${ok ? "border-brand bg-brand text-primary-foreground" : "border-border"}`}>{ok ? <Check className="size-3"/> : null}</span>{x}
+                    <span className={`grid size-5 shrink-0 place-items-center rounded-full border ${ok ? "border-brand bg-brand text-primary-foreground" : "border-border"}`}>{ok ? <Check className="size-3"/> : null}</span>{x}
                   </button>
                 </li>);
             })}
           </ul>
         </>) : null}
       {a.status === "requested" ? (<div className="mt-4 flex flex-wrap gap-2">
-          <button disabled={uit} onClick={() => doe(() => reageerOphalen(a.id, "accept"))} className="flex-1 rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t(N + "ikRegel")}</button>
+          <button disabled={uit} onClick={() => doe(() => reageerOphalen(a.id, "accept"))} className="min-h-11 flex-1 rounded-full bg-brand px-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t(N + "ikRegel")}</button>
           <KanNiet uit={uit} onVerstuur={(reden) => doe(() => reageerOphalen(a.id, "decline", reden))}/>
         </div>) : a.status === "declined" ? (<div className="mt-3">
           <p className="text-xs text-ink-soft">{t(N + "jijKanNiet")}</p>
@@ -331,7 +329,7 @@ function MijnMoment({ a, p, kids: alleKids, alleenKijken, vandaag }) {
           <p className="mt-3 text-xs font-semibold text-brand"><MetVinkje>{t(N + "bevestigdDoorJou")}</MetVinkje></p>
           {opDeDag ? (<div className="mt-3 flex gap-2">
               <button disabled={uit || !!a.onderwegOp} onClick={() => doe(() => meldOnderwegKring(a.id))} className={`${knop} ${a.onderwegOp ? "border-brand bg-brand-soft" : ""}`}>{a.onderwegOp ? <MetVinkje achter>{t(N + "ikBenOnderweg")}</MetVinkje> : t(N + "ikBenOnderweg")}</button>
-              <button disabled={uit} onClick={() => doe(() => meldAangekomenKring(a.id))} className="flex-1 rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t(N + "ikBenEr")}</button>
+              <button disabled={uit} onClick={() => doe(() => meldAangekomenKring(a.id))} className="min-h-11 flex-1 rounded-full bg-brand px-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t(N + "ikBenEr")}</button>
             </div>) : null}
         </>)}
     </section>);

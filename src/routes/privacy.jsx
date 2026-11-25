@@ -37,9 +37,9 @@ function PrivacyOverzicht() {
             const contact = zichtbaar.filter((p) => p.rechten[k.id] && !met.includes(p));
             const ouders = k.ouders ?? [];
             return (<section key={k.id} className="mt-7">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-lg font-bold">{k.naam}</h2>
-              <Link to="/kring/$kindId" params={{ kindId: k.id }} className="text-xs font-semibold text-brand">{t("routes.privacy.aanpassen")}</Link>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="min-w-0 font-display text-lg font-bold">{k.naam}</h2>
+              <Link to="/kring/$kindId" params={{ kindId: k.id }} className="inline-flex min-h-10 shrink-0 items-center text-xs font-semibold text-brand">{t("routes.privacy.aanpassen")}</Link>
             </div>
             <div className="mt-2 divide-y divide-border border-y border-border">
               {ouders.map((o) => (<div key={o.id} className="py-3">
@@ -64,6 +64,6 @@ function PrivacyOverzicht() {
         <p className="mt-1 text-xs text-ink-soft">{t("routes.privacy.professionalZiet")}</p>
         <p className="mt-2 border-y border-border py-3 text-sm text-ink-soft">{t("routes.privacy.geenProfessionals")}</p>
       </section>
-      <Link to="/juridisch" className="mt-7 block text-center text-xs font-semibold text-brand">{t("routes.privacy.privacyverklaring")}</Link>
+      <Link to="/juridisch" className="mt-7 flex min-h-11 items-center justify-center text-center text-xs font-semibold text-brand">{t("routes.privacy.privacyverklaring")}</Link>
     </AppShell>);
 }

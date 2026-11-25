@@ -245,7 +245,7 @@ function KindProfiel({ kort, kind, notitie }) {
           <span className="block text-[15.5px] font-black">{titel}</span>
           <span className="block truncate text-xs text-ink-soft">{samenvatting || t(N + "nogNiets")}</span>
         </span>
-        {samenvatting || isOpen ? <Chevron richting="omlaag" open={isOpen} className="size-4 text-ink-soft"/> : <Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0 text-ink-soft"/>}
+        {samenvatting || isOpen ? <Chevron richting="omlaag" open={isOpen} className="size-4 shrink-0 text-ink-soft"/> : <Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0 text-ink-soft"/>}
       </button>);
     };
     const goedOmTeWeten = [kind.allergies, gezond.medicatie].map((x) => x?.trim()).filter(Boolean).join(", ");
@@ -307,12 +307,12 @@ function KindProfiel({ kort, kind, notitie }) {
             <span className="block text-[15.5px] font-black">{t(N + "belangrijkePersonen")}</span>
             <span className="block truncate text-xs text-ink-soft">{t(N + "mensen", { count: mensen.length })} · {mensen.slice(0, 2).join(", ")}{mensen.length > 2 ? t(N + "enMeer", { n: mensen.length - 2 }) : ""}</span>
           </span>
-          <Chevron className="size-5 text-ink-soft"/>
+          <Chevron className="size-5 shrink-0 text-ink-soft"/>
         </Link>
         <button onClick={() => { setOpen(open === "contact" ? null : "contact"); setBewerk(null); }} aria-expanded={open === "contact"} className="flex min-h-12 w-full items-center gap-3 border-t border-[#E9E1D5] py-2.5 text-left">
           <AppIcon functie="bellen" maat="md"/>
           <span className="min-w-0 flex-1"><span className="block text-[15.5px] font-black">{t(N + "telefoonnummers")}</span><span className="block truncate text-xs text-ink-soft">{personen.length ? personen.map((c) => c.naam).join(", ") : t(N + "nogNiets")}</span></span>
-          {personen.length || open === "contact" ? <Chevron richting="omlaag" open={open === "contact"} className="size-4 text-ink-soft"/> : <Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0 text-ink-soft"/>}
+          {personen.length || open === "contact" ? <Chevron richting="omlaag" open={open === "contact"} className="size-4 shrink-0 text-ink-soft"/> : <Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0 text-ink-soft"/>}
         </button>
         {open === "contact" ? (<div className="mb-3 space-y-2">
             {bewerk === "contact" && mag("personen") ? <Formulier velden={[]} begin={{ personen }} extra={(w, setW) => <LijstVelden titel={t(N + "eigen.contacten")} items={w.personen} onChange={(l) => setW((x) => ({ ...x, personen: l }))} toevoegenTekst={t(N + "eigen.contactToevoegen")} velden={[{ id: "naam", label: t(N + "naam") }, { id: "rol", label: t(N + "eigen.rolLabel"), type: "rol" }, { id: "telefoon", label: t(N + "eigen.telefoon"), type: "tel" }, { id: "email", label: t(N + "eigen.email"), type: "email" }, { id: "nood", label: t(N + "eigen.noodcontact"), type: "vink" }]}/>} voet={t(N + "eigen.contactenUitleg")} onAnnuleer={() => setBewerk(null)} onBewaar={(w) => bewaarKind(kindId, { profile: { personen: w.personen.filter((c) => schoon(c.naam)).map((c) => ({ id: c.id ?? nieuwId(), naam: schoon(c.naam), rol: c.rol ?? "anders", telefoon: schoon(c.telefoon), email: schoon(c.email), nood: !!c.nood })) } })}/> : <>
@@ -346,25 +346,23 @@ function KindProfiel({ kort, kind, notitie }) {
       <PriveNotitie kindId={kindId} notitie={notitie}/>
 
       <section className="mt-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[19px] font-black">{t(N + "momenten.titel", { naam: kind.name })}</h2>
-          <button onClick={() => setToevoegen((v) => !v)} className="inline-flex min-h-11 items-center gap-1 text-[13.5px] font-extrabold text-brand"><Plus aria-hidden="true" strokeWidth={2.25} className="size-4 shrink-0"/>{t(N + "momenten.toevoegen").replace(/^\+\s*/, "")}</button>
-        </div>
-        {toevoegen ? (<div className="mt-2 space-y-2 border-y border-border py-3">
-            <Button variant="ghost" className="min-h-11 w-full justify-between" onClick={() => { setToevoegen(false); setDeelOpen(true); }}>{t(N + "momenten.delen")}<Chevron className="size-4 text-ink-soft"/></Button>
-            <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!mijlpaalTekst.trim())
-            return; voegMijlpaal({ kind: kindId, jaar: new Date().getFullYear(), tekst: mijlpaalTekst.trim() }); setMijlpaalTekst(""); setToevoegen(false); }}>
-              <input aria-label={t(N + "momenten.mijlpaal")} className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm" placeholder={t(N + "momenten.mijlpaalPlaceholder")} value={mijlpaalTekst} onChange={(e) => setMijlpaalTekst(e.target.value)}/>
-              <button className="min-h-11 rounded-md bg-brand px-3 text-sm font-semibold text-primary-foreground">{t(N + "momenten.bewaar")}</button>
-            </form>
-          </div>) : null}
+        <h2 className="px-1 text-[19px] font-black">{t(N + "momenten.titel", { naam: kind.name })}</h2>
         <div className={`${GLAS} mt-2 space-y-3 px-4 py-3`}>
           {zichtbaar.map((x) => x.soort === "Momentje"
             ? <div key={`momentje-${x.m.id}`}><p className="mb-1 text-[11px] font-semibold text-ink-soft">{t(N + "momenten.momentje")}</p><MomentjeKaart m={x.m}/></div>
-            : <div key={`mijlpaal-${x.p.id}`} className="flex items-start gap-2 border-b border-border pb-3"><AppIcon functie="mijlpaal" maat="sm"/><div><p className="text-sm font-semibold">{x.p.tekst}</p><p className="text-[11px] text-ink-soft">{t(N + "momenten.mijlpaalJaar", { jaar: x.p.jaar })}</p></div></div>)}
-          {momenten.length === 0 ? <p className="text-sm text-ink-soft">{t(N + "momenten.leeg", { naam: kind.name })} <button type="button" onClick={() => setDeelOpen(true)} className="font-semibold text-brand">{t(N + "momenten.eerste")}</button></p> : null}
+            : <div key={`mijlpaal-${x.p.id}`} className="flex items-start gap-2 border-b border-border pb-3"><AppIcon functie="mijlpaal" maat="sm"/><div className="min-w-0"><p className="text-sm font-semibold">{x.p.tekst}</p><p className="text-[11px] text-ink-soft">{t(N + "momenten.mijlpaalJaar", { jaar: x.p.jaar })}</p></div></div>)}
+          {momenten.length === 0 ? <p className="rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t(N + "momenten.leeg", { naam: kind.name })} <button type="button" onClick={() => setDeelOpen(true)} className="inline-flex min-h-10 items-center font-semibold text-brand">{t(N + "momenten.eerste")}</button></p> : null}
+          {toevoegen ? (<div className="space-y-2 rounded-xl border border-border bg-card p-3">
+            <Button variant="ghost" className="min-h-11 w-full justify-between" onClick={() => { setToevoegen(false); setDeelOpen(true); }}>{t(N + "momenten.delen")}<Chevron className="size-4 shrink-0 text-ink-soft"/></Button>
+            <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!mijlpaalTekst.trim())
+            return; voegMijlpaal({ kind: kindId, jaar: new Date().getFullYear(), tekst: mijlpaalTekst.trim() }); setMijlpaalTekst(""); setToevoegen(false); }}>
+              <input aria-label={t(N + "momenten.mijlpaal")} className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm" placeholder={t(N + "momenten.mijlpaalPlaceholder")} value={mijlpaalTekst} onChange={(e) => setMijlpaalTekst(e.target.value)}/>
+              <button className="min-h-11 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-primary-foreground">{t(N + "momenten.bewaar")}</button>
+            </form>
+            <button type="button" onClick={() => setToevoegen(false)} className="min-h-11 w-full text-sm font-semibold text-ink-soft">{t("common.annuleren")}</button>
+          </div>) : (<button type="button" onClick={() => setToevoegen(true)} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-soft px-4 text-sm font-semibold text-brand"><Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0"/>{t(N + "momenten.toevoegen").replace(/^\+\s*/, "")}</button>)}
         </div>
-        {momenten.length > 2 || alleMomenten ? (<button onClick={() => setAlleMomenten((v) => !v)} className="mt-3 min-h-11 text-sm font-semibold text-brand">{alleMomenten ? t(N + "momenten.minder") : <MetChevron>{t(N + "momenten.alle")}</MetChevron>}</button>) : null}
+        {momenten.length > 2 || alleMomenten ? (<button onClick={() => setAlleMomenten((v) => !v)} aria-expanded={alleMomenten} className="mt-3 flex min-h-11 w-full items-center justify-between rounded-full border border-white/90 bg-white/70 px-4 text-sm font-black text-[#2F4A3A]">{alleMomenten ? t(N + "momenten.minder") : t(N + "momenten.alle")}<Chevron richting="omlaag" open={alleMomenten} className="size-4 shrink-0 text-ink-soft"/></button>) : null}
         {alleMomenten ? <Mijlpalen kindId={kindId} naam={kind.name} momentjesPerJaar={mijn.reduce((acc, m) => { const j = m.datum ? Number(m.datum.slice(0, 4)) : NaN; return Number.isFinite(j) ? { ...acc, [j]: (acc[j] ?? 0) + 1 } : acc; }, {})}/> : null}
       </section>
       <DeelMomentje open={deelOpen} onSluit={() => setDeelOpen(false)} kindId={kindId}/>
@@ -403,8 +401,8 @@ function BasisFormulier({ kind, onKlaar }) {
             { id: "date_of_birth", label: t(N + "eigen.geboortedatum"), type: "datum", max: vandaagIso() }, { id: "description", label: t(N + "korteOmschrijving"), type: "lang" },
         ]} begin={{ name: kind.name ?? "", last_name: kind.last_name ?? "", date_of_birth: kind.date_of_birth ?? "", description: kind.description ?? "", color_code: kind.color_code ?? "" }} extra={(w, setW) => (<div>
           <p className="text-xs font-semibold">{t(N + "eigen.kleurVan", { naam: w.name || kind.name })}</p>
-          <div className="mt-1 flex gap-2" role="group" aria-label={t(N + "eigen.kleurKiezen", { naam: w.name || kind.name })}>
-            {kindKleuren.map((c) => (<button type="button" key={c.id} onClick={() => setW((x) => ({ ...x, color_code: c.hex }))} aria-label={t(N + "eigen.kleur", { naam: c.naam })} aria-pressed={w.color_code === c.hex} className="size-8 rounded-full border-2" style={{ backgroundColor: c.hex, borderColor: w.color_code === c.hex ? c.hex : "transparent", opacity: w.color_code === c.hex ? 1 : 0.45 }}/>))}
+          <div className="mt-1 flex flex-wrap gap-2" role="group" aria-label={t(N + "eigen.kleurKiezen", { naam: w.name || kind.name })}>
+            {kindKleuren.map((c) => (<button type="button" key={c.id} onClick={() => setW((x) => ({ ...x, color_code: c.hex }))} aria-label={t(N + "eigen.kleur", { naam: c.naam })} aria-pressed={w.color_code === c.hex} className="size-9 rounded-full border-2" style={{ backgroundColor: c.hex, borderColor: w.color_code === c.hex ? c.hex : "transparent", opacity: w.color_code === c.hex ? 1 : 0.45 }}/>))}
           </div>
         </div>)} voet={t(N + "eigen.basisGedeeld")} onAnnuleer={onKlaar} onBewaar={async (w) => {
             if (!w.name.trim())

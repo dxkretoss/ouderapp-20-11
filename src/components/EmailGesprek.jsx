@@ -75,7 +75,7 @@ export function EmailGesprek({ onTerug }) {
                   {s.detail ? <p className="mt-0.5 text-xs text-ink-soft">{s.detail}</p> : null}
                   <p className="mt-1 text-[11px] text-ink-soft">{t("components.EmailGesprek.herkend")}</p>
                   <div className="mt-2 flex gap-2">
-                    <Link to={doel[s.soort]} className="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground">{s.actie}</Link>
+                    <Link to={doel[s.soort]} className="inline-flex min-h-10 items-center rounded-full bg-brand px-4 text-xs font-semibold text-primary-foreground">{s.actie}</Link>
                     <button onClick={() => setGenegeerd((g) => [...g, b.id + s.soort])} className="rounded-md border border-border px-3 py-1.5 text-xs">{t("components.EmailGesprek.nietNu")}</button>
                   </div>
                 </div>))}

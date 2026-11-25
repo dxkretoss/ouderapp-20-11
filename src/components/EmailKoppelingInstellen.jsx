@@ -32,7 +32,7 @@ export function EmailKoppelingInstellen() {
             <li>{t("components.EmailKoppelingInstellen.punt2")}</li>
             <li>{t("components.EmailKoppelingInstellen.punt3")}</li>
           </ul>
-          <button disabled={!geldigEmail(email)} className="w-full rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.EmailKoppelingInstellen.instellen")}</button>
+          <button disabled={!geldigEmail(email)} className="min-h-11 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.EmailKoppelingInstellen.instellen")}</button>
         </form>) : (<div className="mt-3 space-y-2">
           <div className="rounded-md bg-surface px-3 py-2.5">
             <p className="text-[11px] text-ink-soft">{t("components.EmailKoppelingInstellen.gekoppeld")}</p>
@@ -52,7 +52,7 @@ export function EmailKoppelingInstellen() {
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("components.EmailKoppelingInstellen.placeholderNieuw")} className={invoer}/>
               <p className="text-[11px] text-ink-soft">{t("components.EmailKoppelingInstellen.archiefUitleg")}</p>
               <div className="flex gap-2">
-                <button disabled={!geldigEmail(email)} className="flex-1 rounded-md bg-brand py-2 text-xs font-semibold text-primary-foreground disabled:opacity-40">{t("common.opslaan")}</button>
+                <button disabled={!geldigEmail(email)} className="min-h-11 flex-1 rounded-full bg-brand px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40">{t("common.opslaan")}</button>
                 <button type="button" onClick={() => setModus("rust")} className="flex-1 rounded-md border border-border py-2 text-xs">{t("common.annuleren")}</button>
               </div>
             </form>) : null}

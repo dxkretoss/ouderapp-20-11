@@ -11,7 +11,7 @@ export function NuAfstemmenKaart({ n }) {
     const isAnder = (o) => o === "Ander voorstel" || o === t("common.anderVoorstel");
     const [anders, setAnders] = useState(false);
     const [tekst, setTekst] = useState("");
-    return (<section role="status" className="relative mt-4 rounded-lg border border-accent-warm/40 px-4 py-3" style={{ background: "color-mix(in oklab, var(--accent-warm) 9%, var(--card))" }}>
+    return (<section role="status" className="relative mt-4 rounded-[22px] border border-accent-warm/40 px-4 py-3.5" style={{ background: "color-mix(in oklab, var(--accent-warm) 9%, var(--card))" }}>
       <p className="text-[11px] font-semibold tracking-[0.14em] text-accent-warm uppercase">{t("components.NuAfstemmen.kop", { kinderen: kindNamen(n.kindIds) })}</p>
       <p className="mt-1 font-display text-lg font-bold leading-snug">{n.titel}</p>
       {n.toelichting ? <p className="mt-0.5 text-sm text-ink-soft">{n.toelichting}</p> : null}
@@ -19,9 +19,9 @@ export function NuAfstemmenKaart({ n }) {
       {n.van === "ander" ? (anders ? (<form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); if (tekst.trim())
             reageerNuAfstemmen(n.id, tekst.trim().slice(0, 500)); }}>
             <input autoFocus value={tekst} onChange={(e) => setTekst(e.target.value)} maxLength={500} placeholder={t("components.NuAfstemmen.jouwVoorstel")} className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"/>
-            <button className="rounded-md bg-brand px-3 text-sm font-semibold text-primary-foreground">{t("components.NuAfstemmen.sturen")}</button>
+            <button className="min-h-11 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-primary-foreground">{t("components.NuAfstemmen.sturen")}</button>
           </form>) : (<div className="mt-3 flex flex-wrap gap-2">
-            {n.opties.map((o) => (<button key={o} onClick={() => (isAnder(o) ? setAnders(true) : reageerNuAfstemmen(n.id, o))} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${isAnder(o) ? "border border-border text-ink-soft" : "bg-brand text-primary-foreground"}`}>{o}</button>))}
+            {n.opties.map((o) => (<button key={o} onClick={() => (isAnder(o) ? setAnders(true) : reageerNuAfstemmen(n.id, o))} className={`min-h-10 rounded-full px-4 text-xs font-semibold ${isAnder(o) ? "border border-border text-ink-soft" : "bg-brand text-primary-foreground"}`}>{o}</button>))}
           </div>)) : null}
       <p className="mt-2 text-[11px] text-ink-soft">{t("components.NuAfstemmen.reactieUitleg")}</p>
     </section>);
@@ -73,7 +73,7 @@ export function NuAfstemmenStart({ open, onSluit }) {
           {Object.keys(reactieLabel).map((r) => <button key={r} onClick={() => setReactie(r)} className={chip(reactie === r)}>{reactieLabel[r]}</button>)}
         </div>
         {gemengd ? <p className="mt-3 text-xs font-semibold text-ink">{t("components.NuAfstemmen.start.kiesKind")}</p> : null}
-        <button disabled={!cat || !titel.trim() || gemengd} onClick={verstuur} className="mt-5 w-full rounded-md bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("common.versturen")}</button>
+        <button disabled={!cat || !titel.trim() || gemengd} onClick={verstuur} className="mt-5 min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("common.versturen")}</button>
       </SheetContent>
     </Sheet>);
 }

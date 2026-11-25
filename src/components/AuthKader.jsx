@@ -15,7 +15,7 @@ const N = "components.AuthKader.";
 export function TaalWissel() {
     const { t, i18n: taal } = useTranslation();
     return (<div className="flex rounded-full bg-[rgba(226,216,203,.55)] p-0.5" role="radiogroup" aria-label={t("components.TaalKiezer.titel")}>
-      {TALEN.map((x) => (<button key={x.id} type="button" lang={x.id} role="radio" aria-checked={taal.resolvedLanguage === x.id} aria-label={x.naam} onClick={() => zetTaal(x.id)} className={`h-8 min-w-10 rounded-full px-2.5 text-xs font-black uppercase ${taal.resolvedLanguage === x.id ? "bg-white text-[#3F5747] shadow-sm" : "text-ink-soft"}`}>{x.id}</button>))}
+      {TALEN.map((x) => (<button key={x.id} type="button" lang={x.id} role="radio" aria-checked={taal.resolvedLanguage === x.id} aria-label={x.naam} onClick={() => zetTaal(x.id)} className={`h-9 min-w-10 rounded-full px-2.5 text-xs font-black uppercase ${taal.resolvedLanguage === x.id ? "bg-white text-[#3F5747] shadow-sm" : "text-ink-soft"}`}>{x.id}</button>))}
     </div>);
 }
 /** Volle-hoogte kolom. `terug`: functie voor de terugknop (weglaten = geen knop); `midden`: inhoud in de bovenbalk. */

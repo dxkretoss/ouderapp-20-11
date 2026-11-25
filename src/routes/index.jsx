@@ -246,7 +246,7 @@ function Dashboard() {
       <EigenVandaag />
 
       {eigenKomend.length ? <section className="relative mt-6">
-        <div className="flex items-baseline justify-between"><h2 className="font-display text-[21px] font-black">{t("routes.index.binnenkort")}</h2><Link to="/agenda" className="text-[15px] font-extrabold text-brand">{t("routes.index.alleAfspraken")}</Link></div>
+        <div className="flex items-center justify-between gap-3"><h2 className="min-w-0 font-display text-[21px] font-black">{t("routes.index.binnenkort")}</h2><Link to="/agenda" className="inline-flex min-h-10 shrink-0 items-center text-[15px] font-extrabold text-brand">{t("routes.index.alleAfspraken")}</Link></div>
         <ul className="mt-2.5 overflow-hidden rounded-[22px] border border-white/85 bg-white/60">{eigenKomend.map(({ a, datum }) => <li key={a.id + datum} className="border-b border-[#E9E1D5] last:border-0"><Link to="/agenda" search={{ afspraak: a.id, dag: datum }} className="flex items-center gap-4 px-4 py-3"><span className="w-[4.75rem] shrink-0 whitespace-nowrap leading-tight"><span className="block text-[15px] font-extrabold">{dt(datum).toLocaleDateString(taalLocale(), { weekday: "short", day: "numeric" })}</span><span className="block text-sm text-ink-soft">{a.tijd ? uur(a.tijd) : ""}</span></span><span className="min-w-0 flex-1 truncate text-[16px] font-black">{a.titel}</span></Link></li>)}</ul>
       </section> : null}
 
@@ -254,10 +254,10 @@ function Dashboard() {
       {voorJou > 0 ? (<Link to="/activiteiten" search={{ onderdeel: "regelen" }} className="relative mt-4 flex items-center gap-4 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5">
           <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#DCE3D3] font-display text-lg font-black text-[#3F5747]">{voorJou}</span>
           <span className="min-w-0 flex-1"><span className="block font-display text-[17px] font-black">{t("routes.index.nogTeRegelen")}</span><span className="block truncate text-sm text-ink-soft">{toonActies[0] ? (voorJou > 1 ? t("routes.index.enAndere", { titel: toonActies[0].titel, count: voorJou - 1 }) : toonActies[0].titel) : t("routes.index.actiesVoorJou", { count: voorJou })}</span></span>
-          <Chevron className="size-5 text-ink-soft"/>
+          <Chevron className="size-5 shrink-0 text-ink-soft"/>
         </Link>) : (<div className="relative mt-4 flex items-center gap-4 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5">
           <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#DCE3D3] text-[#3F5747]" aria-hidden><Vinkje className="size-5"/></span>
-          <span><span className="block font-display text-[17px] font-black">{t("routes.index.nogTeRegelen")}</span><span className="block text-sm text-ink-soft">{t("routes.index.allesAfgestemdPunt")}</span></span>
+          <span className="min-w-0 flex-1"><span className="block font-display text-[17px] font-black">{t("routes.index.nogTeRegelen")}</span><span className="block text-sm text-ink-soft">{t("routes.index.allesAfgestemdPunt")}</span></span>
         </div>)}
 
       {paklijstTonen ? (<Link to="/overdracht" className="relative mt-2.5 flex items-center gap-4 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3">
@@ -316,7 +316,7 @@ function Dashboard() {
                         </Link>)}
                     </li>))}
             </ul>
-            <button onClick={() => (voorstelMenu ? setVoorstelMenu(false) : afspraakMenu ? setAfspraakMenu(false) : setToevoegenOpen(false))} className="mt-3 w-full py-2 text-sm font-semibold text-ink-soft">
+            <button onClick={() => (voorstelMenu ? setVoorstelMenu(false) : afspraakMenu ? setAfspraakMenu(false) : setToevoegenOpen(false))} className="mt-3 min-h-11 w-full rounded-full border border-border bg-card px-5 text-sm font-semibold text-ink-soft">
               {voorstelMenu || afspraakMenu ? t("common.terug") : t("common.sluiten")}
             </button>
           </div>
@@ -346,8 +346,8 @@ function Dashboard() {
                             </div>
                             <Chevron className="size-4 text-ink-soft"/>
                           </Link>
-                          {"snel" in a && a.snel ? (<div className="-mt-1 flex gap-2 pb-3 pl-9">
-                              {a.snel.map((s) => (<button key={s.label} type="button" onClick={s.doe} className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-ink hover:bg-muted">{s.label}</button>))}
+                          {"snel" in a && a.snel ? (<div className="-mt-1 flex flex-wrap gap-2 pb-3 pl-9">
+                              {a.snel.map((s) => (<button key={s.label} type="button" onClick={s.doe} className="min-h-9 rounded-full border border-border px-3.5 text-xs font-semibold text-ink hover:bg-muted">{s.label}</button>))}
                             </div>) : null}
                         </li>))}
                     </ul>
@@ -355,11 +355,11 @@ function Dashboard() {
             })}
             </div>)}
           {afgerond.length > 0 ? (<details className="group px-4 pb-6">
-              <summary className="flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden cursor-pointer text-xs font-semibold uppercase tracking-wide text-ink-soft"><Chevron className="size-4 shrink-0 group-open:rotate-90"/>{t("routes.index.afgerond.kop", { n: afgerond.length })}</summary>
+              <summary className="flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden min-h-11 cursor-pointer text-xs font-semibold uppercase tracking-wide text-ink-soft"><Chevron className="size-4 shrink-0 group-open:rotate-90"/>{t("routes.index.afgerond.kop", { n: afgerond.length })}</summary>
               <ul className="mt-2 divide-y divide-border">
                 {afgerond.map((a) => (<li key={a.id}>
                     <Link to={a.naar} onClick={() => { setPuntenOpen(false); markeerVanOverzicht(); }} className="flex items-center gap-3 py-2.5 text-sm text-ink-soft">
-                      <Vinkje className="size-4 text-brand"/><span className="flex-1">{a.titel}</span><Chevron className="size-4"/>
+                      <Vinkje className="size-4 shrink-0 text-brand"/><span className="min-w-0 flex-1">{a.titel}</span><Chevron className="size-4"/>
                     </Link>
                   </li>))}
               </ul>
@@ -380,7 +380,7 @@ function Dashboard() {
                   </ul>
                 </div>))}
             <div className="flex justify-between border-t border-border pt-3 text-sm font-semibold"><span>{t("routes.index.kosten.nogTeBetalen")}</span><span>{saldoTekst}</span></div>
-            <Link to="/kosten" onClick={() => setKostenOpen(false)} className="inline-block text-sm font-semibold text-brand"><MetChevron>{t("routes.index.kosten.betalingBekijken")}</MetChevron></Link>
+            <Link to="/kosten" onClick={() => setKostenOpen(false)} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-card px-5 text-sm font-semibold text-brand"><MetChevron>{t("routes.index.kosten.betalingBekijken")}</MetChevron></Link>
           </div>
         </SheetContent>
       </Sheet>

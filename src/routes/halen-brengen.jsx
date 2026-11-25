@@ -84,8 +84,8 @@ function HalenBrengen() {
       <div className="mt-5 divide-y divide-border rounded-md border border-border bg-card">
         <Link to="/afspraken" onClick={() => markeerGebruikt("/halen-brengen")} className="flex min-h-14 items-center gap-3 px-3 py-3">
           <AppIcon functie="veiligheid" maat="md"/>
-          <span className="flex-1"><span className="block text-sm font-semibold">{t("routes.halenBrengen.afspraken")}</span><span className="block text-xs text-ink-soft">{t("routes.halenBrengen.bekijkAfgesproken")}</span></span>
-          <Chevron className="size-4 text-ink-soft"/>
+          <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t("routes.halenBrengen.afspraken")}</span><span className="block text-xs text-ink-soft">{t("routes.halenBrengen.bekijkAfgesproken")}</span></span>
+          <Chevron className="size-4 shrink-0 text-ink-soft"/>
         </Link>
       </div>
 
@@ -121,6 +121,6 @@ function HalenBrengen() {
               </div>) : null}
             {fase === "vandaag" && zelfOnderweg && !bevestigd ? <p className="text-[11px] text-ink-soft">{t("routes.halenBrengen.meldingVerstuurd", { tijd: m.tijd ? uur(m.tijd) : "" })}</p> : null}
           </Card>
-        </section>) : (<p className="mt-6 text-sm text-ink-soft">{t("routes.halenBrengen.geenGepland")}</p>)}
+        </section>) : (<p className="mt-6 rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t("routes.halenBrengen.geenGepland")}</p>)}
     </AppShell>);
 }

@@ -63,8 +63,8 @@ export function MomentjeKaart({ m, kijker }) {
             <b>{m.reactieVan && m.reactieVan === ik ? t("common.jij") : anderNaam}:</b> {m.reactie ? <ReactieIcoon id={m.reactie} className="size-3.5"/> : null} {m.reactieTekst || reacties.find((r) => r.id === m.reactie)?.l ? <span>{m.reactieTekst || reacties.find((r) => r.id === m.reactie)?.l}</span> : null}
           </p>) : null}
         {!vanMij && !m.reactie && !kijker ? (tekstOpen ? (<div className="mt-3 flex gap-2">
-              <input value={tekst} maxLength={80} onChange={(e) => setTekst(e.target.value)} placeholder={t("components.Momentjes.kaart.korteReactie")} className="flex-1 rounded-xl bg-surface px-3 py-2 text-xs outline-none"/>
-              <button onClick={() => { reageer(m.id, { reactie: tekst.trim() ? "tekst" : "duim", reactieTekst: tekst.trim() }); setTekstOpen(false); }} className="min-h-10 rounded-xl bg-brand px-3 text-xs font-semibold text-primary-foreground">{t("components.Momentjes.kaart.stuur")}</button>
+              <input value={tekst} maxLength={80} onChange={(e) => setTekst(e.target.value)} placeholder={t("components.Momentjes.kaart.korteReactie")} className="min-w-0 flex-1 rounded-xl bg-surface px-3 py-2 text-xs outline-none"/>
+              <button onClick={() => { reageer(m.id, { reactie: tekst.trim() ? "tekst" : "duim", reactieTekst: tekst.trim() }); setTekstOpen(false); }} className="min-h-10 shrink-0 rounded-full bg-brand px-4 text-xs font-semibold text-primary-foreground">{t("components.Momentjes.kaart.stuur")}</button>
             </div>) : (<div className="mt-3 flex flex-wrap gap-1.5">
               {reacties.map((r) => (<button key={r.id} onClick={() => reageer(m.id, { reactie: r.id, reactieTekst: r.l })} className="flex h-10 items-center gap-1.5 rounded-full border border-[#E6DED2] bg-white/80 px-3 text-[13px] font-extrabold">
                   <ReactieIcoon id={r.id}/> {r.l}
@@ -145,12 +145,12 @@ export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
         setKringIds([]);
         onSluit();
     };
-    const chip = (actief) => `rounded-full border px-3 py-1.5 text-xs font-semibold ${actief ? "border-brand bg-brand text-primary-foreground" : "border-border bg-white/70"}`;
+    const chip = (actief) => `min-h-9 rounded-full border px-3.5 text-xs font-semibold ${actief ? "border-brand bg-brand text-primary-foreground" : "border-border bg-white/70"}`;
     return (<div className="app-modal-achter z-40" onClick={onSluit}>
       <div className="app-modal" onClick={(e) => e.stopPropagation()}>
         <p className="flex items-center gap-1.5 font-display text-lg font-bold">{t("components.Momentjes.deel.titel")} <AppIcon functie="momentjes" maat="sm" vorm="kaal"/></p>
         <p className="mt-3 text-xs text-ink-soft">{t("components.Momentjes.deel.overWie")}</p>
-        <div className="mt-1.5 flex gap-2">
+        <div className="mt-1.5 flex flex-wrap gap-2">
           {kindKeuze.map((k) => (<button key={k.id} onClick={() => setKindId(k.id)} className={`flex items-center gap-2 ${chip(kindId === k.id)}`}>
               <ProfielBeeld beeld={k.beeld} naam={k.naam} kleur={k.kleur ?? "#8A7E72"} maat={20}/>{k.naam}
             </button>))}
@@ -164,7 +164,7 @@ export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
         <p className="mt-4 text-xs text-ink-soft">{t("components.Momentjes.deel.wat")}</p>
         <textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={2} placeholder={t("components.Momentjes.deel.watPlaceholder")} className="mt-1.5 w-full resize-none rounded-md bg-white/80 p-3 text-sm outline-none"/>
         <details className="mt-2 text-xs">
-          <summary className="cursor-pointer py-1 font-semibold text-ink-soft">{t("components.Momentjes.deel.meerOpties")}</summary>
+          <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-ink-soft">{t("components.Momentjes.deel.meerOpties")}</summary>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {["vooraf", "tijdens", "na"].map((m) => (<button key={m} onClick={() => setMoment(moment === m ? "geen" : m)} className={chip(moment === m)}>{momentLabel[m]}</button>))}
           </div>
@@ -197,7 +197,7 @@ export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
                 })}
               </div>) : null}
           </>)}
-        <button disabled={(!tekst.trim() && !foto) || !kindId || bezig} onClick={deel} className="mt-4 w-full rounded-md bg-brand py-3 font-semibold text-primary-foreground disabled:opacity-40">
+        <button disabled={(!tekst.trim() && !foto) || !kindId || bezig} onClick={deel} className="mt-4 min-h-12 w-full rounded-full bg-brand px-5 font-semibold text-primary-foreground disabled:opacity-40">
           {alsKring ? t("components.Momentjes.deel.delen") : prive ? t("components.Momentjes.deel.bewaren") : !metAnder ? t("components.Momentjes.deel.delenKring") : kringIds.length ? t("components.Momentjes.deel.delenMetPlus", { naam: anderNaam, n: kringIds.length }) : t("components.Momentjes.deel.delenMet", { naam: anderNaam })}
         </button>
       </div>

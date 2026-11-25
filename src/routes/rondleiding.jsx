@@ -51,13 +51,13 @@ function Rondleiding() {
           </div>
         </div>
         <p className="mt-3 text-sm leading-relaxed">{stap.tekst}</p>
-        <Link to={stap.to} className="mt-4 block w-full rounded-xl border border-border py-2.5 text-center text-sm font-semibold">{stap.knop}</Link>
+        <Link to={stap.to} className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-card px-5 text-center text-sm font-semibold">{stap.knop}</Link>
       </Card>
       <div className="mt-4 flex gap-2">
-        <button disabled={i === 0} onClick={() => setI(i - 1)} className="flex-1 rounded-xl border border-border py-3 text-sm font-semibold disabled:opacity-40">{t("common.vorige")}</button>
+        <button disabled={i === 0} onClick={() => setI(i - 1)} className="min-h-12 flex-1 rounded-full border border-border bg-card px-3 text-sm font-semibold disabled:opacity-40">{t("common.vorige")}</button>
         {laatste
-            ? <Link to="/" className="flex-1 rounded-xl bg-brand py-3 text-center text-sm font-semibold text-primary-foreground">{t("routes.rondleiding.klaar")}</Link>
-            : <button onClick={() => setI(i + 1)} className="flex-1 rounded-xl bg-brand py-3 text-sm font-semibold text-primary-foreground">{t("common.volgende")}</button>}
+            ? <Link to="/" className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-brand px-3 text-center text-sm font-semibold text-primary-foreground">{t("routes.rondleiding.klaar")}</Link>
+            : <button onClick={() => setI(i + 1)} className="min-h-12 flex-1 rounded-full bg-brand px-3 text-sm font-semibold text-primary-foreground">{t("common.volgende")}</button>}
       </div>
       <p className="mt-4 text-center text-xs text-ink-soft">{t("routes.rondleiding.opnieuw")}</p>
     </AppShell>);

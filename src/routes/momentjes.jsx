@@ -33,7 +33,7 @@ export const Route = createFileRoute("/momentjes")({
 });
 function Schakel({ aan, onClick, label, uitleg }) {
     return (<button onClick={onClick} className="flex w-full items-center justify-between gap-3 py-3 text-left">
-      <div><p className="text-sm font-semibold">{label}</p><p className="text-xs text-ink-soft">{uitleg}</p></div>
+      <div className="min-w-0"><p className="text-sm font-semibold">{label}</p><p className="text-xs text-ink-soft">{uitleg}</p></div>
       <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${aan ? "bg-brand" : "bg-border"}`}>
         <span className={`absolute top-0.5 size-5 rounded-full bg-card shadow transition-all ${aan ? "left-5" : "left-0.5"}`}/>
       </span>
@@ -75,8 +75,10 @@ function MomentjesPagina() {
         {!lijst.length ? (laadWeergave(laadStatus, momentjesBron.ververs) ?? <div className="mt-6 flex flex-col items-center text-center">
             <p className="font-display text-lg font-bold">{t("routes.momentjes.eigen.rustig")}</p>
             <p className="mt-1 max-w-xs text-sm text-ink-soft">{t("routes.momentjes.eigen.leegUitleg")}</p>
-            {kinderen.length ? <button onClick={() => setOpen(true)} className="mt-5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-primary-foreground">{t("routes.momentjes.eigen.eerste")}</button> : null}
-            <button onClick={() => nav({ to: "/meer" })} className="mt-3 min-h-11 text-sm font-semibold text-ink-soft">{t("routes.momentjes.eigen.terugMenu")}</button>
+            <div className="mt-6 flex w-full max-w-xs flex-col gap-2.5">
+              {kinderen.length ? <button onClick={() => setOpen(true)} className="min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{t("routes.momentjes.eigen.eerste")}</button> : null}
+              <button onClick={() => nav({ to: "/meer" })} className={kinderen.length ? "min-h-11 w-full rounded-full border border-border bg-card px-5 text-sm font-semibold text-ink-soft" : "min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground"}>{t("routes.momentjes.eigen.terugMenu")}</button>
+            </div>
           </div>) : null}
       </div>
       <h2 className="mt-6 px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft">{t("routes.momentjes.privacyKop")}</h2>

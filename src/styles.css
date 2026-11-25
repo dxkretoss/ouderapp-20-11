@@ -104,7 +104,7 @@
   --accent-foreground: oklch(0.52 0.11 38);
   --destructive: #8A5A44;                /* gedempt, nooit fel rood */
   --destructive-foreground: oklch(0.98 0 0);
-  --border: rgba(255, 255, 255, 0.85);   /* A6 rand glaskaart */
+  --border: #DCD1C2;                     /* warme, zichtbare rand (chips, velden, kaarten) */
   --input: #E2D8CB;
   --ring: var(--brand);
 
@@ -547,3 +547,44 @@ details[open] > summary:not(:has(svg))::after { transform: rotate(180deg); }
 .telefoon-invoer .PhoneInputCountryIcon { box-shadow: 0 0 0 1px rgba(0, 0, 0, .08); border-radius: 3px; overflow: hidden; }
 .telefoon-invoer .PhoneInputInput { min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; font-size: 15px; color: var(--color-ink, inherit); }
 .dark .telefoon-invoer { background: color-mix(in oklab, var(--card) 90%, transparent); border-color: color-mix(in oklab, var(--foreground) 18%, transparent); }
+
+/* Chatvenster in Berichten: zachte stippen op een lichte ondergrond. */
+.chat-veld {
+  background-color: color-mix(in oklab, var(--card) 55%, transparent);
+  background-image: radial-gradient(color-mix(in oklab, var(--brand) 18%, transparent) 1px, transparent 1.4px);
+  background-size: 18px 18px;
+  border: 1px solid var(--border);
+}
+.dark .chat-veld {
+  background-image: radial-gradient(color-mix(in oklab, var(--ink) 14%, transparent) 1px, transparent 1.4px);
+}
+
+/*
+ * Vaste knoppenbalk onderaan een pop-up (opslaan/versturen). Bedekt ook de onderste opvulling van de
+ * pop-up en de volle breedte, zodat er geen inhoud onder of naast de knop door scrolt.
+ *  .voet-vast          in .app-modal (opvulling 1.25rem, onder max(1.5rem, safe+1rem))
+ *  .voet-vast-sheet    in een Sheet met px-5 pb-8
+ *  .voet-vast-sheet6   in een Sheet met de standaard p-6
+ */
+.voet-vast, .voet-vast-sheet, .voet-vast-sheet6 {
+  position: sticky;
+  z-index: 5;
+  background: var(--background);
+  box-shadow: 0 -10px 16px -14px color-mix(in oklab, var(--ink) 35%, transparent);
+}
+.voet-vast {
+  --voet-pb: max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1rem));
+  bottom: calc(-1 * var(--voet-pb));
+  margin: 1rem -1.25rem calc(-1 * var(--voet-pb));
+  padding: 0.75rem 1.25rem var(--voet-pb);
+}
+.voet-vast-sheet {
+  bottom: -2rem;
+  margin: 1rem -1.25rem -2rem;
+  padding: 0.75rem 1.25rem 2rem;
+}
+.voet-vast-sheet6 {
+  bottom: -1.5rem;
+  margin: 1rem -1.5rem -1.5rem;
+  padding: 0.75rem 1.5rem 1.5rem;
+}

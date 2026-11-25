@@ -25,7 +25,7 @@ Deno.serve(serveActions("ai-assistant", {
     const kids = await childrenForAi(user.id);
     const vandaag = new Date().toISOString().slice(0, 10);
     const system = `${assistentSysteem(user.name || "", kids)}${assistentTaalRegel(isEn)}\n\nVandaag: ${vandaag}.\n\nCONTEXT (alleen gegevens waar deze ouder toegang toe heeft):\n${context || "(geen)"}`;
-    const result = await chatJson<Record<string, any>>({
+    const result = await chatJson<Record<string, any>>({ lang: isEn ? "en" : "nl",
       name: "assistent",
       schema: assistentSchema(kids.map((k) => k.id)),
       temperature: 0.2,

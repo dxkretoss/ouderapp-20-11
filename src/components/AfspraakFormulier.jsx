@@ -135,8 +135,8 @@ function Formulier({ onSluit, start, t }) {
             <p className="font-display text-lg">{t(F + "verlaten.titel")}</p>
             <p className="mt-1 text-sm text-ink-soft">{t(F + "verlaten.tekst")}</p>
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm font-semibold">
-              <button type="button" onClick={() => setVerlaten(false)} className="rounded-md bg-brand py-2 text-primary-foreground">{t(F + "verlaten.verder")}</button>
-              <button type="button" onClick={onSluit} className="rounded-md border border-border py-2 text-ink-soft">{t(F + "verlaten.verlaten")}</button>
+              <button type="button" onClick={() => setVerlaten(false)} className="min-h-11 rounded-full bg-brand px-3 text-primary-foreground">{t(F + "verlaten.verder")}</button>
+              <button type="button" onClick={onSluit} className="min-h-11 rounded-full border border-border bg-card px-3 text-ink-soft">{t(F + "verlaten.verlaten")}</button>
             </div>
           </div>) : null}
         <div className="mt-4 space-y-3">
@@ -220,7 +220,7 @@ function Formulier({ onSluit, start, t }) {
           </div>) : null}
         {gedeeld ? <div className="mt-4"><HulpKnop voorstel={{ kind: voor === ALLE ? "alle" : voor ?? "alle", ...(titel ? { wat: titel } : {}), ...(datum ? { datum } : {}), ...(tijd ? { tijd } : {}) }}/></div> : null}
         {fout ? <p role="alert" className="mt-3 text-sm text-destructive">{fout}</p> : null}
-        <div className="sticky bottom-0 -mx-1 bg-background px-1 pb-1 pt-3">
+        <div className="voet-vast">
           <Button type="button" onClick={() => opslaan()} disabled={!kan} className="min-h-11 w-full bg-brand text-primary-foreground shadow-none">{bezig ? t("common.laden") : t(F + "knop.opslaan")}</Button>
         </div>
       </div>

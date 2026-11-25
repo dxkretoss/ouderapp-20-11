@@ -129,7 +129,7 @@ export function EvenMeedenken({ gesprekId, berichten = [], huidigConcept, onOver
             : <Button variant="link" className="mt-2 min-h-11 p-0 text-sm" onClick={() => setOpen(true)}><CoBadge maat="sm"/>{t("components.EvenMeedenken.sparrenVraag")}</Button>}
     <Sheet open={open} onOpenChange={(v) => { if (!v)
         sluit(); }}>
-      <SheetContent side="bottom" className="flex h-[92dvh] max-h-[900px] flex-col rounded-t-lg border-ai-reply bg-ai-space p-4 text-ai-ink sm:inset-x-auto sm:left-1/2 sm:w-full sm:max-w-xl sm:-translate-x-1/2">
+      <SheetContent side="bottom" className="left-1/2 flex h-[90dvh] max-h-[90dvh] w-full max-w-md -translate-x-1/2 flex-col rounded-t-[26px] border-ai-reply bg-ai-space p-4 text-ai-ink">
         <SheetHeader className="shrink-0 pr-10 text-left">
           <SheetTitle className="flex items-center gap-2 text-ai-ink"><CoBadge maat="sm"/>{t("components.EvenMeedenken.sparrenVraag")}</SheetTitle>
           <SheetDescription className="text-ai-soft">{t("components.EvenMeedenken.beschrijving")}</SheetDescription>

@@ -61,9 +61,9 @@ function Solo() {
         <p className="text-sm leading-relaxed">
           {t("routes.solo.intro")}
         </p>
-        <button onClick={() => void start.zetGebruik(aan ? "samen" : "zelf")} role="switch" aria-checked={aan} className="mt-4 flex w-full items-center justify-between rounded-md bg-surface px-4 py-3">
-          <span className="text-sm font-semibold">{aan ? t("routes.solo.modusAan") : t("routes.solo.modusUit")}</span>
-          <span className={`relative h-6 w-11 rounded-full transition-colors ${aan ? "bg-brand" : "bg-border"}`}>
+        <button onClick={() => void start.zetGebruik(aan ? "samen" : "zelf")} role="switch" aria-checked={aan} className="mt-4 flex min-h-12 w-full items-center justify-between gap-3 rounded-md bg-surface px-4 py-3 text-left">
+          <span className="min-w-0 text-sm font-semibold">{aan ? t("routes.solo.modusAan") : t("routes.solo.modusUit")}</span>
+          <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${aan ? "bg-brand" : "bg-border"}`}>
             <span className={`absolute top-0.5 size-5 rounded-full bg-card shadow transition-all ${aan ? "left-5" : "left-0.5"}`}/>
           </span>
         </button>
@@ -85,7 +85,7 @@ function Solo() {
       </p>
       <Card className="mt-3">
         <textarea value={nieuw} onChange={(e) => setNieuw(e.target.value)} placeholder={t("routes.solo.placeholder")} rows={3} maxLength={4000} className="w-full resize-none rounded-xl bg-surface p-3 text-sm outline-none"/>
-        <button disabled={!nieuw.trim() || bezig} onClick={() => void voegToe()} className="mt-2 w-full rounded-xl bg-brand py-2 text-sm font-semibold text-primary-foreground disabled:opacity-40">
+        <button disabled={!nieuw.trim() || bezig} onClick={() => void voegToe()} className="mt-2 min-h-11 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground disabled:opacity-40">
           {t("common.toevoegen")}
         </button>
       </Card>
@@ -93,10 +93,10 @@ function Solo() {
         {laadStatus === "klaar" ? (notities.length ? notities.map((n) => (<Card key={n.id}>
             <div className="flex items-start gap-2">
               <p className="min-w-0 flex-1 text-[11px] font-semibold text-ink-soft">{datumVan(n.aangemaakt)}</p>
-              <button onClick={() => void verwijderPersoonlijk(n.id)} aria-label={t("routes.solo.notitieVerwijderen")} className="grid size-8 shrink-0 place-items-center text-ink-soft"><Kruis className="size-3.5"/></button>
+              <button onClick={() => void verwijderPersoonlijk(n.id)} aria-label={t("routes.solo.notitieVerwijderen")} className="-mr-2 -mt-2 grid size-10 shrink-0 place-items-center text-ink-soft"><Kruis className="size-3.5"/></button>
             </div>
             <p className="mt-1 whitespace-pre-line text-sm">{n.data.tekst}</p>
-          </Card>)) : <p className="px-1 text-xs text-ink-soft">{t("routes.solo.logboekLeeg")}</p>) : laadWeergave(laadStatus, persoonlijkBron.ververs)}
+          </Card>)) : <p className="rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t("routes.solo.logboekLeeg")}</p>) : laadWeergave(laadStatus, persoonlijkBron.ververs)}
       </div>
 
       {/* E-mail koppelen hoort niet bij deze fase (zie lib/fase.js): dan ook geen lege kop. */}

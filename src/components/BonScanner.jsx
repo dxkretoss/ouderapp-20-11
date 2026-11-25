@@ -194,8 +194,8 @@ export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, 
               </div>
             </div>) : null}
           <div className="flex gap-2">
-            <button onClick={() => { setFoto(null); setKoppel(null); setLeesMelding(null); }} className="flex-1 rounded-xl bg-muted py-2 text-sm font-semibold text-ink-soft">{t("components.BonScanner.opnieuw")}</button>
-            <button onClick={opslaan} disabled={leest || (soort === "kosten" && !(leesGeld(bedrag) ?? 0))} className="flex-1 rounded-xl bg-brand py-2 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.BonScanner.controleren")}</button>
+            <button onClick={() => { setFoto(null); setKoppel(null); setLeesMelding(null); }} className="min-h-11 flex-1 rounded-full bg-muted px-4 text-sm font-semibold text-ink-soft">{t("components.BonScanner.opnieuw")}</button>
+            <button onClick={opslaan} disabled={leest || (soort === "kosten" && !(leesGeld(bedrag) ?? 0))} className="min-h-11 flex-1 rounded-full bg-brand px-4 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.BonScanner.controleren")}</button>
           </div>
         </div>)}
     </div>);

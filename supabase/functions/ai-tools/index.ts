@@ -55,7 +55,7 @@ Deno.serve(serveActions("ai-tools", {
       regels = body.berichten.map((b: any, i: number) => `${str(b?.van, `berichten[${i}].van`, 40)}: ${str(b?.tekst, `berichten[${i}].tekst`, 2000)}`);
     }
     if (!regels.length) throw err.validation("Nothing to summarise");
-    const samenvatting = await chatText({
+    const samenvatting = await chatText({ lang: isEn ? "en" : "nl",
       temperature: 0.2,
       maxTokens: 400,
       messages: [
@@ -72,7 +72,7 @@ Deno.serve(serveActions("ai-tools", {
     const m = IMAGE_RE.exec(foto);
     if (!m) throw err.validation("foto must be a data:image URL");
     base64Bytes(m[2], 4_500_000); // size + format check
-    const r = await chatJson<{ winkel: string; datum: string; bedrag: number | null; omschrijving: string }>({
+    const r = await chatJson<{ winkel: string; datum: string; bedrag: number | null; omschrijving: string }>({ lang: isEn ? "en" : "nl",
       name: "bon",
       schema: bonSchema,
       temperature: 0,
@@ -98,7 +98,7 @@ Deno.serve(serveActions("ai-tools", {
     const tekst = str(body.tekst, "tekst", 8000, { min: 10 });
     const vandaag = str(body.vandaag, "vandaag", 20, { optional: true }) || new Date().toISOString().slice(0, 10);
     const kids = await childrenForAi(user.id);
-    const r = await chatJson<{ items: Array<Record<string, any>> }>({
+    const r = await chatJson<{ items: Array<Record<string, any>> }>({ lang: isEn ? "en" : "nl",
       name: "schoolinfo",
       schema: schoolinfoSchema(kids.map((k) => k.id)),
       temperature: 0,
@@ -133,7 +133,7 @@ Deno.serve(serveActions("ai-tools", {
     const verzoek = oneOf(body.verzoek, "verzoek", SCHOOL_VERZOEKEN as string[]);
     const toelichting = str(body.toelichting, "toelichting", 500, { optional: true });
     const input = `Afspraak: ${afspraak}${kind ? `\nKind: ${kind}` : ""}\nVerzoek: ${(verzoekTekst as Record<string, string>)[verzoek]}${toelichting ? `\nExtra context van de ouder: ${toelichting}` : ""}`;
-    const r = await chatJson<{ concept: string }>({
+    const r = await chatJson<{ concept: string }>({ lang: isEn ? "en" : "nl",
       name: "schoolbericht",
       schema: schoolberichtSchema,
       temperature: 0.3,
@@ -160,7 +160,7 @@ Deno.serve(serveActions("ai-tools", {
     } else {
       throw err.validation("Only PDF or text files can be read");
     }
-    const r = await chatJson<{ items: Array<Record<string, any>> }>({
+    const r = await chatJson<{ items: Array<Record<string, any>> }>({ lang: isEn ? "en" : "nl",
       name: "ouderschapsplan",
       schema: planSchema,
       temperature: 0,

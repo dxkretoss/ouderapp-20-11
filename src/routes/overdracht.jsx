@@ -77,10 +77,10 @@ function Overdracht() {
           </button>))}
       </nav>
 
-      {tab !== "terugblik" && !getoond ? (<Card className="mt-5 text-sm text-ink-soft">
+      {tab !== "terugblik" && !getoond ? (<div className="mt-5 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5 text-sm text-ink-soft">
           <p>{t("routes.overdracht.geenWissel")}</p>
           <Link to="/" className="mt-2 inline-flex min-h-10 items-center font-semibold text-brand"><MetChevron>{t("routes.overdracht.verdelingInstellen")}</MetChevron></Link>
-        </Card>) : null}
+        </div>) : null}
 
       {tab === "paklijst" && getoond ? (<>
           {gekozen ? <Link to="/overdracht" search={{}} className="mt-3 inline-flex min-h-10 items-center text-sm font-bold text-brand"><MetChevron>{t("routes.overdracht.naarVolgende")}</MetChevron></Link> : null}
@@ -95,27 +95,27 @@ function Overdracht() {
         </>) : tab === "meegeven" && getoond ? (<OverdrachtFormulier key={getoond.id} momentId={getoond.id} kindIds={getoond.kindIds} aan={t("common.deAndereOuder")} wanneer={wanneer} viaSchool={/school|opvang|childcare|nursery/i.test(getoond.plek ?? "")}/>) : tab === "terugblik" ? (<div className="mt-5 space-y-4">
           <p className="text-sm text-ink-soft">{t("routes.overdracht.terugblikUitleg")}</p>
           {st.kinderen.length > 1 ? <div className="flex flex-wrap gap-2">
-            {[{ id: "alle", naam: t("common.alleKinderen") }, ...st.kinderen].map((k) => (<button key={k.id} onClick={() => setFilter(k.id)} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${filter === k.id ? "bg-white shadow-sm" : "bg-surface text-ink-soft"}`}>{k.naam}</button>))}
+            {[{ id: "alle", naam: t("common.alleKinderen") }, ...st.kinderen].map((k) => (<button key={k.id} onClick={() => setFilter(k.id)} className={`min-h-9 rounded-full px-3.5 text-sm font-semibold ${filter === k.id ? "bg-white shadow-sm" : "bg-surface text-ink-soft"}`}>{k.naam}</button>))}
           </div> : null}
           {zichtbaar.length ? <div className="grid grid-cols-3 gap-2 text-center">
             {[
                 { l: t("routes.overdracht.stat.soepel"), n: telling((r) => r.inhoud.gezondheid?.includes("Alles goed")) },
                 { l: t("routes.overdracht.stat.onrustig"), n: telling((r) => r.inhoud.slaap?.includes("Onrustig")) },
                 { l: t("routes.overdracht.stat.mooi"), n: telling((r) => !!r.inhoud.mooi) },
-            ].map((s) => (<Card key={s.l} className="p-3">
+            ].map((s) => (<div key={s.l} className="rounded-[22px] border border-white/85 bg-white/60 p-3">
                 <p className="font-display text-2xl font-bold">{s.n}</p>
                 <p className="text-[11px] text-ink-soft">{s.l}</p>
-              </Card>))}
-          </div> : <p className="text-sm text-ink-soft">{t("routes.overdracht.terugblikLeeg")}</p>}
+              </div>))}
+          </div> : <p className="rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t("routes.overdracht.terugblikLeeg")}</p>}
           {zichtbaar.length ? <p className="text-xs text-ink-soft">{t("routes.overdracht.vanDeLaatste", { n: zichtbaar.length })}</p> : null}
           {zichtbaar.map((r) => {
                 const kids = st.kinderen.filter((k) => r.kindIds.includes(k.id));
                 const i = r.inhoud;
-                return (<Card key={r.id ?? `${r.momentId}-${r.van}`} className="space-y-1.5">
+                return (<div key={r.id ?? `${r.momentId}-${r.van}`} className="space-y-1.5 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5">
                 <div className="flex items-center gap-2">
                   <span className="flex">{kids.map((k, n) => <span key={k.id} style={{ marginLeft: n ? -8 : 0 }}><ProfielBeeld beeld={k.beeld} naam={k.naam} kleur={k.kleur} maat={28}/></span>)}</span>
-                  <p className="flex-1 text-sm font-semibold">{kids.map((k) => k.naam).join(" & ")} · {dt(r.momentId).toLocaleDateString(taalLocale(), { day: "numeric", month: "short" })}</p>
-                  <span className="text-[11px] text-ink-soft">{r.van === "ik" ? t("routes.overdracht.log.vanJou") : t("routes.overdracht.log.vanAnder")}</span>
+                  <p className="min-w-0 flex-1 text-sm font-semibold">{kids.map((k) => k.naam).join(" & ")} · {dt(r.momentId).toLocaleDateString(taalLocale(), { day: "numeric", month: "short" })}</p>
+                  <span className="shrink-0 text-[11px] text-ink-soft">{r.van === "ik" ? t("routes.overdracht.log.vanJou") : t("routes.overdracht.log.vanAnder")}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-xs">
                   {[...(i.gezondheid ?? []), ...(i.slaap ?? []), ...(i.school ?? [])].map((x) => (<span key={x} className="rounded-full bg-white/80 px-2 py-0.5">{keuze(x)}</span>))}
@@ -123,7 +123,7 @@ function Overdracht() {
                 {i.gezondheidNotitie || i.schoolNotitie ? <p className="text-sm text-ink-soft">{[i.gezondheidNotitie, i.schoolNotitie].filter(Boolean).join(" · ")}</p> : null}
                 {i.mooi ? <p className="flex items-start gap-1.5 text-sm"><AppIcon functie="ster" maat="sm" vorm="kaal" className="mt-0.5 shrink-0"/><span>{i.mooi}</span></p> : null}
                 {i.vraag ? <p className="whitespace-pre-wrap text-sm">{i.vraag}</p> : null}
-              </Card>);
+              </div>);
             })}
         </div>) : null}
     </AppShell>);

@@ -94,7 +94,7 @@ export function AppShell({ children, breed = false }) {
     };
     return (<div className={`app-canvas min-h-screen w-full font-body text-ink ${breed ? "zonder-kader" : ""}`}>
       <div className={`relative mx-auto max-w-md px-5 ${breed ? "md:max-w-3xl lg:max-w-6xl" : ""}`} style={{ paddingTop: "max(2rem, calc(env(safe-area-inset-top, 0px) + 1rem))", paddingBottom: "calc(6.5rem + env(safe-area-inset-bottom, 0px))" }}>
-        {pathname !== "/" && isVanOverzicht() ? (<Link to="/" onClick={vraagHeropen} className="mb-3 inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-ink-soft"><MetChevron richting="links">{t("components.AppShell.terugOverzicht")}</MetChevron></Link>) : null}
+        {pathname !== "/" && isVanOverzicht() ? (<Link to="/" onClick={vraagHeropen} className="mb-3 inline-flex min-h-9 items-center gap-1 rounded-full bg-muted px-3.5 text-xs font-semibold text-ink-soft"><MetChevron richting="links">{t("components.AppShell.terugOverzicht")}</MetChevron></Link>) : null}
         {children}
       </div>
 

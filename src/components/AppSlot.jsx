@@ -56,7 +56,7 @@ export function AppSlot() {
         <LockKeyhole className="mx-auto size-8 text-brand" strokeWidth={1.5}/>
         <h1 className="mt-4 font-display text-2xl">{t("components.AppSlot.titel")}</h1>
         <p className="mt-2 text-sm text-ink-soft">{t("components.AppSlot.uitleg")}</p>
-        <button onClick={probeer} className="mt-6 w-full rounded-md bg-brand py-3 text-sm font-semibold text-primary-foreground">{t("components.AppSlot.ontgrendelen")}</button>
+        <button onClick={probeer} className="mt-6 min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{t("components.AppSlot.ontgrendelen")}</button>
         {fout ? <p className="mt-3 text-xs text-ink-soft">{t("components.AppSlot.fout")}</p> : null}
       </div>
       </div>

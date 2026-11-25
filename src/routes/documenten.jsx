@@ -105,7 +105,7 @@ function Documenten() {
           {toon === "plan" ? <OuderschapsplanImport onOpgeslagen={() => { }}/> : null}
           {toon === "school" ? <SchoolinfoUitlezen /> : null}
           {toon === "bon" ? <BonScanner standaard="document" onDocument={(d) => d.foto ? uploadDocument(d.foto, { naam: d.naam, categorie: DOCUMENT_CATEGORIEEN.includes(d.categorie) ? d.categorie : "Overig", kindId: st.kinderen.find((k) => k.id === d.kind || k.naam === d.kind)?.id ?? null, bron: "bon", bestandsnaam: `${d.naam}.jpg` }) : null}/> : null}
-          <button onClick={() => setToon(null)} className="mt-1 min-h-10 text-sm font-semibold text-ink-soft">{t("common.sluiten")}</button>
+          <button onClick={() => setToon(null)} className="mt-3 min-h-11 w-full rounded-full border border-border bg-card px-5 text-sm font-semibold text-ink-soft">{t("common.sluiten")}</button>
         </div>) : null}
 
       {belangrijk.length ? (<section className="mt-5">
@@ -122,9 +122,9 @@ function Documenten() {
         </section>) : null}
 
       <div className="mt-5 flex flex-wrap gap-2">
-        {cats.map((c) => <button key={c} onClick={() => setCat(c)} aria-pressed={cat === c} className={`h-[34px] rounded-full px-3.5 text-[13.5px] font-extrabold ${cat === c ? "bg-brand text-primary-foreground" : "border border-white/95 bg-white/75"}`}>{catLabel(c)}</button>)}
+        {cats.map((c) => <button key={c} onClick={() => setCat(c)} aria-pressed={cat === c} className={`h-9 rounded-full px-3.5 text-[13.5px] font-extrabold ${cat === c ? "bg-brand text-primary-foreground" : "border border-white/95 bg-white/75"}`}>{catLabel(c)}</button>)}
       </div>
-      <ul className="mt-3 divide-y divide-[#E9E1D5] rounded-[22px] border border-white/85 bg-white/60 px-3.5">
+      {alle.length ? <ul className="mt-3 divide-y divide-[#E9E1D5] rounded-[22px] border border-white/85 bg-white/60 px-3.5">
         {gesorteerd.map((d) => {
             const sv = stijl(d.categorie);
             const eigen = d.door === ik;
@@ -136,18 +136,20 @@ function Documenten() {
               <span className="block text-xs text-ink-soft">{d.kind.replace(" & ", ` ${t("common.en")} `)} · {datumTekst(d.datum)}{NIEUW.has(d.id) ? t("routes.documenten.vanNaam", { naam: vanWie(d.door) }) : ""}</span>
               {g.gekoppeld ? <DeelLabel gedeeld={!eigen || d.gedeeld} className="mt-1"/> : null}
             </span>
-            {!eigen ? <Chevron className="size-4 text-ink-soft"/> : null}
+            {!eigen ? <Chevron className="size-4 shrink-0 text-ink-soft"/> : null}
             </button>
             {eigen ? <button onClick={() => setBeheer(d)} aria-label={t("routes.documenten.beheer.label", { naam: d.naam })} className="grid size-11 shrink-0 place-items-center text-ink-soft"><MoreHorizontal aria-hidden className="size-5" strokeWidth={2}/></button> : null}
           </li>);
         })}
-        {!gesorteerd.length && alle.length ? <li className="py-4 text-sm text-ink-soft">{t("routes.documenten.leegCategorie")}</li> : null}
-      </ul>
+        {!gesorteerd.length && alle.length ? <li className="py-4 text-center text-sm text-ink-soft">{t("routes.documenten.leegCategorie")}</li> : null}
+      </ul> : null}
       {!alle.length && !bestand && !toon ? (laadWeergave(laadStatus, documentenBron.ververs) ?? <div className="mt-10 flex flex-col items-center text-center">
           <p className="font-display text-lg font-bold">{t("routes.documenten.eigen.rustig")}</p>
           <p className="mt-1 max-w-xs text-sm text-ink-soft">{t("routes.documenten.eigen.leegUitleg")}</p>
-          <button onClick={() => upload.current?.click()} className="mt-5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-primary-foreground">{t("routes.documenten.eigen.eerste")}</button>
-          <button onClick={() => nav({ to: "/meer" })} className="mt-3 min-h-11 text-sm font-semibold text-ink-soft">{t("routes.documenten.eigen.terugMenu")}</button>
+          <div className="mt-6 flex w-full max-w-xs flex-col gap-2.5">
+            <button onClick={() => upload.current?.click()} className="min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{t("routes.documenten.eigen.eerste")}</button>
+            <button onClick={() => nav({ to: "/meer" })} className="min-h-11 w-full rounded-full border border-border bg-card px-5 text-sm font-semibold text-ink-soft">{t("routes.documenten.eigen.terugMenu")}</button>
+          </div>
         </div>) : null}
       <input ref={upload} type="file" className="hidden" aria-label={t("routes.documenten.kiezen")} accept=".pdf,.doc,.docx,.txt,image/jpeg,image/png,image/webp" onChange={(e) => { const f = e.target.files?.[0]; if (f) {
         if (f.size > MAX_DOCUMENT_BYTES) {
@@ -159,19 +161,19 @@ function Documenten() {
             setUploadStatus("");
         }
     } e.target.value = ""; }}/>
-      {bestand ? <form className="mt-3 space-y-3 border-y border-border py-4" onSubmit={(e) => { e.preventDefault(); opslaan(); }}>
+      {bestand ? <form className="mt-3 space-y-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5" onSubmit={(e) => { e.preventDefault(); opslaan(); }}>
         <label className="block text-xs font-semibold">{t("routes.documenten.upload.naam")}<input aria-label={t("routes.documenten.upload.naam")} value={uploadNaam} onChange={(e) => setUploadNaam(e.target.value)} required className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"/></label>
         <label className="block text-xs font-semibold">{t("routes.documenten.upload.voorWie")}<select aria-label={t("routes.documenten.upload.voorWieLabel")} value={uploadKind} onChange={(e) => setUploadKind(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">{st.kinderen.map((k) => <option key={k.id} value={k.id}>{k.naam}</option>)}<option value="">{t("routes.documenten.eigen.heleGezin")}</option></select></label>
         <label className="block text-xs font-semibold">{t("routes.documenten.upload.categorie")}<select aria-label={t("routes.documenten.upload.categorie")} value={uploadCat} onChange={(e) => setUploadCat(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">{DOCUMENT_CATEGORIEEN.map((c) => <option key={c} value={c}>{documentCategorieLabel(c)}</option>)}</select></label>
         <DelenKeuze kindIds={uploadKind ? [uploadKind] : []} gedeeld={uploadGedeeld} onGedeeld={setUploadGedeeld} anderId={uploadAnder} onAnderId={setUploadAnder}/>
         <p className="text-xs text-ink-soft">{t("routes.documenten.upload.veiligKeuze")}</p>
-        <div className="flex gap-2"><Button type="submit" disabled={!uploadNaam.trim() || bezig || !uploadDelen.ok}>{t("routes.documenten.upload.toevoegen")}</Button><Button type="button" variant="ghost" onClick={() => setBestand(null)}>{t("common.annuleren")}</Button></div>
+        <div className="grid grid-cols-2 gap-2"><Button type="submit" disabled={!uploadNaam.trim() || bezig || !uploadDelen.ok} className="h-auto min-h-11 w-full whitespace-normal rounded-full">{t("routes.documenten.upload.toevoegen")}</Button><Button type="button" variant="outline" onClick={() => setBestand(null)} className="h-auto min-h-11 w-full whitespace-normal rounded-full">{t("common.annuleren")}</Button></div>
       </form> : null}
       {uploadStatus ? <p role="status" className="mt-2 text-xs text-brand">{uploadStatus}</p> : null}
       <DocumentBeheer d={beheer} onSluit={() => setBeheer(null)}/>
       <Link to="/exporteren" className="mt-4 flex items-center gap-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3">
         <span className="min-w-0 flex-1"><span className="block text-[15px] font-black">{t("routes.documenten.export.titel")}</span><span className="block text-xs text-ink-soft">{t("routes.documenten.export.uitleg")}</span></span>
-        <Chevron className="size-4 text-ink-soft"/>
+        <Chevron className="size-4 shrink-0 text-ink-soft"/>
       </Link>
     </AppShell>);
 }
@@ -227,9 +229,9 @@ function DocumentBeheer({ d, onSluit }) {
               <label className="block text-xs font-semibold">{t("routes.documenten.upload.naam")}<input value={naam} maxLength={200} onChange={(e) => setNaam(e.target.value)} required className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"/></label>
               <label className="block text-xs font-semibold">{t("routes.documenten.upload.categorie")}<select value={categorie} onChange={(e) => setCategorie(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">{DOCUMENT_CATEGORIEEN.map((c) => <option key={c} value={c}>{documentCategorieLabel(c)}</option>)}</select></label>
               <DelenKeuze kindIds={d.kindId ? [d.kindId] : []} gedeeld={gedeeld} onGedeeld={setGedeeld} anderId={ander} onAnderId={setAnder}/>
-              <div className="sticky bottom-0 space-y-2 bg-background pb-2 pt-1">
-                <Button type="submit" className="w-full" disabled={!geldig}>{t("common.opslaan")}</Button>
-                <Button type="button" variant="ghost" className="w-full text-ink-soft" onClick={() => setWeg(true)}>{t("common.verwijderen")}</Button>
+              <div className="voet-vast-sheet6 space-y-2">
+                <Button type="submit" className="min-h-11 w-full rounded-full" disabled={!geldig}>{t("common.opslaan")}</Button>
+                <Button type="button" variant="ghost" className="min-h-11 w-full text-ink-soft" onClick={() => setWeg(true)}>{t("common.verwijderen")}</Button>
               </div>
             </form>
           </>) : null}

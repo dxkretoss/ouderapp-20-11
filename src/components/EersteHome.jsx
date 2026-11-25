@@ -18,7 +18,7 @@ import { useVakanties } from "@/lib/vakantie-store";
 import { inToekomst, vandaagIso } from "@/lib/datum-vandaag";
 import { useWisselMomenten, volgendeVan } from "@/lib/overdracht-store";
 
-const knop = "w-full rounded-xl bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40";
+const knop = "min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground disabled:opacity-40";
 const veld = "mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand";
 /** Kleur én letter, zodat kleur nooit de enige informatiedrager is. */
 function Dag({ p, label, onClick }) {
@@ -114,7 +114,7 @@ export function KindSheet({ open, onClose, start: begin = "kind" }) {
             <p className="text-xs text-ink-soft">{t("components.EersteHome.kind.contactUitleg")}</p>
             {opslagFout ? <p role="alert" className="text-sm text-ink-soft">{t("components.EersteHome.kind.opslagFout")}</p> : null}
             <Button disabled={!naam.trim()} variant="ghost" className={`${knop} h-auto shadow-none`} onClick={opslaanFamilie}>{opslagFout ? t("components.EersteHome.opnieuw") : t("common.opslaan")}</Button>
-            <button className="block w-full text-center text-xs font-semibold text-ink-soft" onClick={() => setFase("vervolg")}>{t("common.terug")}</button>
+            <button className="block min-h-11 w-full text-center text-xs font-semibold text-ink-soft" onClick={() => setFase("vervolg")}>{t("common.terug")}</button>
           </>) : (<>
             <p className="text-sm text-ink-soft">{t("components.EersteHome.kind.later")}</p>
             <button className={knop} onClick={onClose}>{t("components.EersteHome.verder")}</button>
@@ -188,7 +188,7 @@ function RegelingSheet({ open, onClose, kindNaam, kindId: beginKind }) {
         onClose();
     };
     const kiesKind = kinderen.length > 1 ? (<div className="mb-3 flex flex-wrap gap-2" role="radiogroup" aria-label={t("components.EersteHome.regeling.voorWie")}>
-        {[{ id: "alle", naam: t("common.alleKinderen") }, ...kinderen].map((k) => (<button key={k.id} type="button" role="radio" aria-checked={voor === k.id} onClick={() => setVoor(k.id)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${voor === k.id ? "bg-brand text-primary-foreground" : "border border-border bg-card"}`}>{k.naam}</button>))}
+        {[{ id: "alle", naam: t("common.alleKinderen") }, ...kinderen].map((k) => (<button key={k.id} type="button" role="radio" aria-checked={voor === k.id} onClick={() => setVoor(k.id)} className={`min-h-9 rounded-full px-3.5 text-xs font-semibold ${voor === k.id ? "bg-brand text-primary-foreground" : "border border-border bg-card"}`}>{k.naam}</button>))}
       </div>) : null;
     return (<Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-3xl bg-background">
@@ -204,7 +204,7 @@ function RegelingSheet({ open, onClose, kindNaam, kindId: beginKind }) {
                     {p.dagen && p.id !== "zelf" ? <div className="mt-2"><Weken dagen={p.dagen}/></div> : null}
                   </button>))}
               </div>
-              <button onClick={() => { start.regeling("later", voor === "alle" ? undefined : voor); onClose(); }} className="mt-3 w-full text-center text-xs font-semibold text-ink-soft">{t("components.EersteHome.regeling.later")}</button>
+              <button onClick={() => { start.regeling("later", voor === "alle" ? undefined : voor); onClose(); }} className="mt-3 min-h-11 w-full text-center text-xs font-semibold text-ink-soft">{t("components.EersteHome.regeling.later")}</button>
             </div>
           </>) : (<>
             <SheetHeader><SheetTitle className="font-display">{geldigeRegeling(huidig) ? t("components.EersteHome.regeling.aanpassen") : t("components.EersteHome.regeling.instellen")}</SheetTitle></SheetHeader>
@@ -214,7 +214,7 @@ function RegelingSheet({ open, onClose, kindNaam, kindId: beginKind }) {
                 <p className="text-xs text-ink-soft">{t("components.EersteHome.regeling.tik")}</p>
                 <div className="mt-2"><Weken dagen={dagen} labels rijLabels onToggle={(i) => setDagen((d) => d.map((x, n) => (n === i ? (x === "ik" ? "ander" : "ik") : x)))}/></div>
                 <Legenda />
-                <button onClick={omdraaien} className="mt-2 text-xs font-semibold text-brand">{t("components.EersteHome.regeling.andersom")}</button>
+                <button onClick={omdraaien} className="mt-1 min-h-10 text-xs font-semibold text-brand">{t("components.EersteHome.regeling.andersom")}</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <label className="text-xs text-ink-soft">{t("components.EersteHome.regeling.tijd")}<input type="time" value={tijd} onChange={(e) => setTijd(e.target.value)} className={veld}/></label>
@@ -231,7 +231,7 @@ function RegelingSheet({ open, onClose, kindNaam, kindId: beginKind }) {
                 <Button className="w-full" onClick={bevestig}>{t("components.EersteHome.regeling.opslaan")}</Button>
                 {gekozen.some((k) => k.samen) ? <p className="text-xs text-ink-soft">{t("components.EersteHome.regeling.andereBevestigt")}</p> : null}
               </>}
-              <button onClick={() => setStap("patroon")} className="w-full text-center text-xs font-semibold text-ink-soft">{t("components.EersteHome.regeling.anderPatroon")}</button>
+              <button onClick={() => setStap("patroon")} className="min-h-11 w-full text-center text-xs font-semibold text-ink-soft">{t("components.EersteHome.regeling.anderPatroon")}</button>
             </div>
           </>)}
       </SheetContent>
@@ -240,8 +240,8 @@ function RegelingSheet({ open, onClose, kindNaam, kindId: beginKind }) {
 function StapInhoud({ x }) {
     return (<>
       <AppIcon functie={x.icoon} maat="sm"/>
-      <span className="flex-1"><span className="block text-sm font-semibold">{x.titel}</span><span className="block text-xs text-ink-soft">{x.tekst}</span></span>
-      <Chevron className="size-5 text-ink-soft"/>
+      <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{x.titel}</span><span className="block text-xs text-ink-soft">{x.tekst}</span></span>
+      <Chevron className="size-5 shrink-0 self-center text-ink-soft"/>
     </>);
 }
 /** De echte Home voor een eigen gezin: dezelfde plekken veranderen van uitleg naar functionaliteit. */
@@ -309,32 +309,32 @@ export function EigenVandaag() {
     const [regOpen, setRegOpen] = useState(false);
     return (<>
       {/* Vandaag: dezelfde plek, eerst uitleg, daarna de echte stand van zaken */}
-      <section className="relative mt-5 rounded-lg border border-border px-5 py-4" style={{ background: "linear-gradient(160deg, color-mix(in oklab, var(--brand) 10%, var(--card)), var(--card) 55%)" }}>
+      <section className="relative mt-5 rounded-[22px] border border-border px-5 py-4" style={{ background: "linear-gradient(160deg, color-mix(in oklab, var(--brand) 10%, var(--card)), var(--card) 55%)" }}>
         <p className="text-[11px] font-semibold tracking-[0.14em] text-brand uppercase">{t("common.vandaag")}</p>
         {s.kinderen.length && s.regeling && typeof s.regeling === "object" ? <BewerkPotlood onClick={() => setRegOpen(true)} label={t("components.EersteHome.vandaag.aanpassen")}/> : null}
         {!s.kinderen.length ? (<>
             <p className="mt-1 font-display text-xl font-bold leading-snug">{t("components.EersteHome.vandaag.voorWie")}</p>
             <p className="mt-1 text-sm text-ink-soft">{t("components.EersteHome.vandaag.voegToe")}</p>
-            <Link to="/kinderen" className="mt-3 inline-block rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.vandaag.kindToevoegen")}</Link>
+            <Link to="/kinderen" className="mt-3 flex min-h-12 w-full items-center justify-center rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.vandaag.kindToevoegen")}</Link>
           </>) : v && regeling ? (<>
             {v.plek === "gemengd" ? <p className="mt-1 font-display text-xl font-bold leading-snug">{v.kinderen.map((k) => <Link key={k.id} to="/kinderen/$kindId" params={{ kindId: k.id }} className="mr-2 inline-block">{t(k.ouder === "sanne" ? "components.EersteHome.vandaag.bijJou" : "components.EersteHome.vandaag.bijAnder", { namen: k.naam, count: 1 })}</Link>)}</p> : <p className="mt-1 font-display text-xl font-bold leading-snug">{t(v.plek === "ik" ? "components.EersteHome.vandaag.bijJou" : "components.EersteHome.vandaag.bijAnder", { namen: namenTekst, count: zijn })}</p>}
             <p className="mt-0.5 text-sm text-ink-soft">{t("components.EersteHome.vandaag.volgende", { datum: v.volgende.toLocaleDateString(taalLocale(), { weekday: "long", day: "numeric", month: "short" }), tijd: uur(v.tijd) })}{v.waar ? ` · ${v.waar}` : ""}</p>
             {nu ? <WeekLijn dagen={v.week} vandaag={(nu.getDay() + 6) % 7}/> : null}
-            <div className="mt-2 flex gap-4">
-              <button onClick={() => setSchema((x) => !x)} aria-expanded={schema} className="text-xs font-semibold text-brand">{schema ? t("components.EersteHome.vandaag.verbergen") : t("components.EersteHome.vandaag.bekijken")}</button>
+            <div className="mt-1 flex gap-4">
+              <button onClick={() => setSchema((x) => !x)} aria-expanded={schema} className="min-h-10 text-xs font-semibold text-brand">{schema ? t("components.EersteHome.vandaag.verbergen") : t("components.EersteHome.vandaag.bekijken")}</button>
             </div>
             {schema && nu ? <div className="mt-2"><Weken dagen={tweeWekenVanaf(regeling, nu)} labels rijLabels/><Legenda /></div> : null}
           </>) : s.regeling === "later" ? (<>
             <p className="mt-1 font-display text-xl font-bold leading-snug">{t("components.EersteHome.vandaag.geenSchema")}</p>
             <p className="mt-1 text-sm text-ink-soft">{t("components.EersteHome.vandaag.prima")}</p>
-            <div className="mt-3 flex gap-3">
-              <Link to="/agenda" search={{ nieuw: true, titel: t("components.EersteHome.vandaag.wisselmoment") }} className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.vandaag.wisselToevoegen")}</Link>
-              <button onClick={() => setRegOpen(true)} className="text-xs font-semibold text-ink-soft">{t("components.EersteHome.vandaag.tochPatroon")}</button>
+            <div className="mt-3 flex flex-col gap-2">
+              <Link to="/agenda" search={{ nieuw: true, titel: t("components.EersteHome.vandaag.wisselmoment") }} className="flex min-h-12 w-full items-center justify-center rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.vandaag.wisselToevoegen")}</Link>
+              <button onClick={() => setRegOpen(true)} className="min-h-11 w-full rounded-full border border-border bg-card px-5 text-sm font-semibold text-ink-soft">{t("components.EersteHome.vandaag.tochPatroon")}</button>
             </div>
           </>) : (<>
             <p className="mt-1 font-display text-xl font-bold leading-snug">{t("components.EersteHome.vandaag.wanneer")}</p>
             <p className="mt-1 text-sm text-ink-soft">{t("components.EersteHome.vandaag.voegVerdelingToe", { namen: namenTekst, count: zijn })}</p>
-            <button onClick={() => setRegOpen(true)} className="mt-3 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.vandaag.verdelingToevoegen")}</button>
+            <button onClick={() => setRegOpen(true)} className="mt-3 min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.vandaag.verdelingToevoegen")}</button>
           </>)}
       </section>
       <RegelingSheet open={regOpen} onClose={() => setRegOpen(false)} kindNaam={namenTekst || t("components.EersteHome.jeKind")}/>
@@ -365,18 +365,18 @@ export function EigenVolgende() {
         </p>) : null}
       {volgende.length ? (<section className="mt-4">
           <h2 className="font-display text-lg font-bold">{t("components.EersteHome.volgende.kop")}</h2>
-          <div className="mt-2 divide-y divide-border border-y border-border">
+          <div className="mt-2 divide-y divide-border rounded-[22px] border border-white/85 bg-white/60 px-4">
             {volgende.slice(0, 3).map((x) => (x.naar === "gezag" ? (<button key={x.titel} onClick={() => setGezagOpen(true)} className="flex w-full items-start gap-3 py-3 text-left"><StapInhoud x={x}/></button>) : x.naar === "/agenda" ? (<Link key={x.titel} to="/agenda" search={{ nieuw: true }} onClick={() => x.actie?.()} className="flex items-start gap-3 py-3"><StapInhoud x={x}/></Link>) : (<Link key={x.titel} to={x.naar} hash={x.hash} onClick={() => x.actie?.()} className="flex items-start gap-3 py-3"><StapInhoud x={x}/></Link>)))}
           </div>
         </section>) : null}
 
-      {!basisKlaar && !s.voortgangVerborgen ? (<section className="mt-6 rounded-lg border border-border bg-card px-4 py-3">
+      {!basisKlaar && !s.voortgangVerborgen ? (<section className="mt-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5">
           <div className="flex items-center justify-between gap-3">
-            <button onClick={() => setIngeklapt((x) => !x)} aria-expanded={!ingeklapt} className="flex-1 text-left">
+            <button onClick={() => setIngeklapt((x) => !x)} aria-expanded={!ingeklapt} className="min-w-0 flex-1 text-left">
               <span className="block text-sm font-semibold">{t("components.EersteHome.start.voortgang", { n: aantalKlaar, totaal: stappen.length })}</span>
               <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-surface"><span className="block h-full rounded-full bg-brand" style={{ width: `${(aantalKlaar / stappen.length) * 100}%` }}/></span>
             </button>
-            <button onClick={() => setIngeklapt((x) => !x)} className="min-h-[44px] text-xs font-semibold text-ink-soft">{ingeklapt ? t("components.EersteHome.start.toon") : t("components.EersteHome.start.inklappen")}</button>
+            <button onClick={() => setIngeklapt((x) => !x)} className="min-h-11 shrink-0 text-xs font-semibold text-ink-soft">{ingeklapt ? t("components.EersteHome.start.toon") : t("components.EersteHome.start.inklappen")}</button>
           </div>
           {!ingeklapt ? (<>
               <ul className="mt-2 space-y-1.5">
@@ -385,7 +385,7 @@ export function EigenVolgende() {
                     <span>{x.label}</span><span className="sr-only">{x.klaar ? t("components.EersteHome.start.klaar") : t("components.EersteHome.start.nogTeDoen")}</span>
                   </li>))}
               </ul>
-              <button onClick={() => start.markeer({ voortgangVerborgen: true })} className="mt-2 text-xs font-semibold text-ink-soft">{t("components.EersteHome.start.nietMeer")}</button>
+              <button onClick={() => start.markeer({ voortgangVerborgen: true })} className="mt-1 min-h-10 text-xs font-semibold text-ink-soft">{t("components.EersteHome.start.nietMeer")}</button>
             </>) : null}
         </section>) : null}
     </>);
@@ -417,7 +417,7 @@ function RegelingBevestigen() {
             setTekst("");
         }
     };
-    const kaart = "mt-4 rounded-lg border border-border bg-card px-4 py-3";
+    const kaart = "mt-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5";
     return (<>
       {vragen.map((k) => (<section key={k.id} className={kaart} aria-label={t("components.EersteHome.bevestigen.titel", { naam: k.naam })}>
           <p className="font-display text-base font-bold">{t("components.EersteHome.bevestigen.titel", { naam: k.naam })}</p>
@@ -426,18 +426,18 @@ function RegelingBevestigen() {
           {anders === k.id ? (<div className="mt-3 space-y-2">
               <label className="block text-xs text-ink-soft">{t("components.EersteHome.bevestigen.watAnders")}<textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={2} maxLength={1000} className={veld}/></label>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setAnders(null)} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold">{t("common.annuleren")}</button>
-                <button type="button" disabled={bezig || !tekst.trim()} onClick={() => antwoord(k, false)} className="flex-1 rounded-xl bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.EersteHome.bevestigen.versturen")}</button>
+                <button type="button" onClick={() => setAnders(null)} className="min-h-11 flex-1 rounded-full border border-border bg-card px-3 text-sm font-semibold">{t("common.annuleren")}</button>
+                <button type="button" disabled={bezig || !tekst.trim()} onClick={() => antwoord(k, false)} className="min-h-11 flex-1 rounded-full bg-brand px-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.EersteHome.bevestigen.versturen")}</button>
               </div>
             </div>) : (<div className="mt-3 flex gap-2">
-              <button type="button" disabled={bezig} onClick={() => { setAnders(k.id); setTekst(""); }} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold">{t("components.EersteHome.bevestigen.kloptNiet")}</button>
-              <button type="button" disabled={bezig} onClick={() => antwoord(k, true)} className="flex-1 rounded-xl bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.bevestigen.klopt")}</button>
+              <button type="button" disabled={bezig} onClick={() => { setAnders(k.id); setTekst(""); }} className="min-h-11 flex-1 rounded-full border border-border bg-card px-3 text-sm font-semibold">{t("components.EersteHome.bevestigen.kloptNiet")}</button>
+              <button type="button" disabled={bezig} onClick={() => antwoord(k, true)} className="min-h-11 flex-1 rounded-full bg-brand px-3 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.bevestigen.klopt")}</button>
             </div>)}
         </section>))}
       {nietGoed.map((k) => (<section key={k.id} className={kaart}>
           <p className="font-display text-base font-bold">{t("components.EersteHome.bevestigen.kloptNietTitel", { naam: k.naam })}</p>
           {k.regelingStatus.opmerking ? <p className="mt-1 whitespace-pre-wrap text-sm">{k.regelingStatus.opmerking}</p> : null}
-          <button type="button" onClick={() => setAanpassen(k.id)} className="mt-3 w-full rounded-xl bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.bevestigen.aanpassen")}</button>
+          <button type="button" onClick={() => setAanpassen(k.id)} className="mt-3 min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{t("components.EersteHome.bevestigen.aanpassen")}</button>
         </section>))}
       <RegelingSheet open={!!aanpassen} kindId={aanpassen ?? undefined} onClose={() => setAanpassen(null)} kindNaam={st.kinderen.find((k) => k.id === aanpassen)?.naam ?? ""}/>
     </>);

@@ -183,10 +183,10 @@ function Start({ ouder, ga, aantalHouvast }) {
         <span className="min-w-0 flex-1"><span className="block text-[15.5px] font-black">{t("routes.lastigeMomenten.houvast.titel")}</span><span className="block text-[13px] text-ink-soft">{t("routes.lastigeMomenten.start.houvastSub", { n: aantalHouvast })}</span></span>
         <Chevron className="size-4 text-ink-soft"/>
       </button>
-      <div className="mt-3 flex flex-wrap justify-between gap-2 text-sm font-extrabold text-brand">
-        <button onClick={() => ga({ s: "alles" })}>{t("routes.lastigeMomenten.start.alles")}</button>
-        <button onClick={() => ga({ s: "verder" })}>{t("routes.lastigeMomenten.start.meerHulp")}</button>
-        <Link to="/kind-tips">{t("routes.lastigeMomenten.start.kindTips")}</Link>
+      <div className={`${GLAS} mt-3 divide-y divide-[#E9E1D5] px-4 text-sm font-extrabold text-brand`}>
+        <button onClick={() => ga({ s: "alles" })} className="flex min-h-12 w-full items-center gap-3 text-left"><span className="min-w-0 flex-1">{t("routes.lastigeMomenten.start.alles")}</span><Chevron className="size-4 shrink-0 text-ink-soft"/></button>
+        <button onClick={() => ga({ s: "verder" })} className="flex min-h-12 w-full items-center gap-3 text-left"><span className="min-w-0 flex-1">{t("routes.lastigeMomenten.start.meerHulp")}</span><Chevron className="size-4 shrink-0 text-ink-soft"/></button>
+        <Link to="/kind-tips" className="flex min-h-12 w-full items-center gap-3"><span className="min-w-0 flex-1">{t("routes.lastigeMomenten.start.kindTips")}</span><Chevron className="size-4 shrink-0 text-ink-soft"/></Link>
       </div>
       <Hulpregel />
     </div>);
@@ -294,10 +294,10 @@ function SnelleTips({ m, namen, kleur, kinderenInfo, ga }) {
       {zin ? (<div className="mt-3 rounded-[22px] border border-white/80 bg-[rgba(220,230,210,.9)] px-4 py-3.5">
           <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#3F5747]">{t("routes.lastigeMomenten.nu.zeggen")}</p>
           {perKind && kinderenInfo.length ? (<div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={t("routes.lastigeMomenten.nu.tegenWie")}>
-              {kinderenInfo.length > 1 ? (<button onClick={() => setVoor("samen")} aria-pressed={voor === "samen"} className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-black ${voor === "samen" ? "border-2 border-[#4F6B58] bg-white" : "bg-white/60"}`}>
+              {kinderenInfo.length > 1 ? (<button onClick={() => setVoor("samen")} aria-pressed={voor === "samen"} className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[13px] font-black ${voor === "samen" ? "border-2 border-[#4F6B58] bg-white" : "bg-white/60"}`}>
                   <span className="flex" aria-hidden>{kinderenInfo.slice(0, 3).map((k, i) => <span key={k.naam} className="size-3.5 rounded-full border border-white" style={{ background: k.kleur, marginLeft: i ? -5 : 0 }}/>)}</span>{t("routes.lastigeMomenten.nu.samen")}
                 </button>) : null}
-              {kinderenInfo.map((k) => (<button key={k.naam} onClick={() => setVoor(k.naam)} aria-pressed={voor === k.naam} className={`inline-flex h-8 items-center gap-1.5 rounded-full pl-1 pr-3 text-[13px] font-black ${voor === k.naam ? "border-2 bg-white" : "bg-white/60"}`} style={voor === k.naam ? { borderColor: k.kleur } : undefined}>
+              {kinderenInfo.map((k) => (<button key={k.naam} onClick={() => setVoor(k.naam)} aria-pressed={voor === k.naam} className={`inline-flex h-9 items-center gap-1.5 rounded-full pl-1 pr-3 text-[13px] font-black ${voor === k.naam ? "border-2 bg-white" : "bg-white/60"}`} style={voor === k.naam ? { borderColor: k.kleur } : undefined}>
                   <span className="grid size-6 place-items-center rounded-full text-[11px] text-white" style={{ background: k.kleur }}>{k.naam.slice(0, 1)}</span>{k.naam}{k.jaren != null ? ` ${k.jaren}` : ""}
                 </button>))}
             </div>) : null}
@@ -308,9 +308,9 @@ function SnelleTips({ m, namen, kleur, kinderenInfo, ga }) {
         <AdemKnop maat={84} label={false} onClick={() => ga({ s: "adem" })}/>
         <span className="text-[15px] font-black text-[#3F5747]">{t("routes.lastigeMomenten.adem.metMeMee")}</span>
       </div>
-      <div className="mt-8 flex justify-between text-[15px] font-black text-brand">
-        <button onClick={() => ga({ s: "moment", id: m.id })}>{t("routes.lastigeMomenten.nu.meerTips")}</button>
-        <Link to="/verhaal"><AppIcon functie="co" maat="sm" className="mr-1.5"/>{t("routes.lastigeMomenten.co.praatMetCo")}</Link>
+      <div className="mt-8 grid grid-cols-2 gap-2 text-[15px] font-black text-brand">
+        <button onClick={() => ga({ s: "moment", id: m.id })} className={`${GLAS} min-h-12 w-full rounded-full px-3 text-center leading-tight`}>{t("routes.lastigeMomenten.nu.meerTips")}</button>
+        <Link to="/verhaal" className={`${GLAS} flex min-h-12 w-full items-center justify-center rounded-full px-3 text-center leading-tight`}><AppIcon functie="co" maat="sm" className="mr-1.5 shrink-0"/>{t("routes.lastigeMomenten.co.praatMetCo")}</Link>
       </div>
     </div>);
 }
@@ -332,7 +332,7 @@ function EvenStoppen({ ga, terug }) {
         <button onClick={() => ga({ s: "start" })} className="h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground">{t("routes.lastigeMomenten.stoppen.beter")}</button>
         <button onClick={() => ga({ s: "afschrijven" })} className={`${GLAS} h-[50px] w-full rounded-full text-[15px] font-black`}>{t("routes.lastigeMomenten.afschrijven.titel")}</button>
         <Link to="/verhaal" className={`${GLAS} flex h-[50px] w-full items-center justify-center rounded-full text-[15px] font-black`}>{t("routes.lastigeMomenten.co.vertellen")}</Link>
-        <button onClick={terug} className="w-full py-2 text-sm font-bold text-ink-soft">{t("common.terug")}</button>
+        <button onClick={terug} className="min-h-11 w-full text-sm font-bold text-ink-soft">{t("common.terug")}</button>
       </div>
     </div>);
 }
@@ -352,13 +352,13 @@ function MijnHouvast({ houvast, ga }) {
       <div className="space-y-2">
         {houvast.zinItems.map(({ id, data: { tekst: z } }) => (<div key={id} className="flex items-center gap-2 rounded-[18px_18px_18px_6px] bg-[#DCE6D2] px-3.5 py-2.5">
             <span className="min-w-0 flex-1 text-[15px] font-extrabold text-[#2F4A3A]">{z}</span>
-            <button onClick={() => kopieer(z)} className="text-xs font-extrabold text-[#3F5747]">{t("routes.lastigeMomenten.houvast.kopieer")}</button>
+            <button onClick={() => kopieer(z)} className="min-h-10 shrink-0 px-1 text-xs font-extrabold text-[#3F5747]">{t("routes.lastigeMomenten.houvast.kopieer")}</button>
             <button onClick={() => void verwijderPersoonlijk(id)} aria-label={t("routes.lastigeMomenten.houvast.verwijderAria")} className="grid size-10 shrink-0 place-items-center text-ink-soft"><Kruis className="size-4"/></button>
           </div>))}
         <div className="flex gap-2">
           <input value={nieuw} onChange={(e) => setNieuw(e.target.value)} maxLength={500} onKeyDown={(e) => { if (e.key === "Enter")
             voegToe(); }} placeholder={t("routes.lastigeMomenten.houvast.placeholder")} aria-label={t("routes.lastigeMomenten.houvast.nieuwAria")} className="h-12 min-w-0 flex-1 rounded-2xl border border-white/85 bg-white px-3.5 text-[15px] outline-none"/>
-          <button onClick={voegToe} disabled={!nieuw.trim() || houvast.zinnen.length >= 50} className="h-12 rounded-full bg-brand px-4 text-sm font-black text-primary-foreground disabled:opacity-45">{t("routes.lastigeMomenten.houvast.toevoegen")}</button>
+          <button onClick={voegToe} disabled={!nieuw.trim() || houvast.zinnen.length >= 50} className="h-12 shrink-0 rounded-full bg-brand px-4 text-sm font-black text-primary-foreground disabled:opacity-45">{t("routes.lastigeMomenten.houvast.toevoegen")}</button>
         </div>
       </div>
       <Sectie>{t("routes.lastigeMomenten.houvast.bewaard")}</Sectie>
@@ -487,8 +487,8 @@ function HetKomtEraan({ houvast, ga }) {
         <Rij aan={zinGekozen} titel={t("routes.lastigeMomenten.komt.zinTitel")} sub={t("routes.lastigeMomenten.komt.zinSub")} onClick={() => setZinGekozen((v) => !v)}>
           {zinGekozen ? (zin
             ? <p className="ml-10 mt-2 rounded-[18px_18px_18px_6px] bg-[#DCE6D2] px-3.5 py-2.5 text-[15px] font-extrabold text-[#2F4A3A]">“{zin}”</p>
-            : <p className="ml-10 mt-2 text-sm text-ink-soft">{t("routes.lastigeMomenten.komt.geenZin")} <button onClick={() => ga({ s: "houvast" })} className="font-extrabold text-brand">{t("routes.lastigeMomenten.komt.schrijfZin")}</button></p>) : null}
-          {zinGekozen ? <div className="ml-10 mt-2 flex gap-4 text-sm font-extrabold text-brand"><button onClick={() => ga({ s: "houvast" })}>{t("routes.lastigeMomenten.komt.andereZin")}</button><Link to="/verhaal" className="inline-flex items-center"><AppIcon functie="co" maat="sm" className="mr-1.5"/>{t("routes.lastigeMomenten.co.oefen")}</Link></div> : null}
+            : <p className="ml-10 mt-2 text-sm text-ink-soft">{t("routes.lastigeMomenten.komt.geenZin")} <button onClick={() => ga({ s: "houvast" })} className="inline-flex min-h-10 items-center font-extrabold text-brand">{t("routes.lastigeMomenten.komt.schrijfZin")}</button></p>) : null}
+          {zinGekozen ? <div className="ml-10 mt-1 flex flex-wrap gap-x-4 text-sm font-extrabold text-brand"><button onClick={() => ga({ s: "houvast" })} className="min-h-10">{t("routes.lastigeMomenten.komt.andereZin")}</button><Link to="/verhaal" className="inline-flex min-h-10 items-center"><AppIcon functie="co" maat="sm" className="mr-1.5"/>{t("routes.lastigeMomenten.co.oefen")}</Link></div> : null}
         </Rij>
         <Rij aan={false} titel={t("routes.lastigeMomenten.komt.paklijst")} sub={t("routes.lastigeMomenten.komt.paklijstSub")} onClick={() => undefined}>
           <Link to="/overdracht" className="ml-10 mt-1 inline-flex min-h-10 items-center text-sm font-extrabold text-brand"><MetChevron>{t("routes.lastigeMomenten.komt.paklijstOpen")}</MetChevron></Link>
@@ -500,7 +500,7 @@ function HetKomtEraan({ houvast, ga }) {
         <input type="checkbox" checked={hulp} onChange={(e) => zetHulp(e.target.checked)} className="peer sr-only"/>
         <span aria-hidden className={`relative h-8 w-14 shrink-0 rounded-full transition-colors ${hulp ? "bg-[#4F6B58]" : "bg-[#D9CFC2]"}`}><span className={`absolute top-1 size-6 rounded-full bg-white transition-all ${hulp ? "left-7" : "left-1"}`}/></span>
       </label>
-      <button onClick={() => ga({ s: "onderwerp", i: 0 })} className="mt-4 text-sm font-extrabold text-brand">{t("routes.lastigeMomenten.komt.tips")}</button>
+      <button onClick={() => ga({ s: "onderwerp", i: 0 })} className={`${GLAS} mt-3 h-[50px] w-full rounded-full text-[15px] font-black text-brand`}>{t("routes.lastigeMomenten.komt.tips")}</button>
     </div>);
 }
 /** Waarden blijven Nederlands (worden zo bewaard in de log); label via routes.lastigeMomenten.na.ging.<waarde>. */
@@ -555,7 +555,7 @@ function HoeGingDeWissel({ ouder, log, ga }) {
       <button onClick={() => void bewaar()} disabled={bezig || klaar || ((!ging || gelogd === ging) && !onthoud.trim())} className="mt-4 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground disabled:opacity-45">{t("routes.lastigeMomenten.houvast.bewaarIn")}</button>
       <Link to="/verhaal" className={`${GLAS} mt-2.5 flex h-[50px] w-full items-center justify-center rounded-full text-[15px] font-black`}><AppIcon functie="co" maat="sm" className="mr-1.5"/>{t("routes.lastigeMomenten.co.vertellen")}</Link>
       <div className="mt-4 flex items-center gap-3"><AdemKnop maat={44} label={false} onClick={() => ga({ s: "adem" })}/><span className="text-sm text-ink-soft">{t("routes.lastigeMomenten.na.onrustig")}</span></div>
-      <button onClick={() => ga({ s: "afschrijven" })} className="mt-3 text-sm font-extrabold text-brand">{t("routes.lastigeMomenten.afschrijven.titel")}</button>
+      <button onClick={() => ga({ s: "afschrijven" })} className={`${GLAS} mt-3 h-[50px] w-full rounded-full text-[15px] font-black`}>{t("routes.lastigeMomenten.afschrijven.titel")}</button>
     </div>);
 }
 function EvenPauze({ terug }) {
@@ -693,10 +693,10 @@ function CoNaWissel({ ging, ga }) {
         <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border border-[#C9D6C3] bg-[#E9EFE3] text-xs font-black text-[#3F5747]" aria-hidden>Co</span>
         <div className="min-w-0 text-[#2F4A3A]"><p className="text-[16px] font-black">{t(`routes.lastigeMomenten.na.reactie.${ging}.zin`)}</p><p className="mt-0.5 text-[15px] leading-snug">{t(`routes.lastigeMomenten.na.reactie.${ging}.sub`)}</p></div>
       </div>
-      {r.steun ? (<div className="mt-3 flex flex-wrap gap-2">
-          <button onClick={() => ga({ s: "adem" })} className="h-10 rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{t("routes.lastigeMomenten.adem.metMeMee")}</button>
-          <Link to="/verhaal" className="inline-flex h-10 items-center rounded-full border border-white/85 bg-white/80 px-4 text-sm font-black text-[#2F4A3A]">{t("routes.lastigeMomenten.co.vertellen")}</Link>
-          {ging === "Heftig" ? <button onClick={() => ga({ s: "afschrijven" })} className="h-10 rounded-full border border-white/85 bg-white/80 px-4 text-sm font-black text-[#2F4A3A]">{t("routes.lastigeMomenten.afschrijven.titel")}</button> : null}
+      {r.steun ? (<div className="mt-3 grid grid-cols-2 gap-2">
+          <button onClick={() => ga({ s: "adem" })} className="min-h-11 w-full rounded-full bg-brand px-3 text-center leading-tight text-sm font-black text-primary-foreground">{t("routes.lastigeMomenten.adem.metMeMee")}</button>
+          <Link to="/verhaal" className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-white/85 bg-white/80 px-3 text-center text-sm font-black leading-tight text-[#2F4A3A]">{t("routes.lastigeMomenten.co.vertellen")}</Link>
+          {ging === "Heftig" ? <button onClick={() => ga({ s: "afschrijven" })} className="col-span-2 min-h-11 w-full rounded-full border border-white/85 bg-white/80 px-3 text-sm font-black text-[#2F4A3A]">{t("routes.lastigeMomenten.afschrijven.titel")}</button> : null}
         </div>) : null}
       {ging === "Heftig" ? <p className="mt-3 text-[12.5px] text-[#3F5747]">{t("routes.lastigeMomenten.na.gevaar")}</p> : null}
     </div>);
@@ -712,9 +712,9 @@ function SchoolTip() {
         <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border border-[#C9D6C3] bg-[#E9EFE3] text-xs font-black text-[#3F5747]" aria-hidden>Co</span>
         <div className="min-w-0 text-[#2F4A3A]"><p className="text-[16px] font-black">{t("routes.lastigeMomenten.schoolTip.titel")}</p><p className="mt-0.5 text-[15px] leading-snug">{t("routes.lastigeMomenten.schoolTip.tekst")}</p></div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Link to="/berichten" search={{ concept }} className="inline-flex h-10 items-center rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{t("routes.lastigeMomenten.schoolTip.bericht", { naam: anderNaam })}</Link>
-        <Link to="/agenda" search={{ zorgActie: "wijziging" }} className="inline-flex h-10 items-center rounded-full border border-white/85 bg-white/80 px-4 text-sm font-black text-[#2F4A3A]">{t("routes.lastigeMomenten.schoolTip.voorstellen")}</Link>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Link to="/berichten" search={{ concept }} className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-brand px-3 text-center leading-tight text-sm font-black text-primary-foreground">{t("routes.lastigeMomenten.schoolTip.bericht", { naam: anderNaam })}</Link>
+        <Link to="/agenda" search={{ zorgActie: "wijziging" }} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-white/85 bg-white/80 px-3 text-center leading-tight text-sm font-black text-[#2F4A3A]">{t("routes.lastigeMomenten.schoolTip.voorstellen")}</Link>
       </div>
       <p className="mt-2 text-xs text-ink-soft">{t("routes.lastigeMomenten.schoolTip.voetnoot", { naam: anderNaam })}</p>
     </div>);

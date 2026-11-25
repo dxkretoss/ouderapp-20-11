@@ -46,7 +46,7 @@ Deno.serve(serveActions("ai-coach", {
     await requireAiUser(req, "coach");
     const data = coachInput(body);
     const { instructions, input } = bouwCoachVerzoek(data);
-    const r = await chatJson<Record<string, any>>({
+    const r = await chatJson<Record<string, any>>({ lang: isEn ? "en" : "nl",
       name: "coach",
       schema: coachSchema,
       temperature: 0.3,
@@ -72,11 +72,11 @@ Deno.serve(serveActions("ai-coach", {
     });
   },
 
-  async tone(req, body) {
+  async tone(req, body, { isEn }) {
     await requireAiUser(req, "tone");
     const data = { tekst: str(body.tekst, "tekst", 4000, { min: 1 }), context: turns(body.context, "context", 12), stijl: "check" };
     const { input } = bouwCoachVerzoek(data);
-    const r = await chatJson<Record<string, any>>({
+    const r = await chatJson<Record<string, any>>({ lang: isEn ? "en" : "nl",
       name: "toon",
       schema: toonSchema,
       temperature: 0.2,

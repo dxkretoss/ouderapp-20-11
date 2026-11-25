@@ -42,9 +42,9 @@ export function ReisHulp() {
         {vak.map((v) => (<li key={v.id} className="py-2">
             <button onClick={() => setOpen(open === v.id ? null : v.id)} className="w-full text-left text-sm">{v.naam} <span className="text-xs text-ink-soft">· {v.periode} · {v.details}</span></button>
             {open === v.id ? (<div className="mt-2 flex flex-wrap gap-2">
-                <Link to="/agenda" search={{ nieuw: true, titel: t("components.VerdeelHulp.reis.vertrekTitel", { naam: v.naam }) }} className="rounded-full border border-brand/40 px-3 py-1.5 text-xs font-semibold text-brand">{t("components.VerdeelHulp.reis.vertrek")}</Link>
-                <Link to="/taken" search={{ taak: t("components.VerdeelHulp.reis.paklijstTaak", { naam: v.naam }) }} className="rounded-full border border-brand/40 px-3 py-1.5 text-xs font-semibold text-brand">{t("components.VerdeelHulp.reis.paklijst")}</Link>
-                <Link to="/kosten" search={{ uitgave: t("components.VerdeelHulp.reis.reisUitgave", { naam: v.naam }) }} className="rounded-full border border-brand/40 px-3 py-1.5 text-xs font-semibold text-brand">{t("components.VerdeelHulp.reis.reiskosten")}</Link>
+                <Link to="/agenda" search={{ nieuw: true, titel: t("components.VerdeelHulp.reis.vertrekTitel", { naam: v.naam }) }} className="inline-flex min-h-9 items-center rounded-full border border-brand/40 px-3.5 text-xs font-semibold text-brand">{t("components.VerdeelHulp.reis.vertrek")}</Link>
+                <Link to="/taken" search={{ taak: t("components.VerdeelHulp.reis.paklijstTaak", { naam: v.naam }) }} className="inline-flex min-h-9 items-center rounded-full border border-brand/40 px-3.5 text-xs font-semibold text-brand">{t("components.VerdeelHulp.reis.paklijst")}</Link>
+                <Link to="/kosten" search={{ uitgave: t("components.VerdeelHulp.reis.reisUitgave", { naam: v.naam }) }} className="inline-flex min-h-9 items-center rounded-full border border-brand/40 px-3.5 text-xs font-semibold text-brand">{t("components.VerdeelHulp.reis.reiskosten")}</Link>
               </div>) : null}
           </li>))}
       </ul>

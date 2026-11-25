@@ -95,7 +95,7 @@ export function OuderschapsplanImport({ onOpgeslagen }) {
           {docStatus === "ok" ? <p className="text-sm font-semibold text-brand"><MetVinkje achter>{t("components.OuderschapsplanImport.opgeslagen")}</MetVinkje> <span className="font-normal text-ink-soft">· {bestand.naam}</span></p>
             : docStatus === "fout" ? <p role="alert" className="text-sm text-ink-soft">{t("components.OuderschapsplanImport.nietOpgeslagen")} <span className="text-ink-soft">· {bestand.naam}</span></p>
                 : <p role="status" className="flex items-center gap-2 text-sm text-ink-soft"><Loader2 className="size-4 animate-spin"/>{t("components.OuderschapsplanImport.bezigOpslaan")} <span>· {bestand.naam}</span></p>}
-          {!items ? (<button onClick={start} disabled={bezig} className="flex w-full items-center justify-center gap-2 rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
+          {!items ? (<button onClick={start} disabled={bezig} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
               {bezig ? <><Loader2 className="size-4 animate-spin"/> {t("components.OuderschapsplanImport.herkennenBezig")}</> : t("components.OuderschapsplanImport.herkennen")}
             </button>) : null}
           <p className="text-[11px] text-ink-soft">{t("components.OuderschapsplanImport.disclaimer")}</p>

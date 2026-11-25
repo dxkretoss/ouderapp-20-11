@@ -137,7 +137,7 @@ function Verhaal() {
                     ? t("routes.verhaal.toestemming.neemtMee", { lijst: contextCategorieen.map((c) => categorieLabel[c]).join(", ") })
                     : t("routes.verhaal.toestemming.geen")}
           </span>
-          <button className="shrink-0 font-semibold text-brand underline-offset-2 hover:underline" onClick={() => kiesToestemming(toestemming === "ja" ? "nee" : "ja")}>
+          <button className="min-h-10 shrink-0 font-semibold text-brand underline-offset-2 hover:underline" onClick={() => kiesToestemming(toestemming === "ja" ? "nee" : "ja")}>
             {toestemming === "ja" ? t("routes.verhaal.toestemming.intrekken") : t("routes.verhaal.toestemming.toestaan")}
           </button>
         </div>)}
@@ -158,7 +158,7 @@ function Verhaal() {
                             if (a === "bericht")
                                 return b.concept?.trim() ? null : <Button key={a} variant="outline" size="sm" onClick={() => stuur(t("routes.verhaal.vraag.bericht"))}>{info.label}</Button>;
                             if (info.to)
-                                return <Link key={a} to={info.to} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold">{info.label}</Link>;
+                                return <Link key={a} to={info.to} className="inline-flex min-h-9 items-center rounded-full border border-border px-3.5 text-xs font-semibold">{info.label}</Link>;
                             return <Button key={a} variant="outline" size="sm" onClick={() => stuur(a === "praten" ? t("routes.verhaal.vraag.verderPraten") : t("routes.verhaal.vraag.niets"))}>{info.label}</Button>;
                         })}
                   </div>) : null}
@@ -193,7 +193,7 @@ function Verhaal() {
         </div>
       </form>
       </>}
-      {berichten.length ? <button onClick={() => { nieuwGesprek(); setStap("start"); }} className="mt-3 text-xs font-semibold text-ink-soft underline-offset-2 hover:underline">{t("routes.verhaal.nieuwGesprek")}</button> : null}
+      {berichten.length ? <button onClick={() => { nieuwGesprek(); setStap("start"); }} className="mt-3 min-h-11 w-full rounded-full border border-border bg-card px-5 text-sm font-semibold text-ink-soft">{t("routes.verhaal.nieuwGesprek")}</button> : null}
       <p className="mt-4 text-[11px] text-ink-soft">{t("routes.verhaal.privacyVoet")}</p>
     </AppShell>);
 }
@@ -204,9 +204,9 @@ function BerichtConcept({ concept, ander }) {
     return (<div className="mt-3 rounded-[20px] border-2 border-[#A9BCA8] bg-white/80 p-3.5">
       <p className="text-xs font-extrabold uppercase tracking-[0.1em] text-[#3F5747]">{t("routes.verhaal.concept.kop", { ander })}</p>
       <textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={Math.min(8, Math.max(3, Math.ceil(tekst.length / 42)))} aria-label={t("routes.verhaal.concept.label", { ander })} className="mt-2 w-full resize-none rounded-2xl border border-[#E2D8CB] bg-white px-3 py-2.5 text-[15px] leading-relaxed outline-none"/>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <Link to="/berichten" search={{ concept: tekst.trim() }} className="inline-flex h-10 items-center rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{t("routes.verhaal.concept.verder")}</Link>
-        {tekst !== concept ? <button onClick={() => setTekst(concept)} className="text-sm font-bold text-ink-soft">{t("routes.verhaal.concept.terug")}</button> : null}
+      <div className="mt-2 flex flex-col gap-2">
+        <Link to="/berichten" search={{ concept: tekst.trim() }} className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-brand px-4 text-sm font-black text-primary-foreground">{t("routes.verhaal.concept.verder")}</Link>
+        {tekst !== concept ? <button onClick={() => setTekst(concept)} className="min-h-11 w-full rounded-full border border-border bg-card px-4 text-sm font-bold text-ink-soft">{t("routes.verhaal.concept.terug")}</button> : null}
       </div>
       <p className="mt-2 text-xs text-ink-soft">{t("routes.verhaal.concept.uitleg")}</p>
     </div>);
@@ -234,7 +234,7 @@ function CoStart({ heeftBewaard, onLuister, onVerder }) {
           <button onClick={onLuister} aria-label={t("routes.verhaal.inspreken")} className="grid size-12 shrink-0 place-items-center rounded-full bg-brand text-primary-foreground"><Mic className="size-5"/></button>
         </div>
       </div>
-      {heeftBewaard ? <button onClick={onVerder} className="mt-3 text-sm font-extrabold text-brand">{t("routes.verhaal.costart.bewaard")}</button> : null}
+      {heeftBewaard ? <button onClick={onVerder} className="mt-3 min-h-11 w-full rounded-full border border-border bg-card px-5 text-sm font-extrabold text-brand">{t("routes.verhaal.costart.bewaard")}</button> : null}
       <h2 className="mt-5 px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft">{t("routes.verhaal.costart.lastig")}</h2>
       <div className="mt-2 grid grid-cols-3 gap-2">
         {LASTIG.map((l) => (<Link key={l.start} to="/lastige-momenten" search={{ start: l.start }} className={`flex min-w-0 flex-col gap-2 rounded-[20px] p-3 text-left ${l.uit ? "border-2 border-[#A9BCA8] [background:linear-gradient(135deg,rgba(220,230,210,.95),rgba(233,239,227,.9))]" : "border border-white/85 bg-white/60"}`}>
@@ -258,7 +258,7 @@ function CoStart({ heeftBewaard, onLuister, onVerder }) {
           <Chevron className="size-4 text-ink-soft"/>
         </Link>
       </div>
-      <Link to="/lastige-momenten" className="mt-3 flex min-h-11 items-center px-1 py-2 text-[14.5px] font-black text-[#3F5747]"><MetChevron>{t("routes.verhaal.costart.alleTips")}</MetChevron></Link>
+      <Link to="/lastige-momenten" className="mt-3 flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-card px-5 text-[14.5px] font-black text-[#3F5747]"><MetChevron>{t("routes.verhaal.costart.alleTips")}</MetChevron></Link>
       <div className="mt-4"><CoPrivacy /></div>
     </div>);
 }
@@ -326,7 +326,7 @@ function CoLuistert({ onKlaar }) {
         </div>)}
       <div className="mt-auto pt-6">
         {tekst.trim() ? (<div className="flex gap-2">
-            <button onClick={() => setTekst("")} className="h-12 rounded-full border border-white/85 bg-white/70 px-5 text-[15px] font-black">{t("routes.verhaal.luister.opnieuw")}</button>
+            <button onClick={() => setTekst("")} className="h-12 shrink-0 rounded-full border border-white/85 bg-white/70 px-5 text-[15px] font-black">{t("routes.verhaal.luister.opnieuw")}</button>
             <button onClick={() => onKlaar(tekst.trim())} className="h-12 flex-1 rounded-full bg-brand text-[15px] font-black text-primary-foreground">{t("routes.verhaal.luister.klaar")}</button>
           </div>) : !luistert ? (<form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); const v = new FormData(e.currentTarget).get("t")?.trim(); if (v)
             onKlaar(v); }}>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { taalLocale } from "@/i18n";
 import { GeldInvoer } from "@/components/GeldInvoer";
@@ -68,9 +69,9 @@ function LastFormulier({ start, onKlaar }) {
         <input type="number" min={0} max={100} value={pct} aria-label={t("components.VasteLasten.jouwPct")} onChange={(e) => setPct(Math.min(100, Math.max(0, Number(e.target.value) || 0)))} className="w-16 rounded-md border border-border bg-card px-2 py-1 text-sm"/>
         <span className="text-ink-soft">{t("components.VasteLasten.andereOuderPct", { pct: 100 - pct })}</span>
       </label> : null}
-      <div className="flex gap-2">
-        <button disabled={!geldig || bezig} className="flex-1 rounded-md bg-brand py-2 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.VasteLasten.opslaan")}</button>
-        <button type="button" onClick={onKlaar} className="rounded-md border border-border px-3 text-sm font-semibold text-ink-soft">{t("common.annuleren")}</button>
+      <div className="grid grid-cols-2 gap-2">
+        <button disabled={!geldig || bezig} className="min-h-11 w-full rounded-full bg-brand px-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.VasteLasten.opslaan")}</button>
+        <button type="button" onClick={onKlaar} className="min-h-11 w-full rounded-full border border-border bg-card px-3 text-sm font-semibold text-ink-soft">{t("common.annuleren")}</button>
       </div>
     </form>);
 }
@@ -109,9 +110,9 @@ function PotjeFormulier({ start, onKlaar }) {
       {!start ? <GeldInvoer label={t("components.VasteLasten.potje.begin")} placeholder={t("components.VasteLasten.potje.begin")} value={begin} onChange={setBegin}/> : null}
       <DeelKeuze gedeeld={gedeeld && delen.kan} onChange={setGedeeld} kan={delen.kan || delen.gemengd}/>
       {gedeeld && delen.gemengd ? <p role="alert" className="text-xs font-semibold text-accent-warm">{t("lib.api.fout.MIXED_CHILDREN")}</p> : null}
-      <div className="flex gap-2">
-        <button disabled={!geldig || bezig} className="flex-1 rounded-md bg-brand py-2 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.VasteLasten.potje.opslaan")}</button>
-        <button type="button" onClick={onKlaar} className="rounded-md border border-border px-3 text-sm font-semibold text-ink-soft">{t("common.annuleren")}</button>
+      <div className="grid grid-cols-2 gap-2">
+        <button disabled={!geldig || bezig} className="min-h-11 w-full rounded-full bg-brand px-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.VasteLasten.potje.opslaan")}</button>
+        <button type="button" onClick={onKlaar} className="min-h-11 w-full rounded-full border border-border bg-card px-3 text-sm font-semibold text-ink-soft">{t("common.annuleren")}</button>
       </div>
     </form>);
 }
@@ -168,47 +169,46 @@ export function VasteLasten() {
     const jouwDeel = lasten.reduce((s, l) => s + (l.gedeeld ? (l.perMaand * l.pctIk) / 100 : l.perMaand), 0);
     const gespaard = potjes.reduce((s, p) => s + p.gespaard, 0);
     const [toon, setToon] = useState(null);
-    const Rij = ({ id, titel, sub }) => (<button onClick={() => setToon(toon === id ? null : id)} aria-expanded={toon === id} className="flex min-h-14 w-full items-center gap-3 py-2.5 text-left">
-      <span className="min-w-0 flex-1"><span className="block font-display text-sm font-bold">{titel}</span><span className="block truncate text-xs text-ink-soft">{sub}</span></span>
-      <Chevron richting="omlaag" open={toon === id} className="size-4 text-ink-soft"/>
-    </button>);
-    return (<section className="mt-6 divide-y divide-border border-y border-border">
-      <div>
-      <Rij id="lasten" titel={t("components.VasteLasten.titel")} sub={t("components.VasteLasten.sub", { aantal: lasten.length, totaal: euro(totaal) })}/>
-      {toon === "lasten" ? <div className="pb-3">
-      <div className="flex justify-end">
-        <button onClick={() => { setOpen((o) => !o); setBewerkId(null); }} className="min-h-10 text-xs font-semibold text-brand">{open ? t("common.sluiten") : t("components.VasteLasten.toevoegen")}</button>
-      </div>
-      {open ? <LastFormulier onKlaar={() => setOpen(false)}/> : null}
-      {!lasten.length && !open ? <p className="py-2 text-sm text-ink-soft">{t("components.VasteLasten.leeg")}</p> : null}
-      <ul className="mt-2 divide-y divide-border">
-        {lasten.map((l) => (<li key={l.id} className="py-2.5 text-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0"><p className="font-semibold">{l.wat}</p><p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-soft">{kindLabel(l.kind)}{l.gedeeld ? ` · ${l.pctIk}/${100 - l.pctIk}` : ""}<DeelLabel gedeeld={l.gedeeld}/></p></div>
-              <span className="shrink-0 font-semibold">{euro(l.perMaand)}<span className="text-xs font-normal text-ink-soft"> {t("components.VasteLasten.mnd")}</span></span>
-            </div>
-            {l.doorIk ? (bewerkId === l.id ? <LastFormulier start={l} onKlaar={() => setBewerkId(null)}/> : <div className="mt-1 flex items-center gap-3">
-              <button type="button" onClick={() => { setBewerkId(l.id); setOpen(false); }} className="min-h-10 text-xs font-semibold text-brand">{t("common.wijzigen")}</button>
-              <VerwijderKnop onBevestig={async () => { const ok = await verwijderLast(l.id); if (ok)
-                    bevestig(t("components.VasteLasten.verwijderd")); return ok; }}/>
-            </div>) : null}
-          </li>))}
-      </ul>
-      {lasten.length ? <p className="mt-1 text-xs text-ink-soft">{t("components.VasteLasten.samen", { totaal: euro(totaal), deel: euro(jouwDeel) })}</p> : null}
-      <p className="mt-1 text-xs text-ink-soft">{t("components.VasteLasten.nietInSaldo")}</p>
-      </div> : null}
-      </div>
-      <div>
-      <Rij id="potjes" titel={t("components.VasteLasten.potje.titel")} sub={t("components.VasteLasten.potje.sub", { aantal: potjes.length, totaal: euro(gespaard) })}/>
-      {toon === "potjes" ? <div className="pb-3">
-        <div className="flex justify-end">
-          <button onClick={() => setPotOpen((o) => !o)} className="min-h-10 text-xs font-semibold text-brand">{potOpen ? t("common.sluiten") : t("components.VasteLasten.potje.toevoegen")}</button>
-        </div>
-        {potOpen ? <PotjeFormulier onKlaar={() => setPotOpen(false)}/> : null}
-        {!potjes.length && !potOpen ? <p className="py-2 text-sm text-ink-soft">{t("components.VasteLasten.potje.leeg")}</p> : null}
-        <ul className="mt-1 divide-y divide-border">{potjes.map((p) => <Potje key={p.id} p={p}/>)}</ul>
-        <p className="mt-1 text-xs text-ink-soft">{t("components.VasteLasten.potje.uitleg")}</p>
-      </div> : null}
-      </div>
+    // Zelfde kaartstijl als de andere blokken op Kosten (Budgetten, Uitgaven …).
+    const Kaart = ({ id, titel, sub, children }) => (<section aria-labelledby={`vl-${id}`} className="mt-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5">
+      <button type="button" id={`vl-${id}`} onClick={() => setToon(toon === id ? null : id)} aria-expanded={toon === id} className="flex w-full items-center gap-3 text-left">
+        <span className="min-w-0 flex-1"><span className="block font-display text-[18px] font-black">{titel}</span>{toon !== id ? <span className="mt-0.5 block truncate text-sm text-ink-soft">{sub}</span> : null}</span>
+        <Chevron richting="omlaag" open={toon === id} className="size-5 text-ink-soft duration-200"/>
+      </button>
+      {toon === id ? <div className="mt-3">{children}</div> : null}
     </section>);
+    // Toevoegen: altijd een duidelijke knop over de volle breedte (geen klein tekstlinkje).
+    const ToevoegKnop = ({ open: isOpen, onClick, label }) => isOpen ? null : (<button type="button" onClick={onClick} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-soft px-4 text-sm font-semibold text-brand">
+      <Plus aria-hidden="true" strokeWidth={2} className="size-4"/>{label}
+    </button>);
+    const Leeg = ({ tekst }) => <p className="rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{tekst}</p>;
+    return (<>
+      <Kaart id="lasten" titel={t("components.VasteLasten.titel")} sub={t("components.VasteLasten.sub", { aantal: lasten.length, totaal: euro(totaal) })}>
+        {!lasten.length && !open ? <Leeg tekst={t("components.VasteLasten.leeg")}/> : null}
+        {lasten.length ? <ul className="divide-y divide-border">
+          {lasten.map((l) => (<li key={l.id} className="py-2.5 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0"><p className="font-semibold">{l.wat}</p><p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-soft">{kindLabel(l.kind)}{l.gedeeld ? ` · ${l.pctIk}/${100 - l.pctIk}` : ""}<DeelLabel gedeeld={l.gedeeld}/></p></div>
+                <span className="shrink-0 font-semibold">{euro(l.perMaand)}<span className="text-xs font-normal text-ink-soft"> {t("components.VasteLasten.mnd")}</span></span>
+              </div>
+              {l.doorIk ? (bewerkId === l.id ? <LastFormulier start={l} onKlaar={() => setBewerkId(null)}/> : <div className="mt-1 flex items-center gap-3">
+                <button type="button" onClick={() => { setBewerkId(l.id); setOpen(false); }} className="min-h-10 text-xs font-semibold text-brand">{t("common.wijzigen")}</button>
+                <VerwijderKnop onBevestig={async () => { const ok = await verwijderLast(l.id); if (ok)
+                      bevestig(t("components.VasteLasten.verwijderd")); return ok; }}/>
+              </div>) : null}
+            </li>))}
+        </ul> : null}
+        {open ? <div className="mt-2 rounded-xl border border-border bg-card p-3"><LastFormulier onKlaar={() => setOpen(false)}/></div> : null}
+        <ToevoegKnop open={open} onClick={() => { setOpen(true); setBewerkId(null); }} label={t("components.VasteLasten.toevoegKnop")}/>
+        {lasten.length ? <p className="mt-3 text-xs text-ink-soft">{t("components.VasteLasten.samen", { totaal: euro(totaal), deel: euro(jouwDeel) })}</p> : null}
+        <p className="mt-2 text-xs text-ink-soft">{t("components.VasteLasten.nietInSaldo")}</p>
+      </Kaart>
+      <Kaart id="potjes" titel={t("components.VasteLasten.potje.titel")} sub={t("components.VasteLasten.potje.sub", { aantal: potjes.length, totaal: euro(gespaard) })}>
+        {!potjes.length && !potOpen ? <Leeg tekst={t("components.VasteLasten.potje.leeg")}/> : null}
+        {potjes.length ? <ul className="divide-y divide-border">{potjes.map((p) => <Potje key={p.id} p={p}/>)}</ul> : null}
+        {potOpen ? <div className="mt-2 rounded-xl border border-border bg-card p-3"><PotjeFormulier onKlaar={() => setPotOpen(false)}/></div> : null}
+        <ToevoegKnop open={potOpen} onClick={() => setPotOpen(true)} label={t("components.VasteLasten.potje.toevoegKnop")}/>
+        <p className="mt-3 text-xs text-ink-soft">{t("components.VasteLasten.potje.uitleg")}</p>
+      </Kaart>
+    </>);
 }

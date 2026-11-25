@@ -25,8 +25,8 @@ function Blok({ titel, icoon, tegel, kleur, open, wissel, children, extra }) {
     return (<section className="mt-2.5 rounded-[22px] border border-white/85 bg-white/60 px-3.5 py-3">
       <button type="button" onClick={wissel} aria-expanded={open} className="flex w-full items-center gap-2.5 text-left">
         <span className="grid size-9 shrink-0 place-items-center rounded-xl" style={{ background: tegel, color: kleur }}>{icoon}</span>
-        <span className="flex-1 text-[16.5px] font-black">{titel}</span>{extra}
-        <ChevronDown className={`size-5 text-ink-soft transition-transform ${open ? "rotate-180" : ""}`} aria-hidden/>
+        <span className="min-w-0 flex-1 text-[16.5px] font-black">{titel}</span>{extra}
+        <ChevronDown className={`size-5 shrink-0 text-ink-soft transition-transform ${open ? "rotate-180" : ""}`} aria-hidden/>
       </button>
       {open ? <div className="mt-2.5">{children}</div> : null}
     </section>);

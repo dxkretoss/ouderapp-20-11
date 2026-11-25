@@ -12,7 +12,7 @@ import { GeschiedenisKnop } from "@/components/Geschiedenis";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { Camera, Clock, Paperclip, Receipt, X } from "lucide-react";
+import { Plus, SlidersHorizontal, Camera, Clock, Paperclip, Receipt, X } from "lucide-react";
 import { Chevron, MetChevron, Vinkje } from "@/components/Tekens";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useBudgettenPaar } from "@/lib/budget-store";
@@ -143,7 +143,7 @@ function KostenPagina() {
     // Nog niets: rustige lege weergave met één eerste stap (budget voorstellen kan pas met een gekoppelde ouder).
     if (!alle.length && !budgetten.length && !historie.length && !bron.lasten.length && !bron.potjes.length && budget !== "nieuw" && !afspraak.open && !bron.meerdere)
         return (<>
-        <EigenLeeg titel={t("routes.kosten.titel")} icoon="kosten" tekst={t("routes.kosten.eigen.leegTekst")} knop={t("routes.kosten.eigen.eersteUitgave")} onKnop={() => setNieuwOpen(true)} extra={<><button onClick={() => { setManier("scan"); setNieuwOpen(true); }} className="mt-3 min-h-11 text-sm font-semibold text-brand"><MetChevron>{t("routes.kosten.snel.scannen")}</MetChevron></button><button onClick={() => setScherm("instellingen")} className="mt-1 block min-h-11 text-sm font-semibold text-brand"><MetChevron>{t("routes.kosten.eigen.afsprakenInstellen")}</MetChevron></button></>}/>
+        <EigenLeeg titel={t("routes.kosten.titel")} icoon="kosten" tekst={t("routes.kosten.eigen.leegTekst")} knop={t("routes.kosten.eigen.eersteUitgave")} onKnop={() => setNieuwOpen(true)} extra={<><button onClick={() => { setManier("scan"); setNieuwOpen(true); }} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-soft px-5 text-sm font-semibold text-brand"><Camera aria-hidden="true" strokeWidth={1.8} className="size-4"/>{t("routes.kosten.snel.scannen")}</button><button onClick={() => setScherm("instellingen")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-5 text-sm font-semibold text-ink"><SlidersHorizontal aria-hidden="true" strokeWidth={1.8} className="size-4 text-brand"/>{t("routes.kosten.eigen.afsprakenInstellen")}</button></>}/>
         {nieuweUitgave}
       </>);
     const acties = [
@@ -188,9 +188,9 @@ function KostenPagina() {
         return k.filter((x) => wachtOpJouwAkkoord(x, oordeel.get(x.id))).length + b.filter((x) => x.aanZet === "ik" && (x.status === "wacht" || x.status === "tegenvoorstel")).length + (paar?.afspraak.open && !paar.afspraak.open.doorIk ? 1 : 0);
     };
     return (<AppShell>
-      <div className="flex items-center justify-between">
-        <h1 className="lora text-[32px] leading-tight">{t("routes.kosten.titel")}</h1>
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="lora min-w-0 text-[32px] leading-tight">{t("routes.kosten.titel")}</h1>
+        <div className="flex shrink-0 items-center gap-1.5">
           <Assistent pagina="Kosten"/>
           <ContextToevoegen titel={t("routes.kosten.toevoegen.titel")} acties={[
             { titel: t("routes.kosten.toevoegen.uitgave"), uitleg: t("routes.kosten.toevoegen.uitgaveUitleg"), icoon: ReceiptText, onKies: () => opmaak("hand") },
@@ -229,8 +229,8 @@ function KostenPagina() {
             </ul> : null}
             <button type="button" onClick={() => setScherm("alle")} className="mt-2 inline-flex min-h-11 items-center text-sm font-extrabold text-brand"><MetChevron>{t("routes.kosten.alle.bekijk")}</MetChevron></button>
             <div className="mt-1 flex items-start justify-between gap-3 border-t border-[#A9BCA8]/50 pt-2.5 text-sm text-ink-soft">
-              <span>{gekoppeld ? <>{grens !== null && grens !== undefined ? t("routes.kosten.saldo.afspraakGrens", { jij: sleutel.ik, joris: sleutel.ander, grens: euro(grens) }) : t("routes.kosten.saldo.afspraak", { jij: sleutel.ik, joris: sleutel.ander })}{afspraak.bevestigd ? "" : ` · ${t("routes.kosten.eigen.voorlopigKort")}`}</> : t("routes.kosten.saldo.eigenAfspraken")}</span>
-              <button onClick={() => setScherm("instellingen")} className="shrink-0 font-extrabold text-brand">{t("common.wijzigen")}</button>
+              <span className="min-w-0">{gekoppeld ? <>{grens !== null && grens !== undefined ? t("routes.kosten.saldo.afspraakGrens", { jij: sleutel.ik, joris: sleutel.ander, grens: euro(grens) }) : t("routes.kosten.saldo.afspraak", { jij: sleutel.ik, joris: sleutel.ander })}{afspraak.bevestigd ? "" : ` · ${t("routes.kosten.eigen.voorlopigKort")}`}</> : t("routes.kosten.saldo.eigenAfspraken")}</span>
+              <button onClick={() => setScherm("instellingen")} className="-my-2 min-h-10 shrink-0 font-extrabold text-brand">{t("common.wijzigen")}</button>
             </div>
           </section>
 
@@ -271,7 +271,7 @@ function KostenPagina() {
                     <Button disabled={bezig} onClick={() => snelReageer(k, "akkoord", t("routes.kosten.detail.afgesproken"))} className="min-h-11 text-xs shadow-none">{keuzeTekst.akkoord}</Button>
                     <Button disabled={bezig} variant="outline" onClick={() => { setWijzigStart(true); setDetailId(k.id); }} className="min-h-11 text-xs">{keuzeTekst.ander}</Button>
                     <Button disabled={bezig} variant="outline" onClick={() => snelReageer(k, "niet_akkoord", nietAkkoordKostTekst())} className="min-h-11 text-xs">{keuzeTekst.niet}</Button>
-                    <Button disabled={bezig} variant="ghost" onClick={() => snelReageer(k, "meer_tijd", t("routes.kosten.detail.meerTijdVastgelegd"))} className="min-h-11 text-xs text-ink-soft">{t("common.meerTijdNodig")}</Button>
+                    <Button disabled={bezig} variant="outline" onClick={() => snelReageer(k, "meer_tijd", t("routes.kosten.detail.meerTijdVastgelegd"))} className="min-h-11 text-xs">{t("common.meerTijdNodig")}</Button>
                   </div>
                 </div>;
             })}
@@ -280,25 +280,26 @@ function KostenPagina() {
                   <Button variant="outline" onClick={() => setDetailId(k.id)} className="h-10 shrink-0 rounded-full px-4 text-sm font-black">{t("common.bekijken")}</Button>
                 </div>)}
               </div>
-              {acties.length > 3 ? <Button variant="link" onClick={() => setAlleActies((v) => !v)} className="min-h-11 px-0">{alleActies ? t("routes.kosten.wacht.toonMinder") : t("routes.kosten.wacht.bekijkAlle")}</Button> : null}
+              {acties.length > 3 ? <button type="button" onClick={() => setAlleActies((v) => !v)} aria-expanded={alleActies} className="mt-3 flex min-h-11 w-full items-center justify-between rounded-full border border-white/90 bg-white/70 px-4 text-sm font-black text-[#2F4A3A]">{alleActies ? t("routes.kosten.wacht.toonMinder") : t("routes.kosten.wacht.bekijkAlle")} <Chevron richting="omlaag" open={alleActies} className="size-4 text-ink-soft"/></button> : null}
               <p className="mt-2 text-xs text-ink-soft">{t("routes.kosten.wacht.bedragenPas")}</p>
             </Klap>) : null}
 
           <Klap id="budgetten" titel={t("routes.kosten.budgetten.titel")} rechts={<span className="text-sm font-bold text-ink-soft">{t("routes.kosten.budgetten.afgesproken", { aantal: afspraken.length })}</span>} open={!!rust.open["budgetten"] || budget === "nieuw" || voorstelKey > 0} wissel={() => klap("budgetten", !!rust.open["budgetten"])}>
             <h3 className="text-[15px] font-black">{t("routes.kosten.budgetten.voorstellen")}</h3>
             <p className="mt-0.5 text-xs text-ink-soft">{t("routes.kosten.budgetten.nietInSaldo")}</p>
-            {gekoppeld ? <BudgetVoorstel key={voorstelKey} zonderKop filter="lopend" bronItem={bronItem} voorinvul={benodigdheid} voorKind={voorKind} startOpen={budget === "nieuw" || voorstelKey > 0} onUitgave={(b) => { setVanBudget(b); setNieuwOpen(true); }}/> : <p className="mt-2 text-sm text-ink-soft">{t("routes.kosten.solo.eerstUitnodigen")} <Link to="/solo" className="font-semibold text-brand">{t("routes.kosten.solo.uitnodigen")}</Link></p>}
+            {gekoppeld ? <BudgetVoorstel key={voorstelKey} zonderKop filter="lopend" bronItem={bronItem} voorinvul={benodigdheid} voorKind={voorKind} startOpen={budget === "nieuw" || voorstelKey > 0} onUitgave={(b) => { setVanBudget(b); setNieuwOpen(true); }}/> : null}
+            {gekoppeld ? <button type="button" onClick={budgetVoorstellen} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-soft px-4 text-sm font-semibold text-brand"><Plus aria-hidden="true" strokeWidth={2} className="size-4"/>{t("routes.kosten.snel.budget")}</button> : <p className="mt-2 text-sm text-ink-soft">{t("routes.kosten.solo.eerstUitnodigen")} <Link to="/solo" className="inline-flex min-h-10 items-center font-semibold text-brand">{t("routes.kosten.solo.uitnodigen")}</Link></p>}
             <h3 className="mt-4 text-[15px] font-black">{t("routes.kosten.budgetten.afgesprokenKop")}</h3>
             <BudgetVoorstel zonderKop filter="afgesproken" onUitgave={(b) => { setVanBudget(b); setNieuwOpen(true); }}/>
-            {!afspraken.length ? <p className="mt-1 text-sm text-ink-soft">{t("routes.kosten.budgetten.geenAfgesproken")}</p> : null}
+            {!afspraken.length ? <p className="mt-2 rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t("routes.kosten.budgetten.geenAfgesproken")}</p> : null}
             <h3 className="mt-4 text-[15px] font-black">{t("routes.kosten.budgetten.eerder")}</h3>
             <p className="mt-0.5 text-xs text-ink-soft">{t("routes.kosten.budgetten.eerderUitleg")}</p>
             <BudgetVoorstel zonderKop filter="eerder" onUitgave={(b) => { setVanBudget(b); setNieuwOpen(true); }}/>
-            <Button variant="link" onClick={() => setScherm("instellingen")} className="mt-1 px-0">{t("routes.kosten.instellingen.titel")}</Button>
+            <button type="button" onClick={() => setScherm("instellingen")} className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-card px-4 text-sm font-semibold text-ink">{t("routes.kosten.instellingen.titel")}</button>
           </Klap>
 
           <Klap id="uitgaven" titel={t("routes.kosten.uitgavenMaand", { maand: toonDatumTekst(dezeMaand) })} rechts={<span className="text-sm font-bold text-ink-soft">{uitgavenDezeMaand.length}</span>} open={!!rust.open["uitgaven"]} wissel={() => klap("uitgaven", !!rust.open["uitgaven"])}>
-            {uitgavenDezeMaand.length ? <div className="space-y-2.5">{uitgavenDezeMaand.map((k) => <KostRij key={k.id} k={k} onOpen={() => setDetailId(k.id)}/>)}</div> : <p className="text-sm text-ink-soft">{t("routes.kosten.geenDezeMaand")}</p>}
+            {uitgavenDezeMaand.length ? <div className="space-y-2.5">{uitgavenDezeMaand.map((k) => <KostRij key={k.id} k={k} onOpen={() => setDetailId(k.id)}/>)}</div> : <p className="rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t("routes.kosten.geenDezeMaand")}</p>}
             <button onClick={() => setToonAlle((o) => !o)} aria-expanded={toonAlle} className="mt-3 flex min-h-11 w-full items-center justify-between rounded-full border border-white/90 bg-white/70 px-4 text-sm font-black text-[#2F4A3A]">
               {t("routes.kosten.eerdereMaanden")} <Chevron richting="omlaag" open={toonAlle} className="size-4 text-ink-soft"/>
             </button>
@@ -456,9 +457,9 @@ function BerekeningScherm({ saldo, kosten, historie, budgetten, onTerug }) {
       <section className="mt-5">
         <h2 className="font-display text-lg font-bold">{t("routes.kosten.berekening.teBetalen", { van: ander, aan: jou })}</h2>
         <ul className="mt-2 divide-y divide-border">
-          {saldo.anderAanIk.posten.map(({ post, aandeel }) => (<li key={post.id} className="flex items-center justify-between py-2.5 text-sm">
-              <span className="flex items-center gap-2"><Pictogram waarde={post.icoon} maat="sm" vorm="kaal"/>{post.omschrijving}</span>
-              <span className="font-semibold">{euro(aandeel)}</span>
+          {saldo.anderAanIk.posten.map(({ post, aandeel }) => (<li key={post.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+              <span className="flex min-w-0 items-center gap-2"><Pictogram waarde={post.icoon} maat="sm" vorm="kaal"/><span className="truncate">{post.omschrijving}</span></span>
+              <span className="shrink-0 font-semibold">{euro(aandeel)}</span>
             </li>))}
         </ul>
         <p className="border-t border-border pt-2.5 text-right text-sm font-bold">{t("routes.kosten.berekening.totaalBedrag", { bedrag: euro(saldo.anderAanIk.totaal) })}</p>
@@ -467,9 +468,9 @@ function BerekeningScherm({ saldo, kosten, historie, budgetten, onTerug }) {
       <section className="mt-6">
         <h2 className="font-display text-lg font-bold">{t("routes.kosten.berekening.teBetalen", { van: jou, aan: ander })}</h2>
         <ul className="mt-2 divide-y divide-border">
-          {saldo.ikAanAnder.posten.map(({ post, aandeel }) => (<li key={post.id} className="flex items-center justify-between py-2.5 text-sm">
-              <span className="flex items-center gap-2"><Pictogram waarde={post.icoon} maat="sm" vorm="kaal"/>{post.omschrijving}</span>
-              <span className="font-semibold">{euro(aandeel)}</span>
+          {saldo.ikAanAnder.posten.map(({ post, aandeel }) => (<li key={post.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+              <span className="flex min-w-0 items-center gap-2"><Pictogram waarde={post.icoon} maat="sm" vorm="kaal"/><span className="truncate">{post.omschrijving}</span></span>
+              <span className="shrink-0 font-semibold">{euro(aandeel)}</span>
             </li>))}
         </ul>
         <p className="border-t border-border pt-2.5 text-right text-sm font-bold">{t("routes.kosten.berekening.totaalBedrag", { bedrag: euro(saldo.ikAanAnder.totaal) })}</p>
@@ -648,8 +649,8 @@ function NieuweUitgave({ budget: startBudget, voorinvul, voorKind, onSluit, star
         <p className="pr-10 font-display text-lg font-bold">{budget ? t("routes.kosten.nieuw.uitgaveToevoegen") : t("routes.kosten.nieuw.nieuweUitgave")}</p>
         {vraagSluiten ? (<div className="mt-4 space-y-2 border-y border-border py-4">
             <p className="text-sm font-semibold">{t("routes.kosten.nieuw.concept.vraag")}</p>
-            <button onClick={() => { bewaardConcept = { omschrijving, bedragTekst, kind, categorie }; bevestig(t("routes.kosten.nieuw.concept.bewaard")); onSluit(); }} className="min-h-11 w-full rounded-md bg-brand text-sm font-semibold text-primary-foreground">{t("routes.kosten.nieuw.concept.bewaren")}</button>
-            <button onClick={() => { bewaardConcept = null; onSluit(); }} className="min-h-11 w-full rounded-md border border-border text-sm font-semibold text-ink-soft">{t("common.verwijderen")}</button>
+            <button onClick={() => { bewaardConcept = { omschrijving, bedragTekst, kind, categorie }; bevestig(t("routes.kosten.nieuw.concept.bewaard")); onSluit(); }} className="min-h-11 w-full rounded-full bg-brand text-sm font-semibold text-primary-foreground">{t("routes.kosten.nieuw.concept.bewaren")}</button>
+            <button onClick={() => { bewaardConcept = null; onSluit(); }} className="min-h-11 w-full rounded-full border border-border bg-card text-sm font-semibold text-ink-soft">{t("common.verwijderen")}</button>
             <button onClick={() => setVraagSluiten(false)} className="min-h-11 w-full text-sm font-semibold text-brand">{t("routes.kosten.nieuw.concept.verder")}</button>
           </div>) : manier === "kies" ? (<div className="mt-4 space-y-2">
             <button onClick={() => setManier("scan")} className="flex min-h-14 w-full items-center gap-3 rounded-md border border-border px-3 text-left text-sm font-semibold"><AppIcon functie="foto" maat="md"/>{t("routes.kosten.nieuw.bonScannen")}</button>
@@ -677,6 +678,13 @@ function NieuweUitgave({ budget: startBudget, voorinvul, voorKind, onSluit, star
           {budget && budgetMelding(budgetBeoordeling) ? <p className="text-xs text-accent-warm">{budgetMelding(budgetBeoordeling)}</p> : null}
           <label className="block text-xs font-semibold">{t("routes.kosten.nieuw.datum")}<input type="date" aria-label={t("routes.kosten.nieuw.datum")} value={datum} max={vandaagIso()} onChange={(e) => setDatum(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm"/></label>
 
+          <p className="text-xs font-semibold text-ink-soft">{t("routes.kosten.nieuw.voor")}</p>
+          <div className="flex flex-wrap gap-2">
+            {kindKeuzes.map(({ waarde: k }) => (<button key={k} onClick={() => setKind(k)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${kind === k ? "border-brand bg-brand-soft text-brand" : "border-border text-ink-soft"}`}>
+                {kindLabel(k)}
+              </button>))}
+          </div>
+
           <p className="text-xs font-semibold text-ink-soft">{t("routes.kosten.nieuw.betaaldDoor")}</p>
           <p className="rounded-md border border-brand bg-brand-soft px-3 py-2 text-sm font-semibold text-brand">{ikNaam}{!gekoppeld ? <span className="block text-[11px] font-normal text-ink-soft">{delen.kan ? t("routes.kosten.nieuw.alleenJijUitleg") : t("routes.kosten.nieuw.eigenNietGekoppeld")}</span> : null}</p>
 
@@ -688,29 +696,13 @@ function NieuweUitgave({ budget: startBudget, voorinvul, voorKind, onSluit, star
           {bronRek === "kindrekening" ? <div className="rounded-2xl bg-[#E9EFE3] p-3"><p className="text-sm font-black text-[#2F4A3A]">{t("routes.kosten.nieuw.bonToevoegen")}</p><p className="text-xs text-[#3F5747]">{t("routes.kosten.nieuw.bonUitleg", { naam: t("common.deAndereOuder") })}</p><BonKeuze gekozen={bon?.naam} onKies={setBon}/></div> : null}
           </> : null}
 
-          <p className="text-xs font-semibold text-ink-soft">{t("routes.kosten.nieuw.voor")}</p>
-          <div className="flex flex-wrap gap-2">
-            {kindKeuzes.map(({ waarde: k }) => (<button key={k} onClick={() => setKind(k)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${kind === k ? "border-brand bg-brand-soft text-brand" : "border-border text-ink-soft"}`}>
-                {kindLabel(k)}
-              </button>))}
-          </div>
-
-          {meer ? <>
-          <p className="text-xs font-semibold text-ink-soft">{t("routes.kosten.filter.categorie")}</p>
-          <div className="flex flex-wrap gap-2">
-            {categorieen.map((c) => (<button key={c} type="button" aria-pressed={categorie === c} onClick={() => setCategorie(categorie === c ? null : c)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${categorie === c ? "border-brand bg-brand-soft text-brand" : "border-border text-ink-soft"}`}>
-                {categorieLabel(c)}
-              </button>))}
-          </div>
-          </> : null}
-
           {alleenBijhouden ? <p className="text-xs text-ink-soft">{t("routes.kosten.nieuw.alleenBijhouden")}</p> : bronRek === "kindrekening" ? null : <>
-          <p className="text-xs font-semibold text-ink-soft">{bron.afspraak.bevestigd ? t("routes.kosten.nieuw.hoeVerdelen") : t("routes.kosten.nieuw.voorlopig")}</p>
+          <p className="text-xs font-semibold text-ink-soft">{t("routes.kosten.nieuw.hoeVerdelen")}{bron.afspraak.bevestigd ? "" : <span className="font-normal"> · {t("routes.kosten.nieuw.voorlopig")}</span>}</p>
           <div className="space-y-2">
             {[
                     ...(geldt.wijze === "per-uitgave" ? [] : [["standaard", t("routes.kosten.nieuw.volgensAfspraak", { sanne: sleutel.ik, joris: sleutel.ander })]]),
                     ["50", "50 / 50"],
-                    ["anders", t("routes.kosten.nieuw.anderPercentage")],
+                    ...(budget || verdeling === "anders" ? [["anders", t("routes.kosten.nieuw.anderPercentage")]] : []),
                     ["volledig", t("routes.kosten.nieuw.volledig")],
                 ].map(([v, label]) => (<label key={v} className="flex items-center gap-3 text-sm">
                 <input type="radio" name="verdeling" checked={verdeling === v} onChange={() => setVerdeling(v)} className="size-4 accent-[var(--color-brand)]"/>
@@ -723,9 +715,11 @@ function NieuweUitgave({ budget: startBudget, voorinvul, voorKind, onSluit, star
               </div>) : null}
           </div>
 
-          {bedrag > 0 ? (<div className="rounded-md border border-border bg-card p-3 text-sm">
-              <p className="flex justify-between"><span>{ikNaam}</span><b>{euro(deelIk)}</b></p>
-              <p className="mt-1 flex justify-between"><span>{anderNaam}</span><b>{euro(deelAnder)}</b></p>
+          {bedrag > 0 ? (verdeling === "volledig"
+                ? <p className="rounded-md border border-border bg-card p-3 text-sm text-ink-soft">{t("routes.kosten.nieuw.nietVerrekend")}</p>
+                : <div className="rounded-md border border-border bg-card p-3 text-sm">
+              <p className="flex justify-between font-semibold"><span>{t("routes.kosten.nieuw.deelAnder")}</span><b>{euro(deelAnder)}</b></p>
+              <p className="mt-1 flex justify-between text-xs text-ink-soft"><span>{t("routes.kosten.nieuw.deelJij")}</span><span>{euro(deelIk)}</span></p>
             </div>) : null}
           </>}
 
@@ -744,13 +738,38 @@ function NieuweUitgave({ budget: startBudget, voorinvul, voorKind, onSluit, star
                   </label>))}
               </div>
             </div>) : null}
-          {!meer && bronRek !== "kindrekening" && <BonKeuze gekozen={bon?.naam} onKies={setBon}/>}
-          {meer ? <BijlageKiezers bon={bon?.naam} bijlage={bijlage?.naam} onBon={setBon} onBijlage={setBijlage}/> : (<button type="button" onClick={() => setMeer(true)} className="min-h-11 text-sm font-semibold text-brand"><span className="inline-flex items-center gap-0.5">{t("routes.kosten.nieuw.meerOpties")}<Chevron className="size-4"/></span><span className="block text-[11px] font-normal text-ink-soft">{categorie ? t("routes.kosten.nieuw.meerOptiesSub", { categorie: categorieLabel(categorie) }) : t("routes.kosten.nieuw.meerOptiesSubGeen")}</span></button>)}
+          {bronRek !== "kindrekening" && <BonKeuze gekozen={bon?.naam} onKies={setBon}/>}
+          {/* Meer opties: één uitklapbaar blok (categorie + bijlagen); dezelfde knop klapt het weer in. */}
+          <div className="border-y border-border">
+            <button type="button" onClick={() => setMeer((v) => !v)} aria-expanded={meer} aria-controls="kosten-meer-opties" className="flex min-h-14 w-full items-center gap-3 py-3 text-left">
+              <SlidersHorizontal aria-hidden="true" strokeWidth={1.8} className="size-4 shrink-0 text-brand"/>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-brand">{meer ? t("routes.kosten.nieuw.minderOpties") : t("routes.kosten.nieuw.meerOpties")}</span>
+                {!meer ? <span className="mt-0.5 block text-xs text-ink-soft">{categorie ? t("routes.kosten.nieuw.meerOptiesSub", { categorie: categorieLabel(categorie) }) : t("routes.kosten.nieuw.meerOptiesSubGeen")}</span> : null}
+              </span>
+              <Chevron richting="omlaag" open={meer} className="size-4 shrink-0 text-ink-soft transition-transform"/>
+            </button>
+            {meer ? (<div id="kosten-meer-opties" className="mb-3 space-y-4 rounded-md border border-border bg-card p-3">
+                <div>
+                  <p className="text-xs font-semibold text-ink-soft">{t("routes.kosten.filter.categorie")} <span className="font-normal">{t("routes.kosten.nieuw.optioneel")}</span></p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {categorieen.map((c) => (<button key={c} type="button" aria-pressed={categorie === c} onClick={() => setCategorie(categorie === c ? null : c)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${categorie === c ? "border-brand bg-brand-soft text-brand" : "border-border text-ink-soft"}`}>
+                        {categorieLabel(c)}
+                      </button>))}
+                  </div>
+                </div>
+                <div className="border-t border-border pt-1">
+                  <BestandKnop label={t("routes.kosten.bon.andereBijlage")} gekozen={bijlage?.naam} icoon={Paperclip} accept="image/*,application/pdf" onKies={setBijlage}/>
+                </div>
+              </div>) : null}
+          </div>
         </div>
         <label className="mt-3 block text-xs font-semibold">{t("routes.kosten.nieuw.toelichting")}<textarea value={toelichting} onChange={(e) => setToelichting(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm"/></label>
-        <Button onClick={opslaan} disabled={!kanOpslaan} className="mt-4 w-full rounded-md bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">
+        <div className="voet-vast">
+        <Button onClick={opslaan} disabled={!kanOpslaan} className="min-h-12 w-full rounded-full bg-brand text-sm font-semibold text-primary-foreground disabled:opacity-40">
           {t("routes.kosten.nieuw.opslaan")}
         </Button>
+        </div>
         </>}
       </div>
     </div>);
@@ -896,7 +915,7 @@ function KostDetail({ kost, onSluit, onVerrekenen, startWijzig = false }) {
         setOpm("");
         onSluit();
     } }}>
-      <SheetContent side="bottom" className="left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8 pt-4">
+      <SheetContent side="bottom" className="left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-[max(2.5rem,calc(env(safe-area-inset-bottom,0px)+1.5rem))] pt-4">
         <SheetHeader className="pr-8 text-left">
           <SheetTitle className="font-display text-2xl font-medium">{kost.omschrijving}</SheetTitle>
           <SheetDescription className="text-xs">{kindLabel(kost.kind)} · {toonDatumTekst(kost.datum)} · {kost.betaaldDoor === "ik" ? t("routes.kosten.detail.betaaldDoorJou") : t("routes.kosten.detail.betaaldDoorAnder")}{kost.bron === "kindrekening" ? ` · ${t("routes.kosten.rij.kindrekening")}` : ""}</SheetDescription>
@@ -922,11 +941,11 @@ function KostDetail({ kost, onSluit, onVerrekenen, startWijzig = false }) {
           {laatsteVoorstel ? <p className="mt-1 text-sm"><span className="font-semibold">{t("routes.kosten.detail.voorgesteld")}</span> {voorstelTekst(laatsteVoorstel)}</p> : null}
           {kost.meerTijd?.door === "ik" ? <p className="mt-1 text-xs text-ink-soft">{t("routes.kosten.status.meerTijd")}</p> : null}
           {budgetMelding(beoordeling) ? <p className="mt-1 text-xs font-semibold text-accent-warm">{budgetMelding(beoordeling)}</p> : null}
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <Button disabled={bezig} onClick={() => reageer("akkoord", t("routes.kosten.detail.afgesproken"))} className="min-h-11 flex-1 text-xs">{keuze.akkoord}</Button>
             <Button disabled={bezig} variant="outline" onClick={() => { setMeer(true); setWijzig(true); }} className="min-h-11 flex-1 text-xs">{keuze.ander}</Button>
             <Button disabled={bezig} variant="outline" onClick={() => reageer("niet_akkoord", nietAkkoordKostTekst())} className="min-h-11 flex-1 text-xs">{keuze.niet}</Button>
-            <Button disabled={bezig} variant="ghost" onClick={() => reageer("meer_tijd", t("routes.kosten.detail.meerTijdVastgelegd"))} className="min-h-11 flex-1 text-xs text-ink-soft">{t("common.meerTijdNodig")}</Button>
+            <Button disabled={bezig} variant="outline" onClick={() => reageer("meer_tijd", t("routes.kosten.detail.meerTijdVastgelegd"))} className="min-h-11 flex-1 text-xs">{t("common.meerTijdNodig")}</Button>
           </div>
         </div> : gedekt && beoordeling?.soort === "gedekt" ? <div className="mt-3"><p className="text-xs text-ink-soft">{t("routes.kosten.detail.gedekt", { wat: beoordeling.budget.wat, sanne: beoordeling.budget.pctIk, ander: 100 - beoordeling.budget.pctIk })}</p><p className="mt-1 text-xs text-brand">{t("routes.kosten.detail.gedektToegevoegd")}</p></div> : status === "wacht" ? <p className="mt-3 text-xs text-ink-soft">{kost.meerTijd?.door === "ander" ? t("routes.kosten.detail.anderMeerTijd") : t("routes.kosten.status.wachtOpAnder")}</p> : null}
 
@@ -938,7 +957,7 @@ function KostDetail({ kost, onSluit, onVerrekenen, startWijzig = false }) {
           {magVerwijderen ? (vraag === "verwijderen" ? <Bevestigen tekst={t("routes.kosten.detail.verwijderenVraag")} knop={t("common.verwijderen")} onJa={() => doe(() => verwijderUitgave(kost.id), t("routes.kosten.detail.verwijderd"))}/> : <button className={`${actieKnop} text-accent-warm`} onClick={() => setVraag("verwijderen")}>{t("common.verwijderen")}<Chevron className="size-4 text-ink-soft"/></button>) : null}
         </div> : null}
 
-        <Button variant="ghost" aria-expanded={meer} onClick={() => setMeer((v) => !v)} className="mt-3 w-full justify-between px-0">{t("routes.kosten.nieuw.meerOpties")} <Chevron richting="omlaag" open={meer} className="size-4 text-ink-soft"/></Button>
+        <Button variant="ghost" aria-expanded={meer} onClick={() => setMeer((v) => !v)} className="mt-4 min-h-12 w-full justify-between rounded-full border border-border bg-card px-5 text-sm font-semibold text-brand hover:bg-brand-soft">{meer ? t("routes.kosten.nieuw.minderOpties") : t("routes.kosten.nieuw.meerOpties")} <Chevron richting="omlaag" open={meer} className="size-4 text-ink-soft"/></Button>
         {meer ? <>
 
         {kost.opmerkingen.length ? (<div className="mt-4"><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">{t("routes.kosten.detail.opmerkingen")}</p>
@@ -954,9 +973,9 @@ function KostDetail({ kost, onSluit, onVerrekenen, startWijzig = false }) {
             bevestig(t("routes.kosten.detail.bijlageOpgeslagen")); }}/>
           <div className="py-3">
             <div className="flex gap-2">
-              <input value={opm} onChange={(e) => setOpm(e.target.value)} maxLength={1000} placeholder={t("routes.kosten.detail.opmerkingToevoegen")} aria-label={t("routes.kosten.detail.opmerking")} className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand"/>
+              <input value={opm} onChange={(e) => setOpm(e.target.value)} maxLength={1000} placeholder={t("routes.kosten.detail.opmerkingToevoegen")} aria-label={t("routes.kosten.detail.opmerking")} className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand"/>
               <button disabled={!opm.trim() || bezig} onClick={async () => { setBezig(true); const ok = await voegOpmerkingToe(kost.id, opm.trim()); setBezig(false); if (ok)
-            setOpm(""); }} className="min-h-11 rounded-md border border-border px-3 text-xs font-semibold disabled:opacity-40">{t("routes.kosten.detail.plaats")}</button>
+            setOpm(""); }} className="min-h-11 shrink-0 rounded-full border border-border px-4 text-xs font-semibold disabled:opacity-40">{t("routes.kosten.detail.plaats")}</button>
             </div>
           </div>
           {kost.gedeeld && !magWijzigen && status !== "verrekend" && status !== "betwist" && status !== "ingetrokken" && kost.bron !== "kindrekening" ? (!wijzig ? (<button className={actieKnop} onClick={() => setWijzig(true)}>{t("routes.kosten.detail.foutMelden")}<Chevron className="size-4 text-ink-soft"/></button>) : (<div className="py-3">

@@ -538,10 +538,10 @@ function AgendaPagina() {
               {weekDagen.map((d) => <DagCel key={d} d={d} groot items={celItems(d)} kleurVan={kleurNaam} wisselNaar={wisselRichting(d)} gegevens={zorgVan(d)} zorg={zorg} regio={regio} heeftIets={demoVoor(d).length + vk(d, d).length > 0} onKies={setWeekDag} geselecteerd={d === weekDag} eigenPlek={eigenPlekVan(d)} eigenWissel={eigenWisselVan(d)}/>)}
             </div>
             <ZorgLegenda kinderen={startSt.kinderen.map((k) => ({ naam: k.naam, kleur: k.kleur ?? "#8A7E72" }))}/>
-            {weekOffset !== 0 ? <button onClick={() => { zetWeekOffset(0); setWeekDag(null); }} className="mt-2 px-2 text-xs font-bold text-brand">{t("routes.agenda.week.terug")}</button> : null}
+            {weekOffset !== 0 ? <button onClick={() => { zetWeekOffset(0); setWeekDag(null); }} className="mt-1 min-h-10 px-2 text-xs font-bold text-brand">{t("routes.agenda.week.terug")}</button> : null}
           </section>
           {!weekDag ? <p className="mt-3 flex items-center gap-2.5 px-1 text-[15px] text-ink-soft"><span className="grid size-8 place-items-center rounded-full bg-white/80"><AppIcon functie="agenda" maat="sm" vorm="kaal"/></span>{t("routes.agenda.week.tik")}</p> : null}
-          {eigen && extra.length === 0 ? <Button variant="link" className="min-h-11 px-0" onClick={() => openNieuw()}>{t("routes.agenda.eersteAfspraak")}</Button> : null}
+          {eigen && extra.length === 0 ? <button type="button" onClick={() => openNieuw()} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-soft px-4 text-sm font-semibold text-brand"><Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0"/>{t("routes.agenda.eersteAfspraak")}</button> : null}
           <div className="mt-3 space-y-2.5">
             {weekDag ? <div className="flex items-center justify-between gap-3 border-b border-border pb-2"><p className="text-sm font-semibold capitalize">{lang(weekDag)}</p><Button variant="ghost" size="icon" aria-label={t("routes.agenda.toevoegenGeselecteerd")} onClick={() => openNieuw(weekDag)}><AppIcon functie="toevoegen" maat="sm" vorm="kaal"/></Button></div> : null}
             {(weekDag ? [weekDag] : weekDagen).map((d) => <AgendaWissels key={d} datum={d} gegevens={zorgVan(d)}/>)}
@@ -580,29 +580,29 @@ function AgendaPagina() {
             </div>
             <ZorgLegenda kinderen={startSt.kinderen.map((k) => ({ naam: k.naam, kleur: k.kleur ?? "#8A7E72" }))}/>
           </section>
-          {vakInMaand.map((v) => (<div key={v.naam + v.van} className="mt-3 flex items-center justify-between gap-3 border-b border-border px-1 pb-3">
-              <div>
+          {vakInMaand.map((v) => (<div key={v.naam + v.van} className="mt-3 flex items-center justify-between gap-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3">
+              <div className="min-w-0">
                 <p className="text-sm font-semibold">{v.naam}</p>
                 <p className="text-xs text-ink-soft">{kort(v.van)} – {kort(v.tot)} · {regioLabel[regio]} · {t("routes.agenda.schoolkalender")}</p>
               </div>
-              <Link to="/agenda" search={{ onderdeel: "vakanties" }} className="shrink-0 text-xs font-semibold text-brand">{t("routes.agenda.verdelingVoorstellen")}</Link>
+              <Link to="/agenda" search={{ onderdeel: "vakanties" }} className="inline-flex min-h-10 max-w-[45%] shrink-0 items-center text-right text-xs font-semibold text-brand">{t("routes.agenda.verdelingVoorstellen")}</Link>
             </div>))}
           <div className="mt-3 space-y-2.5">
             {maandDagen.map((d) => <AgendaWissels key={d} datum={d} gegevens={zorgVan(d)}/>)}
             {maandDagen.flatMap((d) => demoVoor(d)).map((a) => <AfspraakRij key={a.id} id={a.id} onActie={(actie) => actieVast(a, actie)}/>)}
             {vk(maandVan, maandTot).map((v) => <ExtraAfspraakRij key={v.a.id + v.datum} v={v} onOpen={setDetail} wacht={wachtOp(v.a.id)} onAkkoord={wachtOp(v.a.id) ? () => { const w = wachtend.find((x) => x.vk.a.id === v.a.id); if (w)
                 accepteer(w); } : undefined}/>)}
-            {maandDagen.every((d) => demoVoor(d).length === 0) && vk(maandVan, maandTot).length === 0 ? <Card className="text-sm text-ink-soft">{t("routes.agenda.maand.rustig")} <button type="button" onClick={() => openNieuw()} className="font-semibold text-brand">{t("routes.agenda.afspraakToevoegen")}</button></Card> : null}
+            {maandDagen.every((d) => demoVoor(d).length === 0) && vk(maandVan, maandTot).length === 0 ? <div><p className="rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t("routes.agenda.maand.rustig")}</p><button type="button" onClick={() => openNieuw()} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-soft px-4 text-sm font-semibold text-brand"><Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0"/>{t("routes.agenda.afspraakToevoegen")}</button></div> : null}
           </div>
         </>) : null}
-      <Link to="/tijdlijn" className="mt-6 flex items-center justify-center gap-1.5 text-xs font-extrabold text-ink-soft"><AppIcon functie="geschiedenis" maat="sm" vorm="kaal"/>{t("routes.agenda.eerdereWijzigingen")}</Link>
+      <Link to="/tijdlijn" className="mt-6 flex min-h-11 items-center justify-center gap-1.5 text-xs font-extrabold text-ink-soft"><AppIcon functie="geschiedenis" maat="sm" vorm="kaal"/>{t("routes.agenda.eerdereWijzigingen")}</Link>
 
       </>}
       {zoek.zorgActie ? <ZorgAfstemmen weergave="formulier" kind={kindFilter} startActie={zoek.zorgActie} doel={zoek.zorgVoorstel} datum={zoek.dag} sluit={sluitZorg}/> : null}
       {(voorstellenOpen || (zoek.zorgVoorstel && !zoek.zorgActie)) ? <Sheet open={voorstellenOpen || !!zoek.zorgVoorstel} onOpenChange={(o) => { if (!o) {
         setVoorstellenOpen(false);
         sluitZorg();
-    } }}><SheetContent side="bottom" className="left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8"><SheetHeader className="pr-8 text-left"><SheetTitle>{t("routes.agenda.voorstellen.titel")}</SheetTitle><SheetDescription>{t("routes.agenda.voorstellen.beschrijving")}</SheetDescription></SheetHeader><ZorgAfstemmen kind={kindFilter} doel={zoek.zorgVoorstel} datum={zoek.dag} sluit={sluitZorg}/>{activiteiten.voorstellen.filter((v) => v.bron !== "zorg" && v.bron !== "budget" && v.bron !== "kost" && v.bron !== "agenda").map((v) => <Button asChild variant="ghost" key={v.sleutel} className="h-auto min-h-11 w-full justify-start whitespace-normal"><a href={v.naar}>{v.titel} · {v.aanJou ? t("routes.agenda.voorstellen.jouwReactie") : t("routes.agenda.bekijkVoorstel")}</a></Button>)}{voorstellen.map((w) => <div key={w.id ?? w.vk.a.id} className="flex items-center gap-2 border-b border-border py-2"><Button variant="ghost" className="h-auto min-h-11 flex-1 justify-start whitespace-normal text-left" onClick={() => { setVoorstellenOpen(false); setDetail(w.vk); }}><span>{w.vk.a.titel}<span className="block text-xs text-ink-soft">{w.status === "ingetrokken" ? t("routes.agenda.status.ingetrokken") : w.status === "geaccepteerd" ? t("routes.agenda.status.afgesproken") : w.status === "afgewezen" ? t("common.nietAkkoord") : w.status === "alternatief" ? t("common.anderVoorstel") : w.mine === false ? t("routes.agenda.voorstellen.jouwReactie") : t("routes.agenda.status.wachtOpAnder")}</span></span></Button><GeschiedenisKnop soort="afspraak" itemId={w.vk.a.id} naam={w.vk.a.titel}/></div>)}<Button asChild variant="link" className="min-h-11 px-0"><Link to="/activiteiten" search={{ onderdeel: "regelen" }}>{t("routes.agenda.voorstellen.overzicht")}</Link></Button></SheetContent></Sheet> : null}
+    } }}><SheetContent side="bottom" className="left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8"><SheetHeader className="pr-8 text-left"><SheetTitle>{t("routes.agenda.voorstellen.titel")}</SheetTitle><SheetDescription>{t("routes.agenda.voorstellen.beschrijving")}</SheetDescription></SheetHeader><ZorgAfstemmen kind={kindFilter} doel={zoek.zorgVoorstel} datum={zoek.dag} sluit={sluitZorg}/>{activiteiten.voorstellen.filter((v) => v.bron !== "zorg" && v.bron !== "budget" && v.bron !== "kost" && v.bron !== "agenda").map((v) => <Button asChild variant="outline" key={v.sleutel} className="h-auto min-h-11 w-full justify-start whitespace-normal"><a href={v.naar}>{v.titel} · {v.aanJou ? t("routes.agenda.voorstellen.jouwReactie") : t("routes.agenda.bekijkVoorstel")}</a></Button>)}{voorstellen.map((w) => <div key={w.id ?? w.vk.a.id} className="flex items-center gap-2 border-b border-border py-2"><Button variant="ghost" className="h-auto min-h-11 flex-1 justify-start whitespace-normal text-left" onClick={() => { setVoorstellenOpen(false); setDetail(w.vk); }}><span>{w.vk.a.titel}<span className="block text-xs">{w.status === "ingetrokken" ? t("routes.agenda.status.ingetrokken") : w.status === "geaccepteerd" ? t("routes.agenda.status.afgesproken") : w.status === "afgewezen" ? t("common.nietAkkoord") : w.status === "alternatief" ? t("common.anderVoorstel") : w.mine === false ? t("routes.agenda.voorstellen.jouwReactie") : t("routes.agenda.status.wachtOpAnder")}</span></span></Button><GeschiedenisKnop soort="afspraak" itemId={w.vk.a.id} naam={w.vk.a.titel}/></div>)}<Button asChild variant="link" className="min-h-11 px-0"><Link to="/activiteiten" search={{ onderdeel: "regelen" }}>{t("routes.agenda.voorstellen.overzicht")}</Link></Button></SheetContent></Sheet> : null}
       <DagSheet gegevens={gekozenDag ? zorgVan(gekozenDag) : zorgVan(VANDAAG)} dag={gekozenDag} onSluit={() => setGekozenDag(null)} zorg={zorg} regio={regio} eigen={eigen} eigenKinderen={eigen && eigenRegeling && gekozenDag ? startSt.kinderen.map((k) => ({ naam: k.naam, plek: plekOp(eigenRegeling, dt(gekozenDag)) })) : undefined} eigenWissel={gekozenDag ? eigenWisselVan(gekozenDag) : undefined} extra={gekozenDag ? vk(gekozenDag, gekozenDag) : []} taken={gekozenDag && !eigen ? taken.filter((t) => t.deadline === gekozenDag && !t.klaar) : []} onToevoegen={() => openNieuw(gekozenDag ?? "")} onWijziging={verbonden ? () => { const d = gekozenDag; setGekozenDag(null); router.navigate({ to: "/agenda", search: { zorgActie: "wijziging", dag: d ?? undefined } }); } : undefined} onOpen={(v) => { setGekozenDag(null); setDetail(v); }} onOpenVast={(id) => { setGekozenDag(null); if (zoek.afspraak === id)
         setDoelOpen(true);
     else
@@ -628,7 +628,7 @@ function AgendaPagina() {
       {zoek.afspraak ? (doelAfspraak ? (doelAfspraak.categorie === "wissel"
             ? <WisselmomentSheet open={doelOpen} onSluit={() => setDoelOpen(false)} a={doelAfspraak}/>
             : <VasteAfspraakSheet open={doelOpen} onSluit={() => setDoelOpen(false)} a={doelAfspraak} onActie={(actie) => actieVast(doelAfspraak, actie)}/>)
-            : doelOpen && !doelEigen && (!eigen || agendaSt.geladen) ? <div role="alert" className="fixed inset-x-4 bottom-24 z-50 mx-auto max-w-md rounded-md border border-border bg-card p-4 text-sm"><p className="font-semibold">{t("routes.agenda.bestaatNiet.titel")}</p><p className="mt-1 text-ink-soft">{t("routes.agenda.bestaatNiet.tekst")}</p><button onClick={() => setDoelOpen(false)} className="mt-2 font-semibold text-brand">{t("common.sluiten")}</button></div> : null) : null}
+            : doelOpen && !doelEigen && (!eigen || agendaSt.geladen) ? <div role="alert" className="fixed inset-x-4 bottom-24 z-50 mx-auto max-w-md rounded-md border border-border bg-card p-4 text-sm"><p className="font-semibold">{t("routes.agenda.bestaatNiet.titel")}</p><p className="mt-1 text-ink-soft">{t("routes.agenda.bestaatNiet.tekst")}</p><button onClick={() => setDoelOpen(false)} className="mt-2 min-h-10 font-semibold text-brand">{t("common.sluiten")}</button></div> : null) : null}
       <Sheet open={!!verwijderVk} onOpenChange={(o) => !o && setVerwijderVk(null)}>
         <SheetContent side="bottom" className="left-1/2 w-full max-w-md -translate-x-1/2 rounded-t-2xl bg-background px-5 pb-8">
           <SheetHeader className="text-left">
@@ -647,7 +647,7 @@ function AgendaPagina() {
               {!direct(verwijderVk.a) ? (<>
                   <Button onClick={() => { setWachtend((l) => [...l.filter((x) => x.vk.a.id !== verwijderVk.a.id || x.status), { vk: verwijderVk, soort: "verwijder", bereik: isReeks(verwijderVk.a) ? bereik : "reeks" }]); setVerwijderVk(null); setMelding(t("routes.agenda.melding.annuleringVoorgesteld")); }} className="w-full">{t("routes.agenda.annuleren.voorstellen")}</Button>
                 </>) : (<Button onClick={() => { verwijder(verwijderVk, isReeks(verwijderVk.a) ? bereik : "reeks"); setMelding(t("routes.agenda.melding.geannuleerd")); }} className="w-full">{t("routes.agenda.annuleren.knop")}</Button>)}
-              <button onClick={() => setVerwijderVk(null)} className="w-full py-2 text-sm font-semibold text-ink-soft">{t("common.annuleren")}</button>
+              <button onClick={() => setVerwijderVk(null)} className="min-h-11 w-full text-sm font-semibold text-ink-soft">{t("common.annuleren")}</button>
             </div>) : null}
         </SheetContent>
       </Sheet>
@@ -661,8 +661,8 @@ function AgendaPagina() {
                 <p className="font-display text-lg">{t("routes.agenda.form.verlaten.titel")}</p>
                 <p className="mt-1 text-sm text-ink-soft">{t("routes.agenda.form.verlaten.tekst")}</p>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm font-semibold">
-                  <button onClick={() => setVerlatenVraag(false)} className="rounded-md bg-brand py-2 text-primary-foreground">{t("routes.agenda.form.verlaten.verder")}</button>
-                  <button onClick={() => { setVerlatenVraag(false); setNieuwOpen(false); }} className="rounded-md border border-border py-2 text-ink-soft">{t("routes.agenda.form.verlaten.verlaten")}</button>
+                  <button onClick={() => setVerlatenVraag(false)} className="min-h-11 rounded-full bg-brand px-3 text-primary-foreground">{t("routes.agenda.form.verlaten.verder")}</button>
+                  <button onClick={() => { setVerlatenVraag(false); setNieuwOpen(false); }} className="min-h-11 rounded-full border border-border bg-card px-3 text-ink-soft">{t("routes.agenda.form.verlaten.verlaten")}</button>
                 </div>
               </div>) : null}
             <p className="font-display text-lg font-bold">{!bewerk ? t("routes.agenda.form.titel.nieuw") : modus === "tijd" ? t("routes.agenda.tijdWijzigen") : modus === "locatie" ? t("routes.agenda.locatieWijzigen") : modus === "verplaatsen" ? t("routes.agenda.form.titel.verplaatsen") : modus === "herhaling" ? t("routes.agenda.herhalenAanpassen") : t("routes.agenda.afspraakBewerken")}</p>
@@ -743,9 +743,9 @@ function AgendaPagina() {
                 <p className="font-semibold">{t("routes.agenda.priveOverlap.titel")}</p>
                 <p className="mt-1 text-xs text-ink-soft">{t("routes.agenda.priveOverlap.tekst")} {priveBotsing.map((b) => b.tekst).join(" ")}</p>
                 {afstemTekst === null ? (<div className="mt-2 flex flex-wrap gap-2">
-                    <button onClick={() => { setGekozenDag(datum); }} className="rounded-full border border-border px-3 py-1 text-xs font-semibold">{t("routes.agenda.priveOverlap.planning")}</button>
-                    <button onClick={() => setAfstemTekst(priveBotsing[0]?.bericht ?? "")} className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-primary-foreground">{t("routes.agenda.priveOverlap.afstemmen")}</button>
-                    <button onClick={() => opslaan(true)} className="rounded-full border border-border px-3 py-1 text-xs font-semibold">{t("routes.agenda.priveOverlap.opslaan")}</button>
+                    <button onClick={() => { setGekozenDag(datum); }} className="min-h-9 rounded-full border border-border px-3.5 text-xs font-semibold">{t("routes.agenda.priveOverlap.planning")}</button>
+                    <button onClick={() => setAfstemTekst(priveBotsing[0]?.bericht ?? "")} className="min-h-9 rounded-full bg-brand px-3.5 text-xs font-semibold text-primary-foreground">{t("routes.agenda.priveOverlap.afstemmen")}</button>
+                    <button onClick={() => opslaan(true)} className="min-h-9 rounded-full border border-border px-3.5 text-xs font-semibold">{t("routes.agenda.priveOverlap.opslaan")}</button>
                   </div>) : (<div className="mt-2 space-y-2">
                     <p className="text-xs">{t("routes.agenda.priveOverlap.vraag")}</p>
                     <textarea aria-label={t("routes.agenda.priveOverlap.berichtLabel")} value={afstemTekst} onChange={(e) => setAfstemTekst(e.target.value)} rows={3} className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"/>
@@ -757,8 +757,8 @@ function AgendaPagina() {
                         startNuAfstemmen({ categorie: "halen", kindIds: kindIdsVan(b.kind), titel: t("routes.agenda.afstem.titel", { titel: b.titel, datum: kort(datum) }), toelichting: afstemTekst.trim(), reactieGewenst: "zsm" });
                         opslaan(true);
                         setMelding(t("routes.agenda.melding.priveVraag"));
-                    }} className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-primary-foreground">{t("common.versturen")}</button>
-                      <button onClick={() => setAfstemTekst(null)} className="rounded-full border border-border px-3 py-1 text-xs font-semibold">{t("common.terug")}</button>
+                    }} className="min-h-9 rounded-full bg-brand px-3.5 text-xs font-semibold text-primary-foreground">{t("common.versturen")}</button>
+                      <button onClick={() => setAfstemTekst(null)} className="min-h-9 rounded-full border border-border px-3.5 text-xs font-semibold">{t("common.terug")}</button>
                     </div>
                   </div>)}
               </div>) : null}
@@ -779,9 +779,9 @@ function AgendaPagina() {
                             koppelAfstem(bewerk ? bewerk.a.id : nieuwId, verzoek);
                         opslaan(true, bewerk ? undefined : nieuwId, (id) => koppelAfstem(id, verzoek));
                         setMelding(t("routes.agenda.melding.wordtAfgestemd"));
-                    }} className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-primary-foreground">{t("routes.agenda.controle.vragen")}</button>) : null}
+                    }} className="min-h-9 rounded-full bg-brand px-3.5 text-xs font-semibold text-primary-foreground">{t("routes.agenda.controle.vragen")}</button>) : null}
                   <Button variant="outline" size="sm" onClick={() => opslaan(true)}>{t("routes.agenda.controle.tochOpslaan")}</Button>
-                  <button onClick={() => setControle(null)} className="rounded-full border border-border px-3 py-1 text-xs font-semibold">{t("routes.agenda.controle.andereTijd")}</button>
+                  <button onClick={() => setControle(null)} className="min-h-9 rounded-full border border-border px-3.5 text-xs font-semibold">{t("routes.agenda.controle.andereTijd")}</button>
                   {controle.filter((c) => c.afspraakId).map((c) => <Button key={c.afspraakId} variant="outline" size="sm" onClick={() => { const a = extra.find((a) => a.id === c.afspraakId); if (a)
                 setDetail({ a, datum });
             else {
@@ -794,8 +794,8 @@ function AgendaPagina() {
                     <p className="text-xs font-semibold">{t("routes.agenda.controle.wieBrengt", { wie: /allebei|&/i.test(kind) ? t("routes.agenda.controle.deKinderen") : kindWeergave(kind) })}</p>
                     <div className="mt-1.5 flex flex-wrap gap-2">
                       <button onClick={() => { const nieuwId = `nieuw-${Date.now()}`; const t2 = titel.trim(); opslaan(true, bewerk ? undefined : nieuwId, (id) => ikGa(id, t2)); if (bewerk || !eigen)
-                    ikGa(bewerk ? bewerk.a.id : nieuwId, t2); }} className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-primary-foreground">{t("routes.agenda.controle.ik")}</button>
-                      <button onClick={() => { startNuAfstemmen({ categorie: "halen", kindIds: kindIdsVan(kind), titel: t("routes.agenda.afstem.titel", { titel: titel.trim(), datum: kort(datum) }), toelichting: t("routes.agenda.afstem.wieBrengt", { titel: titel.trim(), datum: kort(datum) }), reactieGewenst: "zsm" }); setMelding(t("routes.agenda.melding.vraagGestuurd")); opslaan(true); }} className="rounded-full border border-border px-3 py-1 text-xs font-semibold">{t("routes.agenda.controle.anderVragen")}</button>
+                    ikGa(bewerk ? bewerk.a.id : nieuwId, t2); }} className="min-h-9 rounded-full bg-brand px-3.5 text-xs font-semibold text-primary-foreground">{t("routes.agenda.controle.ik")}</button>
+                      <button onClick={() => { startNuAfstemmen({ categorie: "halen", kindIds: kindIdsVan(kind), titel: t("routes.agenda.afstem.titel", { titel: titel.trim(), datum: kort(datum) }), toelichting: t("routes.agenda.afstem.wieBrengt", { titel: titel.trim(), datum: kort(datum) }), reactieGewenst: "zsm" }); setMelding(t("routes.agenda.melding.vraagGestuurd")); opslaan(true); }} className="min-h-9 rounded-full border border-border px-3.5 text-xs font-semibold">{t("routes.agenda.controle.anderVragen")}</button>
                     </div>
                   </div>) : null}
               </div>) : null}
@@ -809,7 +809,7 @@ function AgendaPagina() {
             {gedeeld && !bewerk ? <div className="mt-4">
               <HulpKnop voorstel={{ kind: hulpKind(), ...(titel ? { wat: titel } : {}), ...(datum ? { datum } : {}), ...(tijd ? { tijd } : {}) }}/>
             </div> : null}
-            <div className="sticky bottom-0 -mx-1 bg-background px-1 pb-1 pt-3">
+            <div className="voet-vast">
             {!(bewerk && modus === "aanpassen") ? <Button onClick={() => opslaan()} disabled={!titel.trim() || !datum || (gedeeld && !kind.trim()) || (importExtra?.bedrag ? !(Number(importExtra.bedrag.replace(",", ".")) > 0) : false)} className="min-h-11 w-full bg-brand text-primary-foreground shadow-none">
               {importExtra && !bewerk ? t("routes.agenda.form.knop.selectie") : wordtVoorstel ? (bewerk ? t("routes.agenda.wijzigingVoorstellen") : t("routes.agenda.form.knop.voorstellen")) : !bewerk ? t("routes.agenda.form.knop.opslaan") : t("routes.agenda.form.knop.wijzigingOpslaan")}
             </Button> : null}
@@ -830,7 +830,7 @@ const herinneringLabel = {
     get twee() { return i18n.t("routes.agenda.herinnering.twee"); },
 };
 function Chip({ actief, onClick, children }) {
-    return (<button type="button" onClick={onClick} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${actief ? "border-brand bg-brand text-primary-foreground" : "border-border bg-card"}`}>{children}</button>);
+    return (<button type="button" onClick={onClick} className={`min-h-9 rounded-full border px-3.5 text-xs font-semibold transition ${actief ? "border-brand bg-brand text-primary-foreground" : "border-border bg-card"}`}>{children}</button>);
 }
 function ZorgLegenda({ kinderen = [] }) {
     const { t } = useTranslation();
@@ -920,8 +920,8 @@ function DagSheet({ gegevens, dag, onSluit, zorg, regio, extra, taken, onToevoeg
           {bijzonder.length ? <Sectie titel={t("routes.agenda.dagSheet.bijzonder")}>{bijzonder.map((b) => <p key={b}>{b}</p>)}</Sectie> : null}
           {!kinderen.length && !demo.length && !extra.length && !taken.length && !bijzonder.length && !wissel ? <p className="py-3 text-sm text-ink-soft">{t("routes.agenda.dagSheet.niets")}</p> : null}
         </div>
-        <button onClick={onToevoegen} className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md border border-brand/40 py-3 text-sm font-semibold text-brand"><Plus aria-hidden="true" className="size-4 shrink-0"/>{t("routes.agenda.dagSheet.plusToevoegen").replace(/^\+\s*/, "")}</button>
-        {onWijziging ? <button onClick={onWijziging} className="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-md py-2 text-sm font-semibold text-brand"><ArrowLeftRight aria-hidden="true" className="size-4 shrink-0"/>{t("routes.agenda.dagSheet.wijzigingVoorstellen")}</button> : null}
+        <button onClick={onToevoegen} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-soft px-4 text-sm font-semibold text-brand"><Plus aria-hidden="true" className="size-4 shrink-0"/>{t("routes.agenda.dagSheet.plusToevoegen").replace(/^\+\s*/, "")}</button>
+        {onWijziging ? <button onClick={onWijziging} className="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold text-brand"><ArrowLeftRight aria-hidden="true" className="size-4 shrink-0"/>{t("routes.agenda.dagSheet.wijzigingVoorstellen")}</button> : null}
       </SheetContent>
     </Sheet>);
 }
@@ -933,7 +933,7 @@ function ExtraAfspraakRij({ v, onOpen, wacht, onAkkoord }) {
     const aan = a.gedeeld !== false ? aanwezigVoor(a.id) : undefined;
     const aanTaak = aan?.contactTaakId ? taken.find((t) => t.id === aan.contactTaakId) : undefined;
     const aanRegel = aan && !wacht ? statusRegel(aan, aanTaak?.contactStatus) : null;
-    return (<div className="rounded-md border border-border bg-card p-3">
+    return (<div className="rounded-[22px] border border-white/85 bg-white/60 px-4 py-3">
       <div className="flex items-center gap-3">
         <button onClick={() => onOpen(v)} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={t("routes.agenda.openen", { titel: a.titel })}>
           <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-lg"><Pictogram waarde={categorieMeta[a.categorie]?.icoon ?? "overig"} maat="md" vorm="kaal"/></div>
@@ -1002,8 +1002,8 @@ function AfspraakDetail({ v, direct, wacht, ingetrokken, onSluit, onActie, onInt
         {a.gedeeld !== false && !wacht ? <AanwezigheidBlok afspraakId={a.id} titel={a.titel} kind={a.kind} datum={v.datum}/> : null}
         {a.gedeeld !== false ? <div className="mt-3 flex items-center gap-2 text-xs text-ink-soft"><GeschiedenisKnop soort="afspraak" itemId={a.id} naam={a.titel}/><span>{t("routes.agenda.geschiedenis")}</span></div> : null}
         {!wacht ? (<div className="mt-4 grid grid-cols-2 gap-2 text-sm font-semibold">
-            <button onClick={() => onActie("aanpassen")} className="min-h-[44px] rounded-md border border-brand/40 text-brand">{gedeeld ? t("routes.agenda.wijzigingVoorstellen") : t("common.bewerken")}</button>
-            <button onClick={() => onActie("verwijderen")} className="min-h-[44px] rounded-md border border-border text-ink-soft">{t("routes.agenda.detail.verwijderen")}</button>
+            <button onClick={() => onActie("aanpassen")} className="min-h-11 rounded-full border border-brand/40 px-3 text-brand">{gedeeld ? t("routes.agenda.wijzigingVoorstellen") : t("common.bewerken")}</button>
+            <button onClick={() => onActie("verwijderen")} className="min-h-11 rounded-full border border-border bg-card px-3 text-ink-soft">{t("routes.agenda.detail.verwijderen")}</button>
           </div>) : null}
         {gedeeld && !wacht ? <p className="mt-3 text-[11px] text-ink-soft">{t("routes.agenda.detail.gedeeld")}</p> : null}
         {wacht ? (<div className="mt-4 rounded-md border border-border bg-card p-3 text-sm">
@@ -1011,11 +1011,11 @@ function AfspraakDetail({ v, direct, wacht, ingetrokken, onSluit, onActie, onInt
             {wacht.velden ? <p className="mt-1 text-xs text-ink-soft">{t("routes.agenda.detail.nieuw")} {lang(wacht.velden.datum)}{wacht.velden.tijd ? ` · ${uur(wacht.velden.tijd)}` : ""}{wacht.velden.titel !== a.titel ? ` · ${wacht.velden.titel}` : ""}</p> : null}
             <p className="mt-1 text-xs text-ink-soft">{t("routes.agenda.detail.reactieOpen")}</p>
             {wacht.meerTijd ? <p className="mt-1 text-xs text-ink-soft">{wacht.meerTijd.mine ? t("routes.agenda.detail.jijMeerTijd") : t("routes.agenda.detail.anderMeerTijd")}</p> : null}
-            {wacht.mine === false && onReageer ? (<div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
-                <Button size="sm" onClick={() => onReageer("akkoord")}>{t("common.akkoord")}</Button>
-                <Button size="sm" variant="outline" onClick={() => onReageer("ander-voorstel")}>{t("common.anderVoorstel")}</Button>
-                <Button size="sm" variant="ghost" onClick={() => onReageer("niet-akkoord")}>{t("common.nietAkkoord")}</Button>
-                {!wacht.meerTijd ? <Button size="sm" variant="ghost" onClick={() => onReageer("meer-tijd")}>{t("common.meerTijdNodig")}</Button> : null}
+            {wacht.mine === false && onReageer ? (<div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold">
+                <Button onClick={() => onReageer("akkoord")} className="h-auto min-h-11 w-full whitespace-normal rounded-full">{t("common.akkoord")}</Button>
+                <Button variant="outline" onClick={() => onReageer("ander-voorstel")} className="h-auto min-h-11 w-full whitespace-normal rounded-full">{t("common.anderVoorstel")}</Button>
+                <Button variant="outline" onClick={() => onReageer("niet-akkoord")} className="h-auto min-h-11 w-full whitespace-normal rounded-full">{t("common.nietAkkoord")}</Button>
+                {!wacht.meerTijd ? <Button variant="outline" onClick={() => onReageer("meer-tijd")} className="h-auto min-h-11 w-full whitespace-normal rounded-full">{t("common.meerTijdNodig")}</Button> : null}
               </div>) : (<div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold">
               <VoorstelIntrekken onBevestig={onIntrekken}/>
             </div>)}
@@ -1065,9 +1065,9 @@ function AfspraakRij({ id, onActie }) {
         <p className="text-[11px] text-ink-soft/80">{a.locatie}</p>
       </div>
     </>);
-    return (<div id={`item-${a.id}`} className="zoekdoel flex items-center gap-3 rounded-md border border-border bg-card p-3">
+    return (<div id={`item-${a.id}`} className="zoekdoel flex items-center gap-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3">
       <button onClick={() => setOpen(true)} className="flex min-w-0 flex-1 items-center gap-3" aria-label={t("routes.agenda.rijOpenen", { titel: isWisselMoment ? t("routes.agenda.wisselmoment") : a.titel, datum: a.datumLabel, tijd: a.tijd })}>{inhoud}</button>
-      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${bijSanne ? "bg-brand-soft text-brand" : "bg-accent-soft text-accent-warm"}`}>{bijSanne ? t("routes.agenda.bijJou") : t("routes.agenda.bijAnder")}</span>
+      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${bijSanne ? "bg-brand-soft text-brand" : "bg-accent-soft text-accent-warm"}`}>{bijSanne ? t("routes.agenda.bijJou") : t("routes.agenda.bijAnder")}</span>
       <GeschiedenisKnop soort="afspraak" itemId={a.id} naam={a.titel}/>
       {isWisselMoment ? <WisselmomentSheet open={open} onSluit={() => setOpen(false)} a={a}/> : <VasteAfspraakSheet open={open} onSluit={() => setOpen(false)} a={a} onActie={(actie) => { setOpen(false); onActie(actie); }}/>}
     </div>);
@@ -1088,9 +1088,9 @@ function WisselmomentSheet({ open, onSluit, a }) {
           <SheetDescription className="text-sm text-ink">{a.datumLabel} · {uur(a.tijd)}</SheetDescription>
         </SheetHeader>
         <dl className="mt-3 divide-y divide-border border-y border-border text-sm">
-          <div className="flex justify-between py-2.5"><dt className="text-ink-soft">{t("routes.agenda.rij.locatie")}</dt><dd className="font-semibold">{a.locatie}</dd></div>
-          <div className="flex justify-between py-2.5"><dt className="text-ink-soft">{t("routes.agenda.rij.kind")}</dt><dd className="font-semibold">{kindWeergave(a.kind)}</dd></div>
-          <div className="flex justify-between py-2.5"><dt className="text-ink-soft">{t("routes.agenda.wissel.mee")}</dt><dd className="font-semibold">{t("routes.agenda.wissel.dingen", { count: aantalMee })}</dd></div>
+          <div className="flex justify-between gap-3 py-2.5"><dt className="shrink-0 text-ink-soft">{t("routes.agenda.rij.locatie")}</dt><dd className="min-w-0 text-right font-semibold">{a.locatie}</dd></div>
+          <div className="flex justify-between gap-3 py-2.5"><dt className="shrink-0 text-ink-soft">{t("routes.agenda.rij.kind")}</dt><dd className="font-semibold">{kindWeergave(a.kind)}</dd></div>
+          <div className="flex justify-between gap-3 py-2.5"><dt className="shrink-0 text-ink-soft">{t("routes.agenda.wissel.mee")}</dt><dd className="font-semibold">{t("routes.agenda.wissel.dingen", { count: aantalMee })}</dd></div>
         </dl>
         <div className="mt-4 space-y-2">
           <Button variant="outline" className={knop} onClick={() => router.navigate({ to: "/overdracht", search: { moment: wisselDatum } })}>{t("routes.agenda.wissel.bekijken")}</Button>

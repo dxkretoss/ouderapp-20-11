@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { useBevestigPopup } from "@/lib/feedback";
@@ -97,7 +98,7 @@ function AfsprakenPagina() {
         <Link to="/halen-brengen" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand"><AppIcon functie="overdracht" maat="sm" vorm="kaal"/>{t("routes.afspraken.halenBrengen")}</Link>
         <Link to="/contact" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand"><AppIcon functie="berichten" maat="sm" vorm="kaal"/>{t("routes.afspraken.contactafspraken")}</Link>
       </div>
-      {groepen.length ? <h2 className="mt-6 font-display text-lg font-bold">{t("routes.afspraken.watAfgesproken")}</h2> : !aandacht.length && !gestopt.length ? (laadWeergave(laadStatus, afsprakenBron.ververs) ?? <p className="mt-6 text-sm text-ink-soft">{t("routes.afspraken.nogGeen")}</p>) : null}
+      {groepen.length ? <h2 className="mt-6 font-display text-lg font-bold">{t("routes.afspraken.watAfgesproken")}</h2> : !aandacht.length && !gestopt.length ? (laadWeergave(laadStatus, afsprakenBron.ververs) ?? <div className="mt-6"><p className="rounded-xl bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-3 text-center text-sm text-ink-soft">{t("routes.afspraken.nogGeen")}</p><button type="button" onClick={() => setNieuw(true)} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-soft px-4 text-sm font-semibold text-brand"><Plus aria-hidden="true" strokeWidth={2} className="size-4 shrink-0"/>{t("routes.afspraken.nieuweVoorstellen")}</button></div>) : null}
       {groepen.map(([g, l]) => (<Sectie key={g} titel={onderwerpLabel(g)}>
           {l.map((a) => <Rij key={a.id} a={a} onOpen={() => setOpen(a.id)}/>)}
         </Sectie>))}
@@ -123,7 +124,7 @@ function Rij({ a, onOpen, status, actie }) {
         <span className="mt-0.5 block text-xs text-ink-soft">{a.tekst}</span>
         {s ? <span className="mt-1 block"><Badge toon={actie || jouwReactie ? "actie" : "klaar"}>{s}</Badge></span> : null}
       </span>
-      <Chevron className="size-4 text-ink-soft"/>
+      <Chevron className="size-4 shrink-0 text-ink-soft"/>
     </button>);
 }
 function Veld({ label, children }) {
@@ -182,8 +183,8 @@ function Detail({ a, onVoorstel, onReageer, onIntrekken }) {
           {wachtOpMij(a) ? (alt === null ? (<div className="grid gap-2 pt-1">
               <button onClick={() => doe(() => onReageer("akkoord"))} className="min-h-11 rounded-full bg-brand text-sm font-semibold text-primary-foreground">{t("common.akkoord")}</button>
               <Button variant="outline" onClick={() => setAlt(v.tekst ?? a.tekst)}>{k.ander}</Button>
-              <Button variant="ghost" onClick={() => doe(() => onReageer("niet"))}>{k.niet}</Button>
-              {!v.meerTijd ? <Button variant="ghost" onClick={() => doe(() => onReageer("meer-tijd"))}>{t("common.meerTijdNodig")}</Button> : null}
+              <Button variant="outline" onClick={() => doe(() => onReageer("niet"))}>{k.niet}</Button>
+              {!v.meerTijd ? <Button variant="outline" onClick={() => doe(() => onReageer("meer-tijd"))}>{t("common.meerTijdNodig")}</Button> : null}
               <RustigTip moment={a.veiligheid ? null : "voorstel"} veiligheid={!!a.veiligheid}/>
             </div>) : (<div className="space-y-2 pt-1">
               <p className="text-xs text-ink-soft">{t("routes.afspraken.detail.alternatiefUitleg")}</p>
@@ -215,7 +216,7 @@ function Detail({ a, onVoorstel, onReageer, onIntrekken }) {
         </div>) : null}
 
       {kanAanpassen ? (<div className="border-t border-border pt-1">
-          <button onClick={() => setMeer(!meer)} aria-label={t("routes.afspraken.detail.meerOpties")} className="min-h-11 text-sm font-semibold text-ink-soft">•••</button>
+          <button onClick={() => setMeer(!meer)} aria-label={t("routes.afspraken.detail.meerOpties")} className="min-h-11 min-w-11 px-2 text-sm font-semibold text-ink-soft">•••</button>
           {meer ? <button onClick={() => doe(() => { onVoorstel({ soort: "stoppen" }); setMeer(false); })} className="block min-h-11 text-sm font-semibold text-brand">{t("routes.afspraken.detail.voorstelStoppen")}</button> : null}
         </div>) : null}
 
@@ -249,7 +250,7 @@ function NieuweAfspraak({ voorinvul = "", onVerstuur, onAnnuleer }) {
       {!onderwerp ? (<>
           <p className="font-display text-lg font-bold">{t("routes.afspraken.nieuw.waarOver")}</p>
           <div className="divide-y divide-border rounded-md border border-border">
-            {ONDERWERPEN.map((o) => <button key={o.id} onClick={() => setOnderwerp(o.groep)} className="flex min-h-11 w-full items-center justify-between px-3 text-left text-sm">{o.label}<Chevron className="size-4 text-ink-soft"/></button>)}
+            {ONDERWERPEN.map((o) => <button key={o.id} onClick={() => setOnderwerp(o.groep)} className="flex min-h-11 w-full items-center justify-between gap-3 px-3 text-left text-sm">{o.label}<Chevron className="size-4 shrink-0 text-ink-soft"/></button>)}
           </div>
         </>) : (<>
           <p className="font-display text-lg font-bold">{t("routes.afspraken.nieuw.wat")}</p>
