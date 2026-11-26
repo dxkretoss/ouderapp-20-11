@@ -33,6 +33,9 @@ verify_jwt = false
 [functions.custom-auth]
 verify_jwt = false
 
+[functions.admin-api]
+verify_jwt = false
+
 [functions.log-audit]
 verify_jwt = false
 

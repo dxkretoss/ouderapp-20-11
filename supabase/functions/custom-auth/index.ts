@@ -23,6 +23,12 @@ import { normalizeEmail, reqText } from "../_shared/util.ts";
 
 const LOGIN_FAILS_PER_15_MIN = 10;
 
+/** Profile lookup for the parent app's auth flows: the super admin (admin panel only) counts as unknown here. */
+async function appProfileByEmail(email: string): Promise<Record<string, any> | null> {
+  const p = await findProfileByEmailWithSecrets(email);
+  return p && p.role !== "superadmin" ? p : null;
+}
+
 function cleanName(v: unknown): string {
   // single line, no control characters (also ends up in e-mail subjects)
   return reqText(typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f]+/g, " ") : v, "name", 100);
@@ -84,7 +90,7 @@ Deno.serve(serveActions("custom-auth", {
   async "verify-email"(req, body) {
     await guardCodeCheck(req);
     const email = normalizeEmail(body.email);
-    const profile = await findProfileByEmailWithSecrets(email);
+    const profile = await appProfileByEmail(email);
     // Validate the new password (if sent) before the code is consumed.
     const newPassword = body.password !== undefined && body.password !== null && body.password !== ""
       ? assertPasswordPolicy(body.password)
@@ -124,7 +130,8 @@ Deno.serve(serveActions("custom-auth", {
     // counted for every e-mail (existing or not) so the response never reveals accounts
     await assertCodeRateLimit(email, purpose);
     const profile = await findProfileByEmailWithSecrets(email);
-    const eligible = profile && (purpose === "reset" || !profile.is_verified);
+    // Never e-mail codes to the super admin (no mailbox-based takeover) or to a disabled account.
+    const eligible = profile && profile.role !== "superadmin" && !profile.disabled_at && (purpose === "reset" || !profile.is_verified);
     if (eligible) {
       await sendCode(profile.id, profile.email, purpose, isEn);
     } else {
@@ -140,12 +147,17 @@ Deno.serve(serveActions("custom-auth", {
       throw new HttpError(429, "RATE_LIMITED", "Too many failed logins, try again later");
     }
     await assertIpRate(req, "ip_login_fail", IP_LOGIN_FAILS_PER_15_MIN);
-    const profile = await findProfileByEmailWithSecrets(email);
+    const found = await findProfileByEmailWithSecrets(email);
+    // The super admin only signs in through the admin panel (admin-api): here it behaves like an unknown account.
+    const profile = found && found.role !== "superadmin" ? found : null;
     const valid = await verifyPassword(body.password, profile?.password);
     if (!profile || !valid) {
       await recordRateEvent(email, "login_fail");
       await recordIpEvent(req, "ip_login_fail");
       throw new HttpError(401, "INVALID_CREDENTIALS", "Invalid e-mail or password");
+    }
+    if (profile.disabled_at) {
+      throw new HttpError(403, "ACCOUNT_DISABLED", "This account has been disabled");
     }
     if (!profile.is_verified) {
       if (!(await isCodeRateLimited(email, "verify"))) {
@@ -165,8 +177,8 @@ Deno.serve(serveActions("custom-auth", {
     const email = normalizeEmail(body.email);
     // always the same answer; silently skip when rate limited or unknown
     if (await isCodeRateLimited(email, "reset")) return ok({ sent: true });
-    const profile = await findProfileByEmailWithSecrets(email);
-    if (profile) {
+    const profile = await appProfileByEmail(email);
+    if (profile && !profile.disabled_at) {
       await sendCode(profile.id, profile.email, "reset", isEn);
     } else {
       await recordRateEvent(email, "reset");
@@ -178,7 +190,7 @@ Deno.serve(serveActions("custom-auth", {
   async "verify-reset-code"(req, body) {
     await guardCodeCheck(req);
     const email = normalizeEmail(body.email);
-    const profile = await findProfileByEmailWithSecrets(email);
+    const profile = await appProfileByEmail(email);
     await checkCode(profile as any, "reset", body.code, false);
     return ok({ valid: true });
   },
@@ -188,7 +200,7 @@ Deno.serve(serveActions("custom-auth", {
     await guardCodeCheck(req);
     const email = normalizeEmail(body.email);
     const password = assertPasswordPolicy(body.password);
-    const profile = await findProfileByEmailWithSecrets(email);
+    const profile = await appProfileByEmail(email);
     await checkCode(profile as any, "reset", body.code, true);
     check(
       await db()

@@ -58,10 +58,11 @@ export async function optionalUser(req: Request): Promise<SessionUser | null> {
   if (!session || session.revoked_at || new Date(session.expires_at).getTime() <= Date.now()) return null;
 
   const profile = check(
-    await db().from("profiles").select(PROFILE_PUBLIC_COLS).eq("id", session.user_id).maybeSingle(),
+    await db().from("profiles").select(`${PROFILE_PUBLIC_COLS}, disabled_at`).eq("id", session.user_id).maybeSingle(),
     "load session profile",
   ) as Record<string, any> | null;
-  if (!profile || !profile.is_verified) return null;
+  // Disabled accounts (admin panel) and the super admin (admin panel only, never the parent app) get no app session.
+  if (!profile || !profile.is_verified || profile.disabled_at || profile.role === "superadmin") return null;
 
   if (Date.now() - new Date(session.last_seen_at).getTime() > TOUCH_AFTER_MS) {
     const { error } = await db()

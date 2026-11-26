@@ -11180,6 +11180,7 @@
         "WEAK_PASSWORD": "Choose a stronger password: at least {{minimum}} characters.",
         "EMAIL_TAKEN": "There is already an account with this email address.",
         "INVALID_CREDENTIALS": "Hmm, that email or password doesn't look right. Please try once more.",
+        "ACCOUNT_DISABLED": "This account has been disabled. Please contact support.",
         "NOT_VERIFIED": "Your email address hasn't been confirmed yet. We've sent you a new code.",
         "CODE_INVALID": "This code isn't right. Check it and try again.",
         "CODE_EXPIRED": "This code has expired. Request a new one.",

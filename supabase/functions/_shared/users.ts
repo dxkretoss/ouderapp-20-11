@@ -71,7 +71,7 @@ export async function findProfileByEmailWithSecrets(email: string): Promise<Reco
   const rows = check(
     await db()
       .from("profiles")
-      .select(`${PROFILE_PUBLIC_COLS}, password, code_hash, code_purpose, code_expires_at, code_attempts`)
+      .select(`${PROFILE_PUBLIC_COLS}, password, code_hash, code_purpose, code_expires_at, code_attempts, disabled_at`)
       .eq("email", email)
       .limit(1),
     "find profile by email",

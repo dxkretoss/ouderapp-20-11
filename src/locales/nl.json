@@ -11180,6 +11180,7 @@
         "WEAK_PASSWORD": "Kies een sterker wachtwoord: minstens {{minimum}} tekens.",
         "EMAIL_TAKEN": "Er bestaat al een account met dit e-mailadres.",
         "INVALID_CREDENTIALS": "Hmm, dat e-mailadres of wachtwoord klopt niet. Probeer het nog een keer.",
+        "ACCOUNT_DISABLED": "Dit account is uitgeschakeld. Neem contact op met de ondersteuning.",
         "NOT_VERIFIED": "Je e-mailadres is nog niet bevestigd. We hebben een nieuwe code gestuurd.",
         "CODE_INVALID": "Deze code klopt niet. Controleer hem en probeer het opnieuw.",
         "CODE_EXPIRED": "Deze code is verlopen. Vraag een nieuwe aan.",

@@ -8,6 +8,7 @@ export type ErrorCode =
   | "WEAK_PASSWORD"
   | "EMAIL_TAKEN"
   | "INVALID_CREDENTIALS"
+  | "ACCOUNT_DISABLED"
   | "NOT_VERIFIED"
   | "CODE_INVALID"
   | "CODE_EXPIRED"
