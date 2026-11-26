@@ -135,16 +135,16 @@ function AbonnementPagina() {
               <SheetHeader className="text-left"><SheetTitle className="font-display text-xl font-medium">{t("routes.abonnement.opzeggen.titel")}</SheetTitle>
                 <SheetDescription>{t("routes.abonnement.opzeggen.beschrijving", { datum: datum(ab.verlengdatum) })}</SheetDescription></SheetHeader>
               <div className="mt-4 grid gap-2">
-                <button onClick={sluit} className="rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{t("routes.abonnement.opzeggen.behouden")}</button>
-                <button onClick={() => setStap("keuze")} className="rounded-md border border-border py-2.5 text-sm font-semibold">{t("routes.abonnement.opzeggen.doorgaan")}</button>
+                <button onClick={sluit} className="rounded-full bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{t("routes.abonnement.opzeggen.behouden")}</button>
+                <button onClick={() => setStap("keuze")} className="rounded-full border border-border py-2.5 text-sm font-semibold">{t("routes.abonnement.opzeggen.doorgaan")}</button>
               </div>
             </>) : stap === "keuze" ? (<>
               <SheetHeader className="text-left"><SheetTitle className="font-display text-xl font-medium">{t("routes.abonnement.keuze.titel")}</SheetTitle>
                 <SheetDescription>{t("routes.abonnement.keuze.beschrijving")}</SheetDescription></SheetHeader>
               <div className="mt-4 grid gap-2 text-left">
-                <button onClick={() => { zetAbonnement({ status: "opgezegd" }); sluit(); }} className="rounded-md border border-border p-3 text-left text-sm"><span className="block font-semibold">{t("routes.abonnement.keuze.alleenOpzeggen")}</span><span className="text-xs text-ink-soft">{t("routes.abonnement.keuze.alleenOpzeggenUitleg")}</span></button>
-                <button onClick={() => setStap("bewaren")} className="rounded-md border border-border p-3 text-left text-sm"><span className="block font-semibold">{t("routes.abonnement.keuze.bewaren", { prijs: euro(bewaarPlan.prijsCent) })}</span><span className="text-xs text-ink-soft">{t("routes.abonnement.keuze.bewarenUitleg")}</span></button>
-                <button onClick={() => setStap("verwijderen")} className="rounded-md border border-border p-3 text-left text-sm"><span className="block font-semibold">{t("routes.abonnement.keuze.verwijderen")}</span><span className="text-xs text-ink-soft">{t("routes.abonnement.keuze.verwijderenUitleg")}</span></button>
+                <button onClick={() => { zetAbonnement({ status: "opgezegd" }); sluit(); }} className="rounded-2xl border border-border p-3 text-left text-sm"><span className="block font-semibold">{t("routes.abonnement.keuze.alleenOpzeggen")}</span><span className="text-xs text-ink-soft">{t("routes.abonnement.keuze.alleenOpzeggenUitleg")}</span></button>
+                <button onClick={() => setStap("bewaren")} className="rounded-2xl border border-border p-3 text-left text-sm"><span className="block font-semibold">{t("routes.abonnement.keuze.bewaren", { prijs: euro(bewaarPlan.prijsCent) })}</span><span className="text-xs text-ink-soft">{t("routes.abonnement.keuze.bewarenUitleg")}</span></button>
+                <button onClick={() => setStap("verwijderen")} className="rounded-2xl border border-border p-3 text-left text-sm"><span className="block font-semibold">{t("routes.abonnement.keuze.verwijderen")}</span><span className="text-xs text-ink-soft">{t("routes.abonnement.keuze.verwijderenUitleg")}</span></button>
               </div>
             </>) : stap === "bewaren" ? (<>
               <SheetHeader className="text-left"><SheetTitle className="font-display text-xl font-medium">{t("routes.abonnement.bewaren.titel")}</SheetTitle>
@@ -157,7 +157,7 @@ function AbonnementPagina() {
                 <p><Trans i18nKey="routes.abonnement.bewaren.terugkomen" components={{ b: <span className="font-semibold"/> }}/></p>
                 <p><Trans i18nKey="routes.abonnement.bewaren.tochVerwijderen" components={{ b: <span className="font-semibold"/> }}/></p>
               </div>
-              <button onClick={() => { zetAbonnement({ status: "bewaren" }); sluit(); }} className="mt-4 w-full rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{t("routes.abonnement.bewaren.kies")}</button>
+              <button onClick={() => { zetAbonnement({ status: "bewaren" }); sluit(); }} className="mt-4 w-full min-h-12 rounded-full bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{t("routes.abonnement.bewaren.kies")}</button>
               <button onClick={() => setStap("keuze")} className="mt-2 w-full py-2 text-sm font-semibold text-ink-soft">{t("common.terug")}</button>
             </>) : stap === "verwijderen" ? (<>
               <SheetHeader className="text-left"><SheetTitle className="font-display text-xl font-medium">{t("routes.abonnement.verwijderen.titel")}</SheetTitle>
@@ -167,8 +167,8 @@ function AbonnementPagina() {
                 <p>{t("routes.abonnement.verwijderen.tip")}</p>
               </div>
               <div className="mt-4 grid gap-2">
-                <Link to="/exporteren" className="rounded-md border border-border py-2.5 text-center text-sm font-semibold text-brand">{t("routes.abonnement.verwijderen.exporteren")}</Link>
-                <button onClick={() => { zetAbonnement({ status: "verwijderaanvraag" }); sluit(); }} className="rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{t("routes.abonnement.verwijderen.aanvragen")}</button>
+                <Link to="/exporteren" className="rounded-full border border-border py-2.5 text-center text-sm font-semibold text-brand">{t("routes.abonnement.verwijderen.exporteren")}</Link>
+                <button onClick={() => { zetAbonnement({ status: "verwijderaanvraag" }); sluit(); }} className="rounded-full bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{t("routes.abonnement.verwijderen.aanvragen")}</button>
                 <button onClick={sluit} className="py-2 text-sm font-semibold text-ink-soft">{t("common.annuleren")}</button>
               </div>
             </>) : null}

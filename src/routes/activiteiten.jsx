@@ -15,6 +15,9 @@ import { isOpen } from "@/lib/openstaande-voorstellen";
 import { markeerGelezen } from "@/lib/meldingen-store";
 import { VoorstellenOverzicht } from "@/components/VoorstellenOverzicht";
 import { z } from "zod";
+import { ProfielBeeld } from "@/components/ProfielBeeld";
+import { useGezin } from "@/lib/gezin";
+import { verversGezinAlsOud } from "@/lib/start-store";
 export const Route = createFileRoute("/activiteiten")({
     validateSearch: z.object({ onderdeel: z.enum(["regelen"]).optional() }),
     head: () => ({
@@ -86,11 +89,14 @@ function FeedGroep({ titel, items, gelezen, onOpen }) {
 function MeldingRij({ a, gelezen, onOpen }) {
     const { t } = useTranslation();
     const initiaal = a.door?.trim().charAt(0).toUpperCase();
+    const gezin = useGezin();
+    const naam = a.door?.trim().toLowerCase();
+    const persoon = naam ? [gezin.ik, ...gezin.coOuders].find((p) => p?.naam?.trim().toLowerCase() === naam) : null;
     return (<li>
       <button onClick={onOpen} className="flex min-h-[60px] w-full items-center gap-3 py-2.5 text-left">
         <span className="relative shrink-0">
           {initiaal
-            ? <span className="grid size-[42px] place-items-center rounded-full bg-[#6F7F68] text-base font-black text-white">{initiaal}</span>
+            ? (persoon?.beeld ? <ProfielBeeld beeld={persoon.beeld} naam={a.door} maat={42}/> : <span className="grid size-[42px] place-items-center rounded-full bg-[#6F7F68] text-base font-black text-white">{initiaal}</span>)
             : <span className="grid size-[42px] place-items-center rounded-full bg-[#DCE3D3]"><AppIcon functie={a.icoon} maat="sm" vorm="kaal"/></span>}
           {initiaal ? <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.12)]"><AppIcon functie={a.icoon} maat="sm" vorm="kaal" className="scale-[.8]"/></span> : null}
         </span>
@@ -125,7 +131,7 @@ function Details({ a, onClose }) {
             {a.details?.length ? (<dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
                 {a.details.map((d) => <div key={d.label} className="contents"><dt className="text-ink-soft">{d.label}</dt><dd>{d.waarde}</dd></div>)}
               </dl>) : null}
-            <button onClick={() => { onClose(); router.navigate({ href: a.naar }); }} className="mt-4 flex h-12 w-full items-center justify-center rounded-full bg-brand px-4 text-[15px] font-black text-primary-foreground">
+            <button onClick={async () => { onClose(); await verversGezinAlsOud(true).catch(() => { }); router.navigate({ href: a.naar }); }} className="mt-4 flex h-12 w-full items-center justify-center rounded-full bg-brand px-4 text-[15px] font-black text-primary-foreground">
               {a.verzoek ? t("routes.activiteiten.bekijkenReageren") : t("routes.activiteiten.openen")}
             </button>
           </>) : null}

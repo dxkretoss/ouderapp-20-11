@@ -17,6 +17,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { laadWeergave } from "@/components/Laden";
 import { DeelLabel, DelenKeuze, deelCheck, VerwijderDialoog } from "@/components/DelenKeuze";
 import { useVoorkeuren, zetVoorkeur } from "@/lib/voorkeuren-store";
+import { VELD, LABEL, chip as chipStijl, KNOP, KNOP_2, KAART } from "@/lib/ui-stijl";
 // Eigen gezin (altijd, na inloggen): spullen van de server (manage-tasks, tabel belongings), volledige weergave.
 function SpullenWrap() {
     return <Spullen />;
@@ -49,8 +50,8 @@ function plekTekst(p, g) {
     return p === "school" ? i18n.t("routes.spullen.plek.school") : p;
 }
 const DAGEN = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"];
-const veld = "rounded-md border border-border bg-background px-3 py-2 text-sm";
-const knop = (aan) => `min-h-11 rounded-full border px-3 text-sm ${aan ? "border-brand bg-brand-soft font-semibold" : "border-border"}`;
+const veld = VELD;
+const knop = chipStijl;
 /** Paklijsten: vaste ids, namen en items uit de vertalingen. */
 const PAKLIJSTEN = ["weekend", "vakantie", "sportdag", "schoolreisje"];
 const paklijstNaam = (id) => i18n.t(`routes.spullen.paklijst.${id}.naam`);
@@ -306,22 +307,22 @@ function NietVergeten({ lijst, voor }) {
             bevestig(t("routes.spullen.melding.verwijderd"), { uitleg: i.naam, ongedaan: () => herstelSpul(i.id) });
     };
     return (<>
-      <Card className="mt-1 space-y-2">
-        <input value={tekst} maxLength={200} onChange={(e) => setTekst(e.target.value)} placeholder={t("routes.spullen.vergeten.placeholder")} aria-label={t("routes.spullen.vergeten.titel")} className="w-full rounded-md bg-surface px-3 py-2 text-sm"/>
+      <div className="space-y-2.5">
+        <input value={tekst} maxLength={200} onChange={(e) => setTekst(e.target.value)} placeholder={t("routes.spullen.vergeten.placeholder")} aria-label={t("routes.spullen.vergeten.titel")} className={`w-full ${VELD}`}/>
         <div className="grid grid-cols-2 gap-2">
-          <select value={wie} onChange={(e) => setWie(e.target.value)} aria-label={t("routes.spullen.vergeten.naarWie")} className="min-h-10 min-w-0 rounded-md bg-surface px-3 py-2 text-sm">
+          <select value={wie} onChange={(e) => setWie(e.target.value)} aria-label={t("routes.spullen.vergeten.naarWie")} className={VELD}>
             {opties.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
           </select>
-          <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label={t("routes.spullen.form.vanWelkKind")} className="min-h-10 min-w-0 rounded-md bg-surface px-3 py-2 text-sm">
+          <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label={t("routes.spullen.form.vanWelkKind")} className={VELD}>
             {st.kinderen.map((k) => <option key={k.id} value={k.id}>{k.naam}</option>)}
           </select>
-          <button disabled={!tekst.trim() || !kind || !delen.ok || bezig} onClick={toevoegen} className="col-span-2 min-h-11 w-full rounded-full bg-brand px-4 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("common.toevoegen")}</button>
+          <button disabled={!tekst.trim() || !kind || !delen.ok || bezig} onClick={toevoegen} className={`col-span-2 w-full ${KNOP}`}>{t("common.toevoegen")}</button>
         </div>
         {kind ? <DelenKeuze kindIds={[kind]} gedeeld={gedeeld} onGedeeld={setGedeeld}/> : null}
-      </Card>
+      </div>
       <ul className="mt-3 space-y-2">
         {lijst.map((i) => (<li key={i.id} className="flex items-stretch gap-1">
-            <button onClick={() => zetSpul(i.id, { klaar: !i.klaar })} aria-pressed={i.klaar} className="flex min-w-0 flex-1 items-center gap-3 rounded-md border border-border px-3 py-3 text-left text-sm">
+            <button onClick={() => zetSpul(i.id, { klaar: !i.klaar })} aria-pressed={i.klaar} className={`flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left text-sm ${KAART}`}>
               <span className={`grid size-6 shrink-0 place-items-center rounded-full border ${i.klaar ? "border-brand bg-brand text-surface" : "border-ink-soft/40"}`}>{i.klaar ? <Vinkje className="size-3.5"/> : null}</span>
               <span className="min-w-0 flex-1">
                 <span className={i.klaar ? "text-ink-soft line-through" : "font-medium"}>{i.naam}</span>
@@ -332,7 +333,7 @@ function NietVergeten({ lijst, voor }) {
                 {i.klaar ? t("routes.spullen.vergeten.terug") : t("routes.spullen.vergeten.moetTerug")}
               </span>
             </button>
-            {magSpulVerwijderen(i) ? <button onClick={() => setWeg(i)} aria-label={t("routes.spullen.verwijderen.label", { naam: i.naam })} className="grid w-11 shrink-0 place-items-center rounded-md text-ink-soft"><Kruis className="size-4"/></button> : null}
+            {magSpulVerwijderen(i) ? <button onClick={() => setWeg(i)} aria-label={t("routes.spullen.verwijderen.label", { naam: i.naam })} className="grid w-11 shrink-0 place-items-center rounded-full text-ink-soft"><Kruis className="size-4"/></button> : null}
           </li>))}
       </ul>
       <VerwijderDialoog open={!!weg} onOpenChange={(o) => !o && setWeg(null)} titel={t("routes.spullen.verwijderen.titel", { naam: weg?.naam ?? "" })} tekst={weg?.gedeeld ? t("routes.spullen.verwijderen.tekstGedeeld") : t("routes.spullen.verwijderen.tekst")} onBevestig={verwijder}/>

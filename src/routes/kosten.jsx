@@ -37,6 +37,7 @@ import { useDeelOpties } from "@/lib/kosten-delen";
 import { leesBonBestand } from "@/lib/bon-bestand";
 import { Zichtbaar } from "@/components/Zichtbaar";
 import { afrekenWeergave, verrekeningStatus, berekenSaldo, categorieLabel, periodeGrenzen, periodeTotalen, sleutelVoor, statusLabel, } from "@/lib/verrekening";
+import { chip as chipStijl } from "@/lib/ui-stijl";
 export const Route = createFileRoute("/kosten")({
     head: () => ({
         meta: [
@@ -375,7 +376,7 @@ function Transacties({ alle, historie, onOpen }) {
         (periode === "Alle" || maandVan(k) === periode));
     // "Alle" en de opties blijven bronwaarden voor het filter; alleen de weergave wordt vertaald.
     const Kies = ({ label, waarde, opties, onChange, toon = (o) => o }) => (<label className="flex flex-col gap-1 text-[11px] font-semibold text-ink-soft">{label}
-      <select value={waarde} onChange={(e) => onChange(e.target.value)} className="min-h-10 rounded-md border border-border bg-card px-2 text-sm font-normal text-ink">
+      <select value={waarde} onChange={(e) => onChange(e.target.value)} className="min-h-10 rounded-2xl border border-border bg-card px-2 text-sm font-normal text-ink">
         {["Alle", ...opties].map((o) => <option key={o} value={o}>{o === "Alle" ? t("routes.kosten.filter.alle") : toon(o)}</option>)}
       </select>
     </label>);
@@ -417,7 +418,7 @@ function PeriodeTotalen({ kosten, historie, budgetten }) {
     const [periode, setPeriode] = useState("maand");
     const tot = periodeTotalen(kosten, historie, budgetten, periodeGrenzen(periode, vandaagIso()));
     const ander = t("common.deAndereOuder");
-    const chip = (a) => `min-h-10 rounded-full border px-3 text-xs font-semibold ${a ? "border-brand bg-brand-soft text-brand" : "border-border text-ink-soft"}`;
+    const chip = chipStijl;
     return (<section className="mt-5" aria-label={t("routes.kosten.periode.titel")}>
       <h2 className="font-display text-lg font-bold">{t("routes.kosten.periode.titel")}</h2>
       <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label={t("routes.kosten.periode.titel")}>
@@ -653,8 +654,8 @@ function NieuweUitgave({ budget: startBudget, voorinvul, voorKind, onSluit, star
             <button onClick={() => { bewaardConcept = null; onSluit(); }} className="min-h-11 w-full rounded-full border border-border bg-card text-sm font-semibold text-ink-soft">{t("common.verwijderen")}</button>
             <button onClick={() => setVraagSluiten(false)} className="min-h-11 w-full text-sm font-semibold text-brand">{t("routes.kosten.nieuw.concept.verder")}</button>
           </div>) : manier === "kies" ? (<div className="mt-4 space-y-2">
-            <button onClick={() => setManier("scan")} className="flex min-h-14 w-full items-center gap-3 rounded-md border border-border px-3 text-left text-sm font-semibold"><AppIcon functie="foto" maat="md"/>{t("routes.kosten.nieuw.bonScannen")}</button>
-            <button onClick={() => setManier("hand")} className="flex min-h-14 w-full items-center gap-3 rounded-md border border-border px-3 text-left text-sm font-semibold"><AppIcon functie="notitie" maat="md"/>{t("routes.kosten.nieuw.handmatig")}</button>
+            <button onClick={() => setManier("scan")} className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-border px-3 text-left text-sm font-semibold"><AppIcon functie="foto" maat="md"/>{t("routes.kosten.nieuw.bonScannen")}</button>
+            <button onClick={() => setManier("hand")} className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-border px-3 text-left text-sm font-semibold"><AppIcon functie="notitie" maat="md"/>{t("routes.kosten.nieuw.handmatig")}</button>
           </div>) : manier === "scan" ? (<div className="mt-4 space-y-2">
             <p className="text-xs text-ink-soft">{t("routes.kosten.nieuw.scanUitleg")}</p>
             <DeelKeuze gedeeld={gedeeld} onChange={setGedeeldKeuze} kan={delen.kan || delen.gemengd}/>
@@ -667,16 +668,16 @@ function NieuweUitgave({ budget: startBudget, voorinvul, voorKind, onSluit, star
         <div className="mt-4 space-y-3">
           {budget ? <DeelLabel gedeeld/> : <DeelKeuze gedeeld={gedeeld} onChange={setGedeeldKeuze} kan={delen.kan || delen.gemengd}/>}
           {gemengd ? <p role="alert" className="text-xs font-semibold text-accent-warm">{t("lib.api.fout.MIXED_CHILDREN")}</p> : null}
-          <input value={omschrijving} onChange={(e) => setOmschrijving(e.target.value)} placeholder={t("routes.kosten.nieuw.omschrijvingEigen")} className="w-full rounded-md border border-border bg-card px-4 py-3 text-sm outline-none placeholder:text-ink-soft/70"/>
+          <input value={omschrijving} onChange={(e) => setOmschrijving(e.target.value)} placeholder={t("routes.kosten.nieuw.omschrijvingEigen")} className="w-full min-h-11 rounded-2xl border border-border bg-card px-4 py-3 text-sm outline-none placeholder:text-ink-soft/70"/>
           <GeldInvoer value={bedragTekst} onChange={setBedragTekst} label={t("routes.kosten.nieuw.bedrag")}/>
           {delen.kan && budgetten.some((b) => b.status === "akkoord" || b.status === "uitgegeven") ? <label className="block text-xs font-semibold">{t("routes.kosten.nieuw.budgetVrijwillig")}<select aria-label={t("routes.kosten.nieuw.budgetLabel")} value={budget?.id ?? ""} onChange={(e) => { const b = budgetten.find((b) => b.id === e.target.value) ?? null; setBudget(b); if (b) {
             setKind(kindVanBudget(b));
             setCategorie(b.categorie ?? categorie);
             setVerdeling(b.pctIk === 50 ? "50" : "anders");
             setPctIk(b.pctIk);
-        } }} className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm"><option value="">{t("routes.kosten.nieuw.geenBudget")}</option>{budgetten.filter((b) => b.status === "akkoord" || b.status === "uitgegeven").map((b) => <option key={b.id} value={b.id}>{b.wat}</option>)}</select></label> : null}
+        } }} className="mt-1 w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm"><option value="">{t("routes.kosten.nieuw.geenBudget")}</option>{budgetten.filter((b) => b.status === "akkoord" || b.status === "uitgegeven").map((b) => <option key={b.id} value={b.id}>{b.wat}</option>)}</select></label> : null}
           {budget && budgetMelding(budgetBeoordeling) ? <p className="text-xs text-accent-warm">{budgetMelding(budgetBeoordeling)}</p> : null}
-          <label className="block text-xs font-semibold">{t("routes.kosten.nieuw.datum")}<input type="date" aria-label={t("routes.kosten.nieuw.datum")} value={datum} max={vandaagIso()} onChange={(e) => setDatum(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm"/></label>
+          <label className="block text-xs font-semibold">{t("routes.kosten.nieuw.datum")}<input type="date" aria-label={t("routes.kosten.nieuw.datum")} value={datum} max={vandaagIso()} onChange={(e) => setDatum(e.target.value)} className="mt-1 w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm"/></label>
 
           <p className="text-xs font-semibold text-ink-soft">{t("routes.kosten.nieuw.voor")}</p>
           <div className="flex flex-wrap gap-2">
@@ -710,7 +711,7 @@ function NieuweUitgave({ budget: startBudget, voorinvul, voorKind, onSluit, star
               </label>))}
             {verdeling === "anders" ? (<div className="flex items-center gap-2 pl-7 text-sm">
                 <span className="text-ink-soft">{ikNaam}</span>
-                <input type="number" min={0} max={100} value={pctIk} onChange={(e) => setPctIk(Math.min(100, Math.max(0, Number(e.target.value))))} className="w-16 rounded-md border border-border bg-card px-2 py-1 text-sm"/>
+                <input type="number" min={0} max={100} value={pctIk} onChange={(e) => setPctIk(Math.min(100, Math.max(0, Number(e.target.value))))} className="w-16 min-h-11 rounded-2xl border border-border bg-card px-2 py-1 text-sm"/>
                 <span className="text-ink-soft">% / {anderNaam} {100 - pctIk}%</span>
               </div>) : null}
           </div>
@@ -764,7 +765,7 @@ function NieuweUitgave({ budget: startBudget, voorinvul, voorKind, onSluit, star
               </div>) : null}
           </div>
         </div>
-        <label className="mt-3 block text-xs font-semibold">{t("routes.kosten.nieuw.toelichting")}<textarea value={toelichting} onChange={(e) => setToelichting(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm"/></label>
+        <label className="mt-3 block text-xs font-semibold">{t("routes.kosten.nieuw.toelichting")}<textarea value={toelichting} onChange={(e) => setToelichting(e.target.value)} className="mt-1 w-full rounded-2xl border border-border bg-card px-3 py-2 text-sm"/></label>
         <div className="voet-vast">
         <Button onClick={opslaan} disabled={!kanOpslaan} className="min-h-12 w-full rounded-full bg-brand text-sm font-semibold text-primary-foreground disabled:opacity-40">
           {t("routes.kosten.nieuw.opslaan")}
@@ -837,10 +838,10 @@ function KostBewerken({ kost, onKlaar }) {
             }
         }}>
       {kost.gedeeld ? <p className="text-xs text-ink-soft">{t("routes.kosten.detail.wijzigenGedeeld")}</p> : null}
-      <input value={omschrijving} maxLength={200} onChange={(e) => setOmschrijving(e.target.value)} aria-label={t("routes.kosten.nieuw.omschrijvingEigen")} className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"/>
+      <input value={omschrijving} maxLength={200} onChange={(e) => setOmschrijving(e.target.value)} aria-label={t("routes.kosten.nieuw.omschrijvingEigen")} className="w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm"/>
       <GeldInvoer value={bedragTekst} onChange={setBedragTekst} label={t("routes.kosten.nieuw.bedrag")}/>
-      <label className="block text-xs font-semibold">{t("routes.kosten.nieuw.datum")}<input type="date" value={datum} max={vandaagIso()} onChange={(e) => setDatum(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm"/></label>
-      <label className="block text-xs font-semibold">{t("routes.kosten.filter.categorie")}<select value={categorie ?? ""} onChange={(e) => setCategorie(e.target.value || null)} className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm"><option value="">{t("routes.kosten.detail.geenCategorie")}</option>{categorieen.map((c) => <option key={c} value={c}>{categorieLabel(c)}</option>)}</select></label>
+      <label className="block text-xs font-semibold">{t("routes.kosten.nieuw.datum")}<input type="date" value={datum} max={vandaagIso()} onChange={(e) => setDatum(e.target.value)} className="mt-1 w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm"/></label>
+      <label className="block text-xs font-semibold">{t("routes.kosten.filter.categorie")}<select value={categorie ?? ""} onChange={(e) => setCategorie(e.target.value || null)} className="mt-1 w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm"><option value="">{t("routes.kosten.detail.geenCategorie")}</option>{categorieen.map((c) => <option key={c} value={c}>{categorieLabel(c)}</option>)}</select></label>
       <div className="flex gap-2">
         <Button type="submit" disabled={!geldig || bezig} className="min-h-11 flex-1 shadow-none">{t("common.opslaan")}</Button>
         <Button type="button" variant="outline" onClick={onKlaar} className="min-h-11">{t("common.annuleren")}</Button>
@@ -973,7 +974,7 @@ function KostDetail({ kost, onSluit, onVerrekenen, startWijzig = false }) {
             bevestig(t("routes.kosten.detail.bijlageOpgeslagen")); }}/>
           <div className="py-3">
             <div className="flex gap-2">
-              <input value={opm} onChange={(e) => setOpm(e.target.value)} maxLength={1000} placeholder={t("routes.kosten.detail.opmerkingToevoegen")} aria-label={t("routes.kosten.detail.opmerking")} className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand"/>
+              <input value={opm} onChange={(e) => setOpm(e.target.value)} maxLength={1000} placeholder={t("routes.kosten.detail.opmerkingToevoegen")} aria-label={t("routes.kosten.detail.opmerking")} className="min-w-0 flex-1 min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm outline-none focus:border-brand"/>
               <button disabled={!opm.trim() || bezig} onClick={async () => { setBezig(true); const ok = await voegOpmerkingToe(kost.id, opm.trim()); setBezig(false); if (ok)
             setOpm(""); }} className="min-h-11 shrink-0 rounded-full border border-border px-4 text-xs font-semibold disabled:opacity-40">{t("routes.kosten.detail.plaats")}</button>
             </div>
@@ -982,7 +983,7 @@ function KostDetail({ kost, onSluit, onVerrekenen, startWijzig = false }) {
               <p className="text-xs text-ink-soft">{t("routes.kosten.detail.pasNaAkkoord")}</p>
               <div className="mt-2 flex gap-2">
                 <GeldInvoer value={nieuwBedrag} onChange={setNieuwBedrag} label={t("routes.kosten.detail.nieuwBedrag")} className="flex-1"/>
-                <input value={nieuweVerdeling} onChange={(e) => setNieuweVerdeling(e.target.value)} placeholder={t("routes.kosten.detail.verdelingPlaceholder")} aria-label={t("routes.kosten.detail.andereVerdeling")} className="w-28 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand"/>
+                <input value={nieuweVerdeling} onChange={(e) => setNieuweVerdeling(e.target.value)} placeholder={t("routes.kosten.detail.verdelingPlaceholder")} aria-label={t("routes.kosten.detail.andereVerdeling")} className="w-28 min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm outline-none focus:border-brand"/>
                 <Button size="sm" disabled={bezig} onClick={async () => {
                 const n = leesGeld(nieuwBedrag) ?? 0;
                 const vd = nieuweVerdeling.trim();
@@ -1074,7 +1075,7 @@ function EigenAfspraken({ onTerug }) {
         </div>
         {concept.wijze === "eigen" ? (<div className="mt-3 flex items-center gap-2 text-sm">
             <span className="text-ink-soft">{st.naam || t("common.jij")}</span>
-            <input type="number" min={0} max={100} aria-label={t("routes.kosten.eigen.jouwPercentage")} value={concept.pctIk} onChange={(e) => zet({ pctIk: Math.min(100, Math.max(0, Number(e.target.value))) })} className="w-16 rounded-md border border-border bg-card px-2 py-1 text-sm"/>
+            <input type="number" min={0} max={100} aria-label={t("routes.kosten.eigen.jouwPercentage")} value={concept.pctIk} onChange={(e) => zet({ pctIk: Math.min(100, Math.max(0, Number(e.target.value))) })} className="w-16 min-h-11 rounded-2xl border border-border bg-card px-2 py-1 text-sm"/>
             <span className="text-ink-soft">{t("routes.kosten.eigen.andereOuderPct", { pct: 100 - concept.pctIk })}</span>
           </div>) : null}
       </section>

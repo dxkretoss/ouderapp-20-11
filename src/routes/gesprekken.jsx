@@ -149,8 +149,8 @@ function Bellen() {
         </Card>)}
       <h2 className="font-display text-lg">{t("routes.gesprekken.bellenMet")}</h2>
       <div className="grid grid-cols-2 gap-3">
-        <button disabled={!s.aan.audio} onClick={() => bel("audio")} className="flex min-h-16 items-center justify-center gap-2 rounded-lg bg-brand font-semibold text-primary-foreground disabled:opacity-40"><AppIcon functie="bellen" maat="sm" vorm="kaal"/>{t("routes.gesprekken.bellen")}</button>
-        <button disabled={!s.aan.video} onClick={() => bel("video")} className="flex min-h-16 items-center justify-center gap-2 rounded-lg border border-border bg-card font-semibold disabled:opacity-40"><AppIcon functie="video" maat="sm" vorm="kaal"/>{t("routes.gesprekken.videobellen")}</button>
+        <button disabled={!s.aan.audio} onClick={() => bel("audio")} className="flex min-h-16 items-center justify-center gap-2 rounded-2xl bg-brand font-semibold text-primary-foreground disabled:opacity-40"><AppIcon functie="bellen" maat="sm" vorm="kaal"/>{t("routes.gesprekken.bellen")}</button>
+        <button disabled={!s.aan.video} onClick={() => bel("video")} className="flex min-h-16 items-center justify-center gap-2 rounded-2xl border border-border bg-card font-semibold disabled:opacity-40"><AppIcon functie="video" maat="sm" vorm="kaal"/>{t("routes.gesprekken.videobellen")}</button>
       </div>
       <p className="text-xs text-ink-soft">{t("routes.gesprekken.nietOpgenomen")}</p>
       <Logboek />
@@ -253,7 +253,7 @@ function Privacy() {
       <Card className="space-y-2">
         {bewaarOnderdelen.map((b) => (<label key={b} className="flex items-center justify-between gap-3 text-sm">
             {bewaarLabel(b)}
-            <select value={s.bewaar[b]} onChange={(e) => zetBewaar(b, e.target.value)} className="rounded-full border border-border bg-card px-3 py-1 text-sm">
+            <select value={s.bewaar[b]} onChange={(e) => zetBewaar(b, e.target.value)} className="min-h-11 rounded-2xl border border-border bg-card px-3 py-1 text-sm">
               {bewaarTermijnen.map((o) => <option key={o} value={o}>{termijnLabel(o)}</option>)}
             </select>
           </label>))}

@@ -10,7 +10,8 @@ import { useStart } from "@/lib/start-store";
 import { bevestig } from "@/lib/feedback";
 import { uur } from "@/lib/tijd-tekst";
 import { Chevron } from "@/components/Tekens";
-const veld = "w-full rounded-md border border-border bg-background px-3 py-2 text-sm";
+import { VELD } from "@/lib/ui-stijl";
+const veld = `w-full ${VELD}`;
 const datumTekst = (d) => new Date(`${d}T12:00:00`).toLocaleDateString(taalLocale(), { weekday: "long", day: "numeric", month: "long" });
 const kindTekst = (k) => kindNamen(Array.isArray(k) ? k : kinderenVoor(k)).join(" & ");
 /** Het formulier zelf — één keer gebouwd, hergebruikt in Taken, Agenda en de wisselflow. */
@@ -71,7 +72,7 @@ export function HulpKnop({ voorstel = {}, label: eigenLabel }) {
     const label = eigenLabel ?? t("components.HulpVragen.vragenNetwerk");
     const [open, setOpen] = useState(false);
     if (!open) {
-        return (<button type="button" onClick={() => setOpen(true)} className="flex min-h-11 w-full items-center gap-2 rounded-md border border-border px-3 text-left text-sm font-semibold text-ink">
+        return (<button type="button" onClick={() => setOpen(true)} className="flex min-h-11 w-full items-center gap-2 rounded-2xl border border-border px-3 text-left text-sm font-semibold text-ink">
         <AppIcon functie="hulp" maat="sm" vorm="kaal"/>
         <span className="flex-1">{label}</span>
         <Chevron className="size-4 text-ink-soft"/>

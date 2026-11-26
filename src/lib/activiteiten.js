@@ -99,15 +99,36 @@ export function bundel(lijst) {
     return uit;
 }
 /**
+ * Meerdere meldingen met dezelfde sleutel over hetzelfde ding (bijv. twee keer "Klopt de vaste verdeling?" voor
+ * hetzelfde kind, omdat de regeling opnieuw is opgeslagen): alleen de nieuwste telt, de oudere zijn achterhaald.
+ * Meldingen zonder entity_id blijven allemaal staan.
+ */
+export function alleenNieuwste(meldingen) {
+    const gezien = new Set();
+    return [...meldingen]
+        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+        .filter((n) => {
+        if (!n.entity_id)
+            return true;
+        const k = `${n.key}|${n.entity_type ?? ""}|${n.entity_id}`;
+        if (gezien.has(k))
+            return false;
+        gezien.add(k);
+        return true;
+    });
+}
+/**
  * Bronnen: { ik (profiel-id), voorstellen, audit, momentjes, meldingen?, anderNaam? }. Een servermelding die bij een
  * auditevent hoort (audit_id) vervangt dat event, zodat dezelfde handeling niet twee keer verschijnt.
  */
 export function verzamelActiviteiten(b) {
-    const meldingen = b.meldingen ?? [];
+    const meldingen = alleenNieuwste(b.meldingen ?? []);
     const metMelding = new Set(meldingen.map((n) => n.audit_id).filter(Boolean));
+    // Ook zonder audit_id: een melding over hetzelfde item, van dezelfde persoon, binnen 5 minuten = dezelfde handeling.
+    const zelfdeHandeling = (e) => !!e.itemId && meldingen.some((n) => n.entity_id === e.itemId && (!n.actor_id || n.actor_id === e.actorId) && Math.abs(Date.parse(n.created_at) - Date.parse(e.moment)) < 5 * 60_000);
     const ruw = [
         ...b.voorstellen.map(uitVoorstel),
-        ...b.audit.filter((e) => e.actorId !== b.ik && !metMelding.has(e.eventId)).map(uitAudit),
+        ...b.audit.filter((e) => e.actorId !== b.ik && !metMelding.has(e.eventId) && !zelfdeHandeling(e)).map(uitAudit),
         ...b.momentjes.map((m, i) => uitMomentje(m, i, b.ik, b.anderNaam)),
         ...meldingen.map(uitMelding),
     ].filter((x) => x !== null);

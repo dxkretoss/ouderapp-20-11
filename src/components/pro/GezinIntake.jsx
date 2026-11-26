@@ -4,6 +4,7 @@ import { differenceInYears, parseISO, isValid } from "date-fns";
 import i18n from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { IK, legIntakeVast, vandaagIso } from "@/lib/pro-journaal-store";
+import { VELD } from "@/lib/ui-stijl";
 const T = (k, o) => i18n.t(`pro.GezinIntake.${k}`, o);
 const nieuwKind = () => ({ naam: "", geboortedatum: "", school: "", klas: "", regeling: "", bijzonder: "" });
 const nieuwContact = () => ({ naam: "", organisatie: "", functie: "", contact: "", rol: "", samenwerking: "" });
@@ -20,7 +21,7 @@ const stappen = () => ["gezin", "kinderen", "reden", "hulpverlening", "start", "
 const hulpLabel = (h) => (h === "Ja" ? i18n.t("common.ja") : h === "Nee" ? i18n.t("common.nee") : T("nogNietBekend"));
 const uitnodigenOpties = [["Uitnodiging voorbereiden", "uitnodiging"], ["Koppeling aan bestaand gezin voorbereiden", "koppeling"]];
 const uitnodigenLabel = (u) => { const o = uitnodigenOpties.find(([v]) => v === u); return o ? T(`uitnodigen.${o[1]}`) : T("uitnodigen.later"); };
-const inputStijl = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal";
+const inputStijl = `mt-1 w-full font-normal ${VELD}`;
 const leeftijd = (g) => (g && isValid(parseISO(g)) ? differenceInYears(parseISO(vandaagIso()), parseISO(g)) : undefined);
 export function GezinIntake({ open, onSluit, dossiers, onNieuwGezin, onOpen, onToegang }) {
     const { t } = useTranslation();
@@ -66,7 +67,7 @@ export function GezinIntake({ open, onSluit, dossiers, onNieuwGezin, onOpen, onT
     const stapTitels = stappen();
     const voortgang = <ol aria-label={t("pro.GezinIntake.voortgang")} className="mt-5 grid grid-cols-5 gap-1.5">{stapTitels.slice(0, 5).map((s, i) => { const status = i < stap ? "klaar" : i === stap ? "nu" : "later"; return <li key={s} aria-current={status === "nu" ? "step" : undefined} className="min-w-0"><span className={`block h-1.5 rounded-full ${status === "later" ? "bg-border" : "bg-primary"}`}/><span className={`mt-1.5 block text-xs leading-snug sm:text-sm ${status === "nu" ? "font-semibold text-ink" : "text-ink-soft"}`}><span className="sm:hidden">{i + 1}</span><span className="hidden sm:inline">{i + 1}. {s}</span></span></li>; })}</ol>;
     return <div className="mx-auto w-full max-w-2xl">
-    <button type="button" onClick={sluit} className="mb-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-md text-sm font-medium text-ink-soft transition-colors hover:text-ink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="size-4 shrink-0" aria-hidden><path d="M14 6l-6 6 6 6"/></svg>{t("pro.GezinIntake.terug")}</button>
+    <button type="button" onClick={sluit} className="mb-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-full text-sm font-medium text-ink-soft transition-colors hover:text-ink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="size-4 shrink-0" aria-hidden><path d="M14 6l-6 6 6 6"/></svg>{t("pro.GezinIntake.terug")}</button>
     <h1 className="font-display text-2xl">{t("pro.GezinIntake.titel")}</h1>
     <p className="mt-1 text-sm text-ink-soft">{t("pro.GezinIntake.prototype")}</p>
     {!klaar && voortgang}

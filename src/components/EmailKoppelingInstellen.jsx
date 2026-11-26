@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/AppShell";
 import { MetChevron } from "@/components/Tekens";
 import { geldigEmail, stelKoppelingIn, stopKoppeling, useEmailKoppeling, wijzigAdres } from "@/lib/email-koppeling-store";
+import { VELD } from "@/lib/ui-stijl";
 /** Solo → Communicatie: e-mail van andere ouder koppelen, wijzigen of stoppen. */
 export function EmailKoppelingInstellen() {
     const { t } = useTranslation();
@@ -11,7 +12,7 @@ export function EmailKoppelingInstellen() {
     const [email, setEmail] = useState("");
     const [naam, setNaam] = useState("");
     const [modus, setModus] = useState("rust");
-    const invoer = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm font-normal text-ink";
+    const invoer = `mt-1 w-full font-normal ${VELD}`;
     return (<Card className="mt-3" id="email-koppeling">
       <p className="text-sm font-semibold">{t("components.EmailKoppelingInstellen.titel")}</p>
       <p className="mt-1 text-xs text-ink-soft">{t("components.EmailKoppelingInstellen.uitleg")}</p>
@@ -41,8 +42,8 @@ export function EmailKoppelingInstellen() {
           </div>
           <Link to="/berichten" className="inline-flex min-h-10 items-center text-xs font-semibold text-brand"><MetChevron>{t("components.EmailKoppelingInstellen.naarConversatie")}</MetChevron></Link>
           {modus === "rust" ? (<div className="flex gap-2">
-              <button onClick={() => setModus("wijzig")} className="flex-1 rounded-md border border-border py-2 text-xs font-semibold">{t("components.EmailKoppelingInstellen.wijzigen")}</button>
-              <button onClick={() => setModus("stop")} className="flex-1 rounded-md border border-border py-2 text-xs font-semibold">{t("components.EmailKoppelingInstellen.stoppen")}</button>
+              <button onClick={() => setModus("wijzig")} className="flex-1 rounded-full border border-border py-2 text-xs font-semibold">{t("components.EmailKoppelingInstellen.wijzigen")}</button>
+              <button onClick={() => setModus("stop")} className="flex-1 rounded-full border border-border py-2 text-xs font-semibold">{t("components.EmailKoppelingInstellen.stoppen")}</button>
             </div>) : null}
           {modus === "wijzig" ? (<form className="space-y-2" onSubmit={(e) => { e.preventDefault(); if (geldigEmail(email)) {
                 wijzigAdres(email);
@@ -53,13 +54,13 @@ export function EmailKoppelingInstellen() {
               <p className="text-[11px] text-ink-soft">{t("components.EmailKoppelingInstellen.archiefUitleg")}</p>
               <div className="flex gap-2">
                 <button disabled={!geldigEmail(email)} className="min-h-11 flex-1 rounded-full bg-brand px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40">{t("common.opslaan")}</button>
-                <button type="button" onClick={() => setModus("rust")} className="flex-1 rounded-md border border-border py-2 text-xs">{t("common.annuleren")}</button>
+                <button type="button" onClick={() => setModus("rust")} className="flex-1 rounded-full border border-border py-2 text-xs">{t("common.annuleren")}</button>
               </div>
             </form>) : null}
           {modus === "stop" ? (<div className="space-y-2 rounded-md bg-surface p-3">
               <p className="text-xs">{t("components.EmailKoppelingInstellen.naStoppen")}</p>
-              <button onClick={() => { stopKoppeling(true); setModus("rust"); }} className="w-full rounded-md bg-brand py-2 text-xs font-semibold text-primary-foreground">{t("components.EmailKoppelingInstellen.stopBewaren")}</button>
-              <button onClick={() => { stopKoppeling(false); setModus("rust"); }} className="w-full rounded-md border border-border py-2 text-xs font-semibold">{t("components.EmailKoppelingInstellen.stopVerwijderen")}</button>
+              <button onClick={() => { stopKoppeling(true); setModus("rust"); }} className="w-full min-h-12 rounded-full bg-brand py-2 text-xs font-semibold text-primary-foreground">{t("components.EmailKoppelingInstellen.stopBewaren")}</button>
+              <button onClick={() => { stopKoppeling(false); setModus("rust"); }} className="w-full rounded-full border border-border py-2 text-xs font-semibold">{t("components.EmailKoppelingInstellen.stopVerwijderen")}</button>
               <p className="text-[11px] text-ink-soft">{t("components.EmailKoppelingInstellen.verwijderenUitleg")}</p>
               <button onClick={() => setModus("rust")} className="w-full py-1 text-xs text-ink-soft">{t("common.annuleren")}</button>
             </div>) : null}

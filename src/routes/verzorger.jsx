@@ -163,7 +163,7 @@ function KanNiet({ onVerstuur, uit }) {
         return <button disabled={uit} onClick={() => setOpen(true)} className="min-h-11 flex-1 rounded-full border border-border bg-card px-3 text-sm font-semibold disabled:opacity-40">{t(N + "kanNiet")}</button>;
     return (<div className="w-full space-y-2">
       <label className="block text-xs text-ink-soft">{t(N + "redenOptioneel")}
-        <input value={reden} maxLength={300} onChange={(e) => setReden(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-ink"/>
+        <input value={reden} maxLength={300} onChange={(e) => setReden(e.target.value)} className="mt-1 w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm text-ink"/>
       </label>
       <div className="flex gap-2">
         <button onClick={() => setOpen(false)} className="min-h-11 flex-1 rounded-full border border-border bg-card px-3 text-sm">{t("common.annuleren")}</button>

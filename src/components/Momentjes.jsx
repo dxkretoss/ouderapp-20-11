@@ -12,6 +12,7 @@ import { Link } from "@tanstack/react-router";
 import { momentLabel, mijlpaalLabel, mijlpalen, reacties, reageer, verwijderMomentje, voegMomentjeToe, zetMomentGedeeld } from "@/lib/momentjes-store";
 import { DeelLabel, VerwijderDialoog } from "@/components/DelenKeuze";
 import { bevestig } from "@/lib/feedback";
+import { VELD, LABEL, chip as chipStijl, KNOP, KNOP_2, KAART } from "@/lib/ui-stijl";
 /** Reactie-id (uit momentjes-store) → lucide-icoon. "tekst" = eigen korte reactie, "duim" = lege eigen reactie. */
 const REACTIE_ICOON = { leuk: Heart, lief: HandHeart, trots: PartyPopper, watGoed: ThumbsUp, tekst: MessageCircle, duim: ThumbsUp };
 function ReactieIcoon({ id, className = "size-4" }) {
@@ -63,7 +64,7 @@ export function MomentjeKaart({ m, kijker }) {
             <b>{m.reactieVan && m.reactieVan === ik ? t("common.jij") : anderNaam}:</b> {m.reactie ? <ReactieIcoon id={m.reactie} className="size-3.5"/> : null} {m.reactieTekst || reacties.find((r) => r.id === m.reactie)?.l ? <span>{m.reactieTekst || reacties.find((r) => r.id === m.reactie)?.l}</span> : null}
           </p>) : null}
         {!vanMij && !m.reactie && !kijker ? (tekstOpen ? (<div className="mt-3 flex gap-2">
-              <input value={tekst} maxLength={80} onChange={(e) => setTekst(e.target.value)} placeholder={t("components.Momentjes.kaart.korteReactie")} className="min-w-0 flex-1 rounded-xl bg-surface px-3 py-2 text-xs outline-none"/>
+              <input value={tekst} maxLength={80} onChange={(e) => setTekst(e.target.value)} placeholder={t("components.Momentjes.kaart.korteReactie")} className="min-w-0 flex-1 min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-xs outline-none"/>
               <button onClick={() => { reageer(m.id, { reactie: tekst.trim() ? "tekst" : "duim", reactieTekst: tekst.trim() }); setTekstOpen(false); }} className="min-h-10 shrink-0 rounded-full bg-brand px-4 text-xs font-semibold text-primary-foreground">{t("components.Momentjes.kaart.stuur")}</button>
             </div>) : (<div className="mt-3 flex flex-wrap gap-1.5">
               {reacties.map((r) => (<button key={r.id} onClick={() => reageer(m.id, { reactie: r.id, reactieTekst: r.l })} className="flex h-10 items-center gap-1.5 rounded-full border border-[#E6DED2] bg-white/80 px-3 text-[13px] font-extrabold">
@@ -145,26 +146,26 @@ export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
         setKringIds([]);
         onSluit();
     };
-    const chip = (actief) => `min-h-9 rounded-full border px-3.5 text-xs font-semibold ${actief ? "border-brand bg-brand text-primary-foreground" : "border-border bg-white/70"}`;
+    const chip = chipStijl;
     return (<div className="app-modal-achter z-40" onClick={onSluit}>
       <div className="app-modal" onClick={(e) => e.stopPropagation()}>
         <p className="flex items-center gap-1.5 font-display text-lg font-bold">{t("components.Momentjes.deel.titel")} <AppIcon functie="momentjes" maat="sm" vorm="kaal"/></p>
-        <p className="mt-3 text-xs text-ink-soft">{t("components.Momentjes.deel.overWie")}</p>
+        <p className="mt-4 text-sm font-semibold text-ink">{t("components.Momentjes.deel.overWie")}</p>
         <div className="mt-1.5 flex flex-wrap gap-2">
           {kindKeuze.map((k) => (<button key={k.id} onClick={() => setKindId(k.id)} className={`flex items-center gap-2 ${chip(kindId === k.id)}`}>
               <ProfielBeeld beeld={k.beeld} naam={k.naam} kleur={k.kleur ?? "#8A7E72"} maat={20}/>{k.naam}
             </button>))}
         </div>
-        <p className="mt-4 text-xs text-ink-soft">{t("components.Momentjes.deel.foto")}</p>
-        <label className="mt-1.5 block cursor-pointer overflow-hidden rounded-md border border-dashed border-brand/40 bg-white/60 text-center text-sm font-semibold text-brand">
+        <p className="mt-4 text-sm font-semibold text-ink">{t("components.Momentjes.deel.foto")}</p>
+        <label className="mt-1.5 block cursor-pointer overflow-hidden rounded-2xl border border-dashed border-brand/40 bg-white/60 text-center text-sm font-semibold text-brand">
           {foto ? <img src={foto} alt="" className="aspect-[4/3] w-full object-cover"/> : <span className="flex items-center justify-center gap-1.5 py-5"><AppIcon functie="foto" maat="sm" vorm="kaal"/>{t("components.Momentjes.deel.fotoKiezen")}</span>}
           <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f)
         verkleinFoto(f).then(setFoto).catch(() => setFoto(undefined)); }}/>
         </label>
-        <p className="mt-4 text-xs text-ink-soft">{t("components.Momentjes.deel.wat")}</p>
-        <textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={2} placeholder={t("components.Momentjes.deel.watPlaceholder")} className="mt-1.5 w-full resize-none rounded-md bg-white/80 p-3 text-sm outline-none"/>
+        <p className="mt-4 text-sm font-semibold text-ink">{t("components.Momentjes.deel.wat")}</p>
+        <textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={2} placeholder={t("components.Momentjes.deel.watPlaceholder")} className={`mt-1.5 w-full resize-none ${VELD}`}/>
         <details className="mt-2 text-xs">
-          <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-ink-soft">{t("components.Momentjes.deel.meerOpties")}</summary>
+          <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-brand">{t("components.Momentjes.deel.meerOpties")}</summary>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {["vooraf", "tijdens", "na"].map((m) => (<button key={m} onClick={() => setMoment(moment === m ? "geen" : m)} className={chip(moment === m)}>{momentLabel[m]}</button>))}
           </div>
@@ -173,7 +174,7 @@ export function DeelMomentje({ open, onSluit, kindId: startKind, alsKring }) {
           </div>
         </details>
         {alsKring ? (<p className="mt-3 text-xs text-ink-soft">{t("components.Momentjes.deel.metOuders", { naam: kinderen.find((k) => k.id === kindId)?.naam })}</p>) : (<>
-            <p className="mt-4 text-xs text-ink-soft">{t("components.Momentjes.deel.wieZien")}</p>
+            <p className="mt-4 text-sm font-semibold text-ink">{t("components.Momentjes.deel.wieZien")}</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               <button onClick={() => { setPrive(true); setKringIds([]); }} className={chip(prive)}>{t("components.Momentjes.deel.alleenMij")}</button>
               {metAnder ? <button onClick={() => setPrive(false)} className={chip(!prive)}>{anderNaam}</button> : null}

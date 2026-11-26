@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { AppIcon } from "@/components/AppIcon";
 import { useGezin } from "@/lib/gezin";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { chip as chipStijl } from "@/lib/ui-stijl";
 /**
  * "Alleen jij" / "Gedeeld" voor praktische items (taken, spullen, nog nodig, documenten, momentjes).
  * - Nieuwe items zijn standaard privé ("Alleen jij").
@@ -44,7 +45,7 @@ export function DeelLabel({ gedeeld, className = "" }) {
     </span>);
 }
 function Chip({ aan, onClick, children }) {
-    return <button type="button" onClick={onClick} aria-pressed={aan} className={`min-h-9 rounded-full border px-3 py-1.5 text-xs font-semibold ${aan ? "border-brand bg-brand text-primary-foreground" : "border-border bg-card"}`}>{children}</button>;
+    return <button type="button" onClick={onClick} aria-pressed={aan} className={chipStijl(aan)}>{children}</button>;
 }
 const segment = (aan) => `flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-black ${aan ? "bg-white text-[#3F5747] shadow-[0_2px_8px_rgba(60,50,40,.08)]" : "font-bold text-ink-soft"}`;
 /**

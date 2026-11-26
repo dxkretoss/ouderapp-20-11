@@ -5,6 +5,7 @@ import { authState, opAuth } from "@/lib/auth-store";
 import { startState, useStart } from "@/lib/start-store";
 import { meldFout } from "@/lib/feedback";
 import { berekenSaldo, veiligeBetaallink } from "@/lib/verrekening";
+import { bijTerugkeer } from "@/lib/terugkeer";
 /**
  * Kosten van het eigen gezin — één bron voor uitgaven, budgetten, afrekeningen, vaste lasten en de
  * kostenafspraak, gevuld door `manage-expenses` (actie `overview`). Alleen in het geheugen; opnieuw
@@ -52,8 +53,8 @@ function koppel() {
         queueMicrotask(zorgVoorLaden);
     });
     // Geen realtime: bij terugkeer naar de app opnieuw ophalen (hoogstens eens per 10 s).
-    window.addEventListener("focus", () => { if ((geladenVoor || status === "fout") && Date.now() - laatsteLaad > 10000)
-        laadKosten(); });
+    bijTerugkeer("kosten", () => { if ((geladenVoor || status === "fout") && Date.now() - laatsteLaad > 10000)
+        return laadKosten(); });
 }
 function zorgVoorLaden() {
     koppel();

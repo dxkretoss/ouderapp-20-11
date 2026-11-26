@@ -18,6 +18,7 @@ import { bevestig } from "@/lib/feedback";
 import { HulpKnop, HulpVragen } from "@/components/HulpVragen";
 import { DeelLabel, DelenKeuze, deelCheck, VerwijderDialoog } from "@/components/DelenKeuze";
 import { useNavigate } from "@tanstack/react-router";
+import { VELD, LABEL, chip as chipStijl, KNOP, KNOP_2, KAART } from "@/lib/ui-stijl";
 // Eigen gezin (altijd, na inloggen): taken van de server (manage-tasks), met de volledige weergave.
 function TakenWrap() {
     return <Taken />;
@@ -37,7 +38,7 @@ export const Route = createFileRoute("/taken")({
     component: TakenWrap,
 });
 const herhalingLabel = (h) => i18n.t(`routes.taken.herhaling.${h}`);
-const veld = "rounded-md border border-border bg-background px-3 py-2 text-sm";
+const veld = VELD;
 const datumTekst = (d) => new Date(d).toLocaleDateString(taalLocale(), { day: "numeric", month: "long" });
 const kindTekst = (k) => kindNaam(k).join(" & ");
 const DAG = 86_400_000;
@@ -231,7 +232,7 @@ function TaakFormulier({ bestaand, onKlaar }) {
         bevestig(t("routes.taken.melding.toegevoegd"), { uitleg: tekst.trim() });
         onKlaar();
     };
-    const knop = (aan) => `min-h-11 rounded-full border px-3 text-sm ${aan ? "border-brand bg-brand-soft font-semibold" : "border-border"}`;
+    const knop = chipStijl;
     return (<Card className="mt-4 space-y-3">
       <p className="font-display text-lg font-bold">{bestaand ? t("routes.taken.form.wijzigen") : t("routes.taken.nieuweTaak")}</p>
       {berichtId ? <p className="text-xs text-ink-soft">{t("routes.taken.form.verzoek")}{dag ? ` ${t("routes.taken.form.welkeDatum", { dag })}` : ""}</p> : null}
@@ -262,7 +263,7 @@ function TaakFormulier({ bestaand, onKlaar }) {
       </fieldset>
       <DelenKeuze kindIds={ids} gedeeld={gedeeld} onGedeeld={setGedeeld} anderId={anderKeuze} onAnderId={setAnderKeuze} vast={vast}/>
       {!bestaand ? <HulpKnop voorstel={{ kind, wat: tekst, ...(metDatum && deadline ? { datum: deadline } : {}) }}/> : null}
-      <button onClick={opslaan} disabled={!geldig} className="min-h-11 w-full rounded-full bg-brand text-sm font-semibold text-primary-foreground disabled:opacity-40">{bestaand ? t("common.opslaan") : t("routes.taken.form.toevoegen")}</button>
+      <button onClick={opslaan} disabled={!geldig} className={`w-full ${KNOP}`}>{bestaand ? t("common.opslaan") : t("routes.taken.form.toevoegen")}</button>
       <button type="button" onClick={onKlaar} className="min-h-11 w-full text-sm font-semibold text-ink-soft">{t("common.annuleren")}</button>
     </Card>);
 }

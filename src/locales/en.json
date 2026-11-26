@@ -2798,6 +2798,7 @@
         "invullen": "Fill in what the other parent needs to know."
       },
       "binnenkort": "Coming up",
+      "totEnMet": "Until {{datum}}",
       "alleAfspraken": "Calendar",
       "nogTeRegelen": "Still to arrange",
       "enAndere_one": "{{titel}} and {{count}} other",
@@ -3645,6 +3646,7 @@
       "nogInTeVullen": "still to fill in",
       "gedeeld": "shared",
       "veranderd": "Something changed? Sort it out now",
+      "ietsAnders": "Plans changing?",
       "overdrachtVoorJoris": "Handover note for the other parent",
       "vulIn": "Fill in what the other parent needs to know before the handover",
       "wanneer": "Friday 14:30",
@@ -10615,27 +10617,27 @@
       },
       "bron": {
         "loket": {
-          "titel": "Het Juridisch Loket",
+          "titel": "Legal Aid Desk (Het Juridisch Loket)",
           "uitleg": "Free legal information and advice on divorce, parental authority and contact."
         },
         "rijk-scheiden": {
-          "titel": "Rijksoverheid — Divorce and children",
+          "titel": "Dutch government (Rijksoverheid) — Divorce and children",
           "uitleg": "Explanation of the parenting plan, parental authority and child maintenance (Dutch government)."
         },
         "rechtspraak": {
-          "titel": "Rechtspraak — Divorce",
+          "titel": "Dutch judiciary (Rechtspraak) — Divorce",
           "uitleg": "How court proceedings work (Dutch judiciary)."
         },
         "nibud": {
-          "titel": "Nibud — Cost of children",
+          "titel": "National Institute for Family Finance (Nibud) — Cost of children",
           "uitleg": "Independent information about what children cost."
         },
         "mfn": {
-          "titel": "Mediatorsfederatie Nederland (MfN)",
+          "titel": "Dutch Mediators Federation (MfN)",
           "uitleg": "Find an accredited mediator."
         },
         "advocaat": {
-          "titel": "Vereniging van Familierecht Advocaten (vFAS)",
+          "titel": "Association of Family Law Lawyers (vFAS)",
           "uitleg": "Find a specialist family lawyer or divorce mediator."
         }
       },

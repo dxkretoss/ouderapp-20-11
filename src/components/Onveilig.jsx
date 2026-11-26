@@ -43,7 +43,7 @@ export function OnveiligKnop({ gesprek, klein }) {
           <p className="font-semibold">{t("components.Onveilig.vraag")}</p>
           <p className="text-xs"><Trans i18nKey="components.Onveilig.wieZiet" components={{ b: <b /> }}/></p>
           <p className="text-xs text-ink-soft">{t("components.Onveilig.uitleg")}</p>
-          <textarea value={notitie} onChange={(e) => setNotitie(e.target.value)} rows={3} maxLength={4000} placeholder={t("components.Onveilig.placeholder")} className="w-full rounded-md border border-border bg-card p-3 text-sm"/>
+          <textarea value={notitie} onChange={(e) => setNotitie(e.target.value)} rows={3} maxLength={4000} placeholder={t("components.Onveilig.placeholder")} className="w-full rounded-2xl border border-border bg-card p-3 text-sm"/>
           <div className="flex gap-2">
             <button onClick={() => void opslaan()} disabled={bezig} className="flex-1 rounded-full bg-brand py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{t("components.Onveilig.vastleggen")}</button>
             <button onClick={() => setOpen(false)} className="rounded-full border border-border px-4 py-2 text-sm font-semibold">{t("common.annuleren")}</button>

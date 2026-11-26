@@ -22,6 +22,7 @@ import { laadBerichten, laadGesprekken, useBerichten } from "@/lib/berichten-sto
 import { leg, soortLabel, useAudit } from "@/lib/audit-store";
 import { geschiedenisDatum, useAfspraken, useBesluiten } from "@/lib/afspraken-store";
 import { magAudit, magBron, magKind, vroegste } from "@/lib/export-rechten";
+import { chip as chipStijl, VELD, KNOP, KAART } from "@/lib/ui-stijl";
 export const Route = createFileRoute("/exporteren")({
     // Professionals (Milestone 3) zijn in deze fase verborgen: alleen de ouderweergave.
     validateSearch: z.object({}),
@@ -400,10 +401,10 @@ function Exporteren() {
         }
         window.location.href = `mailto:?subject=${encodeURIComponent(t("routes.exporteren.delen.onderwerp", { kinderen: kidsTekst }))}&body=${encodeURIComponent(t("routes.exporteren.delen.mail", { app: APP }))}`;
     }
-    const kop = "text-[11px] font-bold uppercase tracking-[0.14em] text-brand";
-    const keuze = (aan) => `min-h-11 rounded-md border px-3 py-2 text-sm font-semibold ${aan ? "border-brand bg-brand-soft text-ink" : "border-border text-ink-soft"}`;
-    const primair = "flex w-full items-center justify-center gap-2 rounded-md bg-brand py-3.5 text-sm font-semibold text-primary-foreground disabled:opacity-50";
-    const secundair = "flex w-full items-center justify-center gap-2 rounded-md border border-border py-3 text-sm font-semibold";
+    const kop = "px-1 text-[13px] font-semibold text-ink-soft";
+    const keuze = chipStijl;
+    const primair = "flex w-full items-center justify-center gap-2 min-h-12 rounded-full bg-brand py-3.5 text-sm font-semibold text-primary-foreground disabled:opacity-50";
+    const secundair = "flex w-full items-center justify-center gap-2 rounded-full border border-border py-3 text-sm font-semibold";
     const toggleKind = (k) => setKids(kids.includes(k) ? kids.filter((x) => x !== k) : [...kids, k]);
     return (<AppShell>
       <PageHeader titel={t("routes.exporteren.titel")} subtitel={kijker.type === "ouder" ? t("routes.exporteren.subtitelOuder") : t("routes.exporteren.subtitelPro")} terug={kijker.type === "ouder" ? "/documenten" : "/professionals"}/>
@@ -411,47 +412,45 @@ function Exporteren() {
       {stap === "kies" ? (<>
           <section className="mt-8">
             <h2 className={kop}>{t("routes.exporteren.pdf.periode")}</h2>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              <button onClick={() => setPeriode("3m")} className={keuze(periode === "3m")}>{t("routes.exporteren.periode3m")}</button>
-              <button onClick={() => setPeriode("1j")} className={keuze(periode === "1j")}>{t("routes.exporteren.periode1j")}</button>
-              <button onClick={() => setPeriode("eigen")} className={keuze(periode === "eigen")}>{t("routes.exporteren.periodeEigen")}</button>
+            <div className="mt-2 grid grid-cols-3 gap-1 rounded-full bg-[color-mix(in_oklab,var(--foreground)_6%,transparent)] p-1" role="radiogroup" aria-label={t("routes.exporteren.pdf.periode")}>
+              {[["3m", t("routes.exporteren.periode3m")], ["1j", t("routes.exporteren.periode1j")], ["eigen", t("routes.exporteren.periodeEigen")]].map(([id, l]) => <button key={id} type="button" role="radio" aria-checked={periode === id} onClick={() => setPeriode(id)} className={`min-h-10 rounded-full px-2 text-[13px] font-semibold leading-tight transition ${periode === id ? "bg-card text-brand shadow-sm" : "text-ink-soft"}`}>{l}</button>)}
             </div>
-            {periode === "eigen" ? (<div className="mt-3 flex gap-2">
-                <label className="flex-1 text-xs text-ink-soft">{t("routes.exporteren.van")}<input type="date" value={van} onChange={(e) => setVan(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background p-2 text-sm text-ink"/></label>
-                <label className="flex-1 text-xs text-ink-soft">{t("routes.exporteren.totEnMet")}<input type="date" value={tot} onChange={(e) => setTot(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background p-2 text-sm text-ink"/></label>
+            {periode === "eigen" ? (<div className={`mt-3 grid grid-cols-2 gap-3 p-3.5 ${KAART}`}>
+                <label className="min-w-0 text-xs font-semibold text-ink-soft">{t("routes.exporteren.van")}<input type="date" value={van} onChange={(e) => setVan(e.target.value)} className={`mt-1 w-full ${VELD}`}/></label>
+                <label className="min-w-0 text-xs font-semibold text-ink-soft">{t("routes.exporteren.totEnMet")}<input type="date" value={tot} onChange={(e) => setTot(e.target.value)} className={`mt-1 w-full ${VELD}`}/></label>
               </div>) : null}
           </section>
 
           <section className="mt-8">
             <h2 className={kop}>{t("routes.exporteren.voorWie")}</h2>
-            <div className="mt-1 divide-y divide-border border-y border-border">
-              {toegestaneKinderen.map((k) => (<label key={k} className="flex items-center gap-3 py-3 text-sm">
-                  <input type="checkbox" checked={kids.includes(k)} onChange={() => toggleKind(k)} className="size-4 accent-[var(--color-brand)]"/>{k}
+            <div className={`mt-2 divide-y divide-border overflow-hidden ${KAART}`}>
+              {toegestaneKinderen.map((k) => (<label key={k} className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-3 text-[15px] font-medium transition-colors has-[:focus-visible]:bg-brand-soft/60">
+                  <input type="checkbox" checked={kids.includes(k)} onChange={() => toggleKind(k)} className="peer sr-only"/><Vink/>{k}
                 </label>))}
-              {toegestaneKinderen.length > 1 ? (<label className="flex items-center gap-3 py-3 text-sm">
-                  <input type="checkbox" checked={kids.length === toegestaneKinderen.length} onChange={() => setKids(kids.length === toegestaneKinderen.length ? [] : toegestaneKinderen)} className="size-4 accent-[var(--color-brand)]"/>{t("routes.exporteren.beideKinderen")}
+              {toegestaneKinderen.length > 1 ? (<label className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-3 text-[15px] font-medium transition-colors has-[:focus-visible]:bg-brand-soft/60">
+                  <input type="checkbox" checked={kids.length === toegestaneKinderen.length} onChange={() => setKids(kids.length === toegestaneKinderen.length ? [] : toegestaneKinderen)} className="peer sr-only"/><Vink/>{t("routes.exporteren.beideKinderen")}
                 </label>) : null}
             </div>
             {zonderKinderen ? <p className="py-3 text-sm text-ink-soft">{t("routes.exporteren.geenKinderen")}</p> : null}
-            <p className="mt-2 text-[11px] text-ink-soft">{t("routes.exporteren.kinderenUitleg")}</p>
+            <p className="mt-2 px-1 text-xs leading-relaxed text-ink-soft">{t("routes.exporteren.kinderenUitleg")}</p>
           </section>
 
           <section className="mt-8">
             <h2 className={kop}>{t("routes.exporteren.watMee")}</h2>
-            <div className="mt-1 divide-y divide-border border-y border-border">
+            <div className={`mt-2 divide-y divide-border overflow-hidden ${KAART}`}>
               {delen.map((d) => {
                 const mag = magDeel(d);
-                return (<label key={d.id} className={`flex items-center gap-3 py-3 text-sm ${mag ? "" : "text-ink-soft/60"}`}>
-                    <input type="checkbox" disabled={!mag} checked={mag && kies.includes(d.id)} onChange={() => setKies(kies.includes(d.id) ? kies.filter((x) => x !== d.id) : [...kies, d.id])} className="size-4 accent-[var(--color-brand)]"/>
+                return (<label key={d.id} className={`flex min-h-12 cursor-pointer items-center gap-3 px-4 py-3 text-[15px] font-medium transition-colors has-[:focus-visible]:bg-brand-soft/60 ${mag ? "" : "cursor-not-allowed text-ink-soft/60"}`}>
+                    <input type="checkbox" disabled={!mag} checked={mag && kies.includes(d.id)} onChange={() => setKies(kies.includes(d.id) ? kies.filter((x) => x !== d.id) : [...kies, d.id])} className="peer sr-only"/><Vink/>
                     {d.label}{mag ? null : <span className="ml-auto text-[11px]">{t("routes.exporteren.geenToegang")}</span>}
                   </label>);
             })}
             </div>
-            <p className="mt-2 text-[11px] text-ink-soft">{t("routes.exporteren.nooitPrive")}</p>
+            <p className="mt-2 px-1 text-xs leading-relaxed text-ink-soft">{t("routes.exporteren.nooitPrive")}</p>
           </section>
 
           {periode === "eigen" && van > tot ? <p role="alert" className="mt-4 text-xs text-destructive">{t("routes.exporteren.periodeOngeldig")}</p> : null}
-          <button onClick={() => setStap("overzicht")} disabled={!gekozen.length || (!kids.length && !zonderKinderen) || (periode === "eigen" && (!van || !tot || van > tot))} className={`mt-8 ${primair}`}>{t("routes.exporteren.verder")}</button>
+          <button onClick={() => setStap("overzicht")} disabled={!gekozen.length || (!kids.length && !zonderKinderen) || (periode === "eigen" && (!van || !tot || van > tot))} className={`mt-8 w-full ${KNOP}`}>{t("routes.exporteren.verder")}</button>
         </>) : null}
 
       {stap === "overzicht" ? (<section className="mt-8">
@@ -522,4 +521,8 @@ function Exporteren() {
           <button onClick={() => setStap("kies")} className="mt-4 min-h-11 w-full py-2 text-xs font-semibold text-brand">{t("routes.exporteren.nieuwDossier")}</button>
         </section>) : null}
     </AppShell>);
+}
+/** Ronde vink naast een keuze (de echte checkbox staat er onzichtbaar vóór, als `peer`). */
+function Vink() {
+    return <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full border-2 border-border bg-card text-transparent transition peer-checked:border-brand peer-checked:bg-brand peer-checked:text-primary-foreground peer-disabled:opacity-40"><Check className="size-3.5" strokeWidth={3}/></span>;
 }

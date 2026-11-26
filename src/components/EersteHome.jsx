@@ -17,26 +17,28 @@ import { useZorg } from "@/lib/zorg-store";
 import { useVakanties } from "@/lib/vakantie-store";
 import { inToekomst, vandaagIso } from "@/lib/datum-vandaag";
 import { useWisselMomenten, volgendeVan } from "@/lib/overdracht-store";
+import { VELD, KNOP, chip as chipStijl } from "@/lib/ui-stijl";
+import { ArrowLeftRight, CalendarCheck } from "lucide-react";
 
 const knop = "min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground disabled:opacity-40";
-const veld = "mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand";
+const veld = `mt-1 w-full ${VELD}`;
 /** Kleur én letter, zodat kleur nooit de enige informatiedrager is. */
 function Dag({ p, label, onClick }) {
     const { t } = useTranslation();
     const ik = p === "ik";
     const inhoud = (<>
-      {label ? <span className="block text-[9px] text-ink-soft">{label}</span> : null}
-      <span className="grid h-6 place-items-center rounded-md text-[11px] font-bold" style={{ background: ik ? "color-mix(in oklab, var(--brand) 22%, var(--card))" : "color-mix(in oklab, var(--accent-warm) 22%, var(--card))", color: ik ? "var(--brand)" : "var(--accent-warm)" }}>{ik ? t("components.EersteHome.letterJij") : t("components.EersteHome.letterAnder")}</span>
+      {label ? <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wide text-ink-soft">{label}</span> : null}
+      <span className={`grid ${onClick ? "h-10" : "h-6"} place-items-center rounded-[10px] text-[12px] font-black ${ik ? "zorg-ik text-[#3F5747]" : "zorg-ander text-[#8A5A44]"}`}>{ik ? t("components.EersteHome.letterJij") : t("components.EersteHome.letterAnder")}</span>
     </>);
-    return onClick ? <button type="button" onClick={onClick} className="text-center" aria-label={t("components.EersteHome.dagAria", { dag: label ?? "", plek: ik ? t("components.EersteHome.bijJou") : t("components.EersteHome.bijAnder") })}>{inhoud}</button> : <span className="text-center">{inhoud}</span>;
+    return onClick ? <button type="button" onClick={onClick} className="min-w-0 text-center transition active:scale-95" aria-label={t("components.EersteHome.dagAria", { dag: label ?? "", plek: ik ? t("components.EersteHome.bijJou") : t("components.EersteHome.bijAnder") })}>{inhoud}</button> : <span className="text-center">{inhoud}</span>;
 }
 function Weken({ dagen, labels, rijLabels, onToggle }) {
     const { t } = useTranslation();
     const weekKort = tLijst("common.dagenKort");
     return (<div className="space-y-1">
       {[0, 1].map((w) => (<div key={w}>
-        {rijLabels ? <p className="mb-0.5 mt-1 text-[11px] font-semibold text-ink-soft">{w === 0 ? t("components.EersteHome.dezeWeek") : t("components.EersteHome.volgendeWeek")}</p> : null}
-        <div className="grid grid-cols-7 gap-1">
+        {rijLabels ? <p className="mb-1.5 mt-2 text-xs font-semibold text-ink">{w === 0 ? t("components.EersteHome.dezeWeek") : t("components.EersteHome.volgendeWeek")}</p> : null}
+        <div className={`grid grid-cols-7 ${onToggle ? "gap-1.5" : "gap-1"}`}>
           {dagen.slice(w * 7, w * 7 + 7).map((p, i) => (<Dag key={i} p={p} label={labels && w === 0 ? weekKort[i] : undefined} onClick={onToggle ? () => onToggle(w * 7 + i) : undefined}/>))}
         </div>
         </div>))}
@@ -44,7 +46,7 @@ function Weken({ dagen, labels, rijLabels, onToggle }) {
 }
 const Legenda = () => {
     const { t } = useTranslation();
-    return (<p className="mt-2 text-[11px] text-ink-soft"><b className="text-brand">{t("components.EersteHome.letterJij")}</b> {t("components.EersteHome.bijJou")} · <b className="text-accent-warm">{t("components.EersteHome.letterAnder")}</b> {t("components.EersteHome.bijAnder")}</p>);
+    return (<p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/70 pt-3 text-xs font-semibold text-ink-soft"><span className="inline-flex items-center gap-1.5"><span className="zorg-ik inline-block size-3.5 rounded-[4px]"/>{t("components.EersteHome.bijJou")}</span><span className="inline-flex items-center gap-1.5"><span className="zorg-ander inline-block size-3.5 rounded-[4px]"/>{t("components.EersteHome.bijAnder")}</span></p>);
 };
 export function GezagSheet({ open, onClose }) {
     const { t } = useTranslation();
@@ -52,7 +54,7 @@ export function GezagSheet({ open, onClose }) {
       <SheetContent side="bottom" className="rounded-t-3xl bg-background">
         <SheetHeader><SheetTitle className="font-display">{t("components.EersteHome.gezag.titel")}</SheetTitle></SheetHeader>
         <div className="space-y-2 px-4 pb-6">
-          {gezagKeuzes.map((g) => (<button key={g.id} onClick={() => { start.zetGezag(g.id); onClose(); }} className="flex min-h-[48px] w-full items-center rounded-xl border border-border bg-card px-4 text-left text-sm font-semibold">{g.naam}</button>))}
+          {gezagKeuzes.map((g) => (<button key={g.id} onClick={() => { start.zetGezag(g.id); onClose(); }} className="flex min-h-[48px] w-full items-center rounded-2xl border border-border bg-card px-4 text-left text-sm font-semibold">{g.naam}</button>))}
           <p className="pt-1 text-xs text-ink-soft">{t("components.EersteHome.gezag.uitleg")}</p>
         </div>
       </SheetContent>
@@ -91,7 +93,7 @@ export function KindSheet({ open, onClose, start: begin = "kind" }) {
         setFase("vervolg");
     };
     const titel = t(`components.EersteHome.kind.titel.${fase}`);
-    const keuze = "flex min-h-[48px] w-full items-center rounded-xl border border-border bg-card px-4 text-left text-sm font-semibold";
+    const keuze = "flex min-h-[48px] w-full items-center rounded-2xl border border-border bg-card px-4 text-left text-sm font-semibold";
     return (<Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent side="bottom" className="max-h-[92dvh] overflow-y-auto rounded-t-3xl bg-background">
         <SheetHeader><SheetTitle className="font-display">{titel}</SheetTitle></SheetHeader>
@@ -188,17 +190,17 @@ function RegelingSheet({ open, onClose, kindNaam, kindId: beginKind }) {
         onClose();
     };
     const kiesKind = kinderen.length > 1 ? (<div className="mb-3 flex flex-wrap gap-2" role="radiogroup" aria-label={t("components.EersteHome.regeling.voorWie")}>
-        {[{ id: "alle", naam: t("common.alleKinderen") }, ...kinderen].map((k) => (<button key={k.id} type="button" role="radio" aria-checked={voor === k.id} onClick={() => setVoor(k.id)} className={`min-h-9 rounded-full px-3.5 text-xs font-semibold ${voor === k.id ? "bg-brand text-primary-foreground" : "border border-border bg-card"}`}>{k.naam}</button>))}
+        {[{ id: "alle", naam: t("common.alleKinderen") }, ...kinderen].map((k) => (<button key={k.id} type="button" role="radio" aria-checked={voor === k.id} onClick={() => setVoor(k.id)} className={chipStijl(voor === k.id)}>{k.naam}</button>))}
       </div>) : null;
     return (<Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-3xl bg-background">
+      <SheetContent side="bottom" className="left-1/2 max-h-[88dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-[28px] bg-background px-5 pb-8">
         {stap === "patroon" ? (<>
-            <SheetHeader><SheetTitle className="font-display">{t("components.EersteHome.regeling.titel")}</SheetTitle></SheetHeader>
-            <div className="px-4 pb-6">
+            <SheetHeader className="pr-12 text-left"><SheetTitle className="font-display text-xl">{t("components.EersteHome.regeling.titel")}</SheetTitle></SheetHeader>
+            <div className="mt-3">
               {kiesKind}
               <p className="text-sm text-ink-soft">{t(gekozen.some((k) => k.samen) ? "components.EersteHome.regeling.uitlegSamen" : "components.EersteHome.regeling.uitleg")}</p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {patronen.map((p) => (<button key={p.id} onClick={() => kies(p.id)} className="rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-brand/50">
+                {patronen.map((p) => (<button key={p.id} onClick={() => kies(p.id)} className="rounded-[22px] border border-white/85 bg-white/60 p-4 text-left transition-colors hover:border-brand/50">
                     <p className="text-sm font-semibold">{p.naam}</p>
                     <p className="mt-0.5 text-xs text-ink-soft">{p.uitleg}</p>
                     {p.dagen && p.id !== "zelf" ? <div className="mt-2"><Weken dagen={p.dagen}/></div> : null}
@@ -207,31 +209,31 @@ function RegelingSheet({ open, onClose, kindNaam, kindId: beginKind }) {
               <button onClick={() => { start.regeling("later", voor === "alle" ? undefined : voor); onClose(); }} className="mt-3 min-h-11 w-full text-center text-xs font-semibold text-ink-soft">{t("components.EersteHome.regeling.later")}</button>
             </div>
           </>) : (<>
-            <SheetHeader><SheetTitle className="font-display">{geldigeRegeling(huidig) ? t("components.EersteHome.regeling.aanpassen") : t("components.EersteHome.regeling.instellen")}</SheetTitle></SheetHeader>
-            <div className="space-y-4 px-4 pb-6">
+            <SheetHeader className="pr-12 text-left"><SheetTitle className="font-display text-xl">{geldigeRegeling(huidig) ? t("components.EersteHome.regeling.aanpassen") : t("components.EersteHome.regeling.instellen")}</SheetTitle></SheetHeader>
+            <div className="mt-3 space-y-4">
               {kiesKind}
-              <div>
-                <p className="text-xs text-ink-soft">{t("components.EersteHome.regeling.tik")}</p>
-                <div className="mt-2"><Weken dagen={dagen} labels rijLabels onToggle={(i) => setDagen((d) => d.map((x, n) => (n === i ? (x === "ik" ? "ander" : "ik") : x)))}/></div>
+              <div className="rounded-[22px] border border-white/85 bg-white/60 p-3.5">
+                <p className="text-sm text-ink-soft">{t("components.EersteHome.regeling.tik")}</p>
+                <div className="mt-1"><Weken dagen={dagen} labels rijLabels onToggle={(i) => setDagen((d) => d.map((x, n) => (n === i ? (x === "ik" ? "ander" : "ik") : x)))}/></div>
                 <Legenda />
-                <button onClick={omdraaien} className="mt-1 min-h-10 text-xs font-semibold text-brand">{t("components.EersteHome.regeling.andersom")}</button>
+                <button onClick={omdraaien} className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-brand"><ArrowLeftRight aria-hidden="true" className="size-3.5"/>{t("components.EersteHome.regeling.andersom")}</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <label className="text-xs text-ink-soft">{t("components.EersteHome.regeling.tijd")}<input type="time" value={tijd} onChange={(e) => setTijd(e.target.value)} className={veld}/></label>
-                <label className="text-xs text-ink-soft">{t("components.EersteHome.regeling.waar")}<input value={plek} onChange={(e) => setPlek(e.target.value)} placeholder={t("components.EersteHome.regeling.waarPlaceholder")} className={veld}/></label>
+                <label className="min-w-0 text-xs font-semibold text-ink-soft">{t("components.EersteHome.regeling.tijd")}<input type="time" value={tijd} onChange={(e) => setTijd(e.target.value)} className={veld}/></label>
+                <label className="min-w-0 text-xs font-semibold text-ink-soft">{t("components.EersteHome.regeling.waar")}<input value={plek} onChange={(e) => setPlek(e.target.value)} placeholder={t("components.EersteHome.regeling.waarPlaceholder")} className={veld}/></label>
               </div>
-              <div className="rounded-xl bg-surface p-3 text-sm">
+              <div className="flex gap-3 rounded-[22px] bg-[#E9EFE3] p-4 text-sm text-[#2F4A3A]"><CalendarCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-brand"/><div className="min-w-0">
                 {(() => {
                 const v = vandaagVolgens({ patroon, dagen, wisseltijd: tijd, startMaandag: maandagVan(new Date()) }, new Date());
                 return <p><Trans i18nKey="components.EersteHome.regeling.vandaag" values={{ naam: kindNaam, plek: v.plek === "ik" ? t("components.EersteHome.bijJou") : t("components.EersteHome.bijAnder"), datum: v.volgende.toLocaleDateString(taalLocale(), { weekday: "long", day: "numeric", month: "long" }), tijd: uur(tijd) }} components={{ b: <b /> }}/></p>;
             })()}
-                <p className="mt-1 text-xs text-ink-soft">{t("components.EersteHome.regeling.uitzonderingen")}</p>
-              </div>
+                <p className="mt-1 text-xs text-[#3F5747]/80">{t("components.EersteHome.regeling.uitzonderingen")}</p>
+              </div></div>
               {vast ? <p role="status" className="text-sm text-ink-soft">{t("components.EersteHome.regeling.vastgezet")}</p> : <>
-                <Button className="w-full" onClick={bevestig}>{t("components.EersteHome.regeling.opslaan")}</Button>
-                {gekozen.some((k) => k.samen) ? <p className="text-xs text-ink-soft">{t("components.EersteHome.regeling.andereBevestigt")}</p> : null}
+                <button type="button" className={`w-full ${KNOP}`} onClick={bevestig}>{t("components.EersteHome.regeling.opslaan")}</button>
+                {gekozen.some((k) => k.samen) ? <p className="-mt-2 text-center text-xs text-ink-soft">{t("components.EersteHome.regeling.andereBevestigt")}</p> : null}
               </>}
-              <button onClick={() => setStap("patroon")} className="min-h-11 w-full text-center text-xs font-semibold text-ink-soft">{t("components.EersteHome.regeling.anderPatroon")}</button>
+              <button onClick={() => setStap("patroon")} className="-mt-1 min-h-11 w-full text-center text-sm font-semibold text-brand">{t("components.EersteHome.regeling.anderPatroon")}</button>
             </div>
           </>)}
       </SheetContent>

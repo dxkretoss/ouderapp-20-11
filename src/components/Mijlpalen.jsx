@@ -43,8 +43,8 @@ export function Mijlpalen({ kindId, naam, momentjesPerJaar }) {
     return (<section className="mt-6">
       <h2 className="font-display font-bold">{t("components.Mijlpalen.titel", { naam })}</h2>
       <form className="mt-2 flex gap-2" onSubmit={bewaar}>
-        <input className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm" maxLength={2000} placeholder={t("components.Mijlpalen.placeholder")} value={tekst} onChange={(e) => setTekst(e.target.value)}/>
-        <button disabled={!tekst.trim() || bezig} className="rounded-md bg-brand px-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.Mijlpalen.bewaar")}</button>
+        <input className="flex-1 min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm" maxLength={2000} placeholder={t("components.Mijlpalen.placeholder")} value={tekst} onChange={(e) => setTekst(e.target.value)}/>
+        <button disabled={!tekst.trim() || bezig} className="rounded-full bg-brand px-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.Mijlpalen.bewaar")}</button>
       </form>
       {tekst.trim() ? <DelenKeuze className="mt-2" kindIds={[kindId]} gedeeld={gedeeld} onGedeeld={setGedeeld}/> : null}
       <div className="mt-3 space-y-4">

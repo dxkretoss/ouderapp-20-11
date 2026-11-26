@@ -120,13 +120,13 @@ export function SpoedScherm() {
           <p className="mt-3 text-xs text-ink-soft">{t("components.SpoedScherm.reactieUitleg")}</p>
 
           {fase === "vraag" ? (<div className="mt-6 grid grid-cols-3 gap-2">
-              <button onClick={() => setFase("ander")} className="flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-xl border border-border px-2 text-xs font-semibold">
+              <button onClick={() => setFase("ander")} className="flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border border-border px-2 text-xs font-semibold">
                 <AppIcon functie="notitie" maat="sm" vorm="kaal"/>{t("common.anderVoorstel")}
               </button>
-              <button onClick={() => rondAf(akkoordTekst)} className="flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-xl bg-brand px-2 text-xs font-semibold text-primary-foreground">
+              <button onClick={() => rondAf(akkoordTekst)} className="flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl bg-brand px-2 text-xs font-semibold text-primary-foreground">
                 <AppIcon functie="akkoord" maat="sm" vorm="kaal"/>{akkoordTekst}
               </button>
-              <button onClick={() => setFase("overname")} className="flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-xl border border-border px-2 text-xs font-semibold">
+              <button onClick={() => setFase("overname")} className="flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border border-border px-2 text-xs font-semibold">
                 <AppIcon functie="berichten" maat="sm" vorm="kaal"/>{overnameTekst}
               </button>
             </div>) : null}
@@ -138,19 +138,19 @@ export function SpoedScherm() {
                 }}>
               <label className="block text-sm font-semibold">
                 {t("components.SpoedScherm.welkTijdstip")}
-                <input type="time" value={eigenTijd} onChange={(e) => setEigenTijd(e.target.value)} className="mt-2 block w-full rounded-md border border-border bg-surface px-3 py-2"/>
+                <input type="time" value={eigenTijd} onChange={(e) => setEigenTijd(e.target.value)} className="mt-2 block w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2"/>
               </label>
               <div className="flex gap-2">
-                <button type="submit" disabled={!eigenTijd} className="min-h-[44px] flex-1 rounded-md bg-brand text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.SpoedScherm.voorstelVersturen")}</button>
-                <button type="button" onClick={() => setFase("vraag")} className="min-h-[44px] rounded-md border border-border px-4 text-sm font-semibold text-ink-soft">{t("common.terug")}</button>
+                <button type="submit" disabled={!eigenTijd} className="min-h-[44px] flex-1 rounded-full bg-brand text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.SpoedScherm.voorstelVersturen")}</button>
+                <button type="button" onClick={() => setFase("vraag")} className="min-h-[44px] rounded-full border border-border px-4 text-sm font-semibold text-ink-soft">{t("common.terug")}</button>
               </div>
             </form>) : null}
 
           {fase === "overname" ? (<div className="mt-6 space-y-3">
               <p className="text-sm">{t("components.SpoedScherm.overnameUitleg", { naam: kindNaam })}</p>
               <div className="flex gap-2">
-                <button onClick={() => rondAf(t("components.SpoedScherm.overnameAntwoord", { tekst: overnameTekst }))} className="min-h-[44px] flex-1 rounded-md bg-brand text-sm font-semibold text-primary-foreground">{t("components.SpoedScherm.voorstelVersturen")}</button>
-                <button onClick={() => setFase("vraag")} className="min-h-[44px] rounded-md border border-border px-4 text-sm font-semibold text-ink-soft">{t("common.terug")}</button>
+                <button onClick={() => rondAf(t("components.SpoedScherm.overnameAntwoord", { tekst: overnameTekst }))} className="min-h-[44px] flex-1 rounded-full bg-brand text-sm font-semibold text-primary-foreground">{t("components.SpoedScherm.voorstelVersturen")}</button>
+                <button onClick={() => setFase("vraag")} className="min-h-[44px] rounded-full border border-border px-4 text-sm font-semibold text-ink-soft">{t("common.terug")}</button>
               </div>
             </div>) : null}
 

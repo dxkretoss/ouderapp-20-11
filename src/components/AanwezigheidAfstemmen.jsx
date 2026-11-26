@@ -9,9 +9,10 @@ import { afsprakenState } from "@/lib/afspraken-store";
 import { aanwezigVoor, deelNabespreking, keuzeLabel, markeerContactOpgenomen, reageer, reactiesVoor, startAfstemming, statusRegel, useAanwezigheid, zetUitkomst } from "@/lib/aanwezigheid-store";
 import { contactStatusLabel, useTaken, voegTaakToe } from "@/lib/taken-store";
 import { schoolBericht } from "@/lib/schoolbericht.functions";
+import { chip as chipStijl } from "@/lib/ui-stijl";
 /** Zijn er betrouwbaar vastgelegde veiligheidsafspraken? Dan presenteren we samen gaan niet als vanzelfsprekend. */
 export const heeftVeiligheidsafspraken = () => afsprakenState().some((a) => a.veiligheid && a.status === "Actief");
-const chip = (actief) => `rounded-full border px-3.5 py-2 text-xs font-semibold ${actief ? "border-brand bg-brand-soft text-brand" : "border-border bg-card text-ink"}`;
+const chip = chipStijl;
 /** Compacte keuze: hoe willen jullie deze afspraak regelen? Alle keuzes zijn gelijkwaardig. */
 export function AanwezigheidKiezer({ open, onSluit, onKies }) {
     const { t } = useTranslation();
@@ -140,7 +141,7 @@ export function AanwezigheidBlok({ afspraakId, titel, kind, datum }) {
       {a?.fase === "voorstel" && a.door !== "sanne" ? (<div className="mt-3">
           <p className="text-sm text-ink-soft">{t("components.AanwezigheidAfstemmen.blok.anderStelt", { keuze: keuzeLabel[a.keuze].toLowerCase(), extra: a.keuze === "een" && a.wieGaat && a.wieGaat !== "onbekend" ? (a.wieGaat === "joris" ? t("components.AanwezigheidAfstemmen.blok.anderGaat") : t("components.AanwezigheidAfstemmen.blok.jijGaat")) : "" })}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            {reactiesVoor(a).map((r) => (<button key={r.id} onClick={() => r.id === "ander" ? setKiezerOpen(true) : reageer(afspraakId, r.id, "sanne")} className={r.id === "akkoord" || r.id === "dat-lukt" ? "rounded-md bg-brand px-3.5 py-2 text-xs font-semibold text-primary-foreground" : "rounded-md border border-border px-3.5 py-2 text-xs font-semibold"}>{r.label}</button>))}
+            {reactiesVoor(a).map((r) => (<button key={r.id} onClick={() => r.id === "ander" ? setKiezerOpen(true) : reageer(afspraakId, r.id, "sanne")} className={r.id === "akkoord" || r.id === "dat-lukt" ? "rounded-full bg-brand px-3.5 py-2 text-xs font-semibold text-primary-foreground" : "rounded-full border border-border px-3.5 py-2 text-xs font-semibold"}>{r.label}</button>))}
           </div>
           <p className="mt-2 text-[11px] text-ink-soft">{t("components.AanwezigheidAfstemmen.blok.geenUitleg")}</p>
         </div>) : null}
@@ -150,7 +151,7 @@ export function AanwezigheidBlok({ afspraakId, titel, kind, datum }) {
               {reactiesVoor(a).map((r) => (<button key={r.id} onClick={() => r.id === "ander" ? startAfstemming(afspraakId, a.keuze === "samen" ? "een" : "samen", "joris", { kind: taakKind, afspraakTitel: titel, wieGaat: "joris" }) : reageer(afspraakId, r.id, "joris")} className="rounded-full border border-dashed border-border px-3 py-1 text-[11px] text-ink-soft">{t("components.AanwezigheidAfstemmen.blok.demo", { label: r.label })}</button>))}
             </div>) : null}
         </div>) : null}
-      {(!a || a.fase === "open") ? (<button onClick={() => setKiezerOpen(true)} className="mt-3 rounded-md border border-brand/40 px-3.5 py-2 text-xs font-semibold text-brand">{a ? t("components.AanwezigheidAfstemmen.blok.kies") : t("components.AanwezigheidAfstemmen.blok.afstemmen")}</button>) : null}
+      {(!a || a.fase === "open") ? (<button onClick={() => setKiezerOpen(true)} className="mt-3 rounded-full border border-brand/40 px-3.5 py-2 text-xs font-semibold text-brand">{a ? t("components.AanwezigheidAfstemmen.blok.kies") : t("components.AanwezigheidAfstemmen.blok.afstemmen")}</button>) : null}
       {a?.fase === "afgestemd" ? <button onClick={() => setKiezerOpen(true)} className="mt-2 text-[11px] font-semibold text-ink-soft underline-offset-2 hover:underline">{t("components.AanwezigheidAfstemmen.blok.opnieuw")}</button> : null}
 
       {/* Contacttaak met school/organisatie: dezelfde taak als in het takenoverzicht. */}
@@ -164,13 +165,13 @@ export function AanwezigheidBlok({ afspraakId, titel, kind, datum }) {
               <div className="flex flex-wrap gap-2">
                 {[["mogelijk", t("components.AanwezigheidAfstemmen.blok.uitkomst.mogelijk")], ["wacht-op-school", t("components.AanwezigheidAfstemmen.blok.uitkomst.wachtOpSchool")], ["niet-mogelijk", t("components.AanwezigheidAfstemmen.blok.uitkomst.nietMogelijk")], ["anders", t("components.AanwezigheidAfstemmen.blok.uitkomst.anders")]].map(([id, label]) => (<button key={id} onClick={() => { zetUitkomst(afspraakId, id, uitkomstToelichting); setUitkomstVraag(false); setUitkomstToelichting(""); }} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold">{label}</button>))}
               </div>
-              <input value={uitkomstToelichting} onChange={(e) => setUitkomstToelichting(e.target.value)} placeholder={t("components.AanwezigheidAfstemmen.blok.toelichtingPlaceholder")} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none"/>
+              <input value={uitkomstToelichting} onChange={(e) => setUitkomstToelichting(e.target.value)} placeholder={t("components.AanwezigheidAfstemmen.blok.toelichtingPlaceholder")} className="w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm outline-none"/>
             </div>) : null}
           {a?.uitkomst === "mogelijk" ? <p className="mt-2 text-xs text-ink-soft">{t("components.AanwezigheidAfstemmen.blok.dataBekend")}</p> : null}
           {a?.uitkomst === "niet-mogelijk" ? (<div className="mt-2 rounded-md bg-muted p-2.5 text-xs">
               <p className="font-semibold">{t("components.AanwezigheidAfstemmen.blok.nietMogelijkKop")}</p>
               <p className="mt-1 text-ink-soft">{t("components.AanwezigheidAfstemmen.blok.nietMogelijkUitleg")}</p>
-              <button onClick={() => setKiezerOpen(true)} className="mt-2 rounded-md border border-border bg-card px-3 py-1.5 font-semibold">{t("components.AanwezigheidAfstemmen.blok.andereKiezen")}</button>
+              <button onClick={() => setKiezerOpen(true)} className="mt-2 rounded-full border border-border bg-card px-3 py-1.5 font-semibold">{t("components.AanwezigheidAfstemmen.blok.andereKiezen")}</button>
             </div>) : null}
           {a?.uitkomstToelichting ? <p className="mt-1 text-[11px] text-ink-soft">{a.uitkomstToelichting}</p> : null}
         </div>) : null}
@@ -182,7 +183,7 @@ export function AanwezigheidBlok({ afspraakId, titel, kind, datum }) {
           <button onClick={() => setBerichtOpen((o) => !o)} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-brand">{t("components.AanwezigheidAfstemmen.blok.helpBericht")}</button>
         </div>) : null}
       {regelenVraag === "ja" ? (<div className="mt-3 space-y-2 border-t border-border pt-3">
-          <input value={taakTekst} onChange={(e) => setTaakTekst(e.target.value)} placeholder={t("components.AanwezigheidAfstemmen.blok.taakPlaceholder")} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none"/>
+          <input value={taakTekst} onChange={(e) => setTaakTekst(e.target.value)} placeholder={t("components.AanwezigheidAfstemmen.blok.taakPlaceholder")} className="w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm outline-none"/>
           <div className="flex flex-wrap gap-2">
             <button onClick={() => setTaakWie("sanne")} className={chip(taakWie === "sanne")}>{t("components.AanwezigheidAfstemmen.blok.ikRegel")}</button>
             <button onClick={() => setTaakWie("joris")} className={chip(taakWie === "joris")}>{t("components.AanwezigheidAfstemmen.anderVragen")}</button>
@@ -197,13 +198,13 @@ export function AanwezigheidBlok({ afspraakId, titel, kind, datum }) {
       {/* Hulp bij een neutraal bericht aan school of de organisatie; de ouder controleert en verstuurt zelf. */}
       {berichtOpen ? (<div className="mt-3 space-y-2 border-t border-border pt-3">
           <p className="text-sm font-semibold">{t("components.AanwezigheidAfstemmen.blok.helpBericht")}</p>
-          <select aria-label={t("components.AanwezigheidAfstemmen.blok.soortVerzoek")} value={verzoek} onChange={(e) => setVerzoek(e.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
+          <select aria-label={t("components.AanwezigheidAfstemmen.blok.soortVerzoek")} value={verzoek} onChange={(e) => setVerzoek(e.target.value)} className="w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm">
             {verzoekOpties(t).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
           <Button size="sm" disabled={berichtBezig} onClick={maakBericht}>{berichtBezig ? t("components.AanwezigheidAfstemmen.blok.schrijven") : t("components.AanwezigheidAfstemmen.blok.maakConcept")}</Button>
           {berichtFout ? <p className="text-xs text-ink-soft">{berichtFout} <button onClick={maakBericht} className="font-semibold text-brand">{t("components.AanwezigheidAfstemmen.blok.opnieuwProberen")}</button></p> : null}
           {concept ? (<>
-              <textarea aria-label={t("components.AanwezigheidAfstemmen.blok.concept")} value={concept} onChange={(e) => setConcept(e.target.value)} rows={5} className="w-full resize-none rounded-md border border-border bg-background p-2.5 text-sm outline-none"/>
+              <textarea aria-label={t("components.AanwezigheidAfstemmen.blok.concept")} value={concept} onChange={(e) => setConcept(e.target.value)} rows={5} className="w-full resize-none rounded-2xl border border-border bg-card p-2.5 text-sm outline-none"/>
               <div className="flex items-center gap-2">
                 <Button size="sm" variant="outline" onClick={kopieer}>{gekopieerd ? t("components.AanwezigheidAfstemmen.blok.gekopieerd") : t("components.AanwezigheidAfstemmen.blok.kopieer")}</Button>
                 <p className="text-[11px] text-ink-soft">{t("components.AanwezigheidAfstemmen.blok.controleer")}</p>
@@ -219,13 +220,13 @@ export function AanwezigheidBlok({ afspraakId, titel, kind, datum }) {
               {a.nabespreking.afspraken ? <p className="mt-1 text-ink-soft">{t("components.AanwezigheidAfstemmen.blok.afspraken", { tekst: a.nabespreking.afspraken })}</p> : null}
               <p className="mt-1 text-[11px] text-ink-soft">{a.nabespreking.door === "sanne" ? t("components.AanwezigheidAfstemmen.blok.toegevoegdJou", { datum: a.nabespreking.datum }) : t("components.AanwezigheidAfstemmen.blok.toegevoegdAnder", { datum: a.nabespreking.datum })}</p>
             </div>) : nabesprekingOpen ? (<div className="space-y-2">
-              <label className="block text-xs font-semibold">{t("components.AanwezigheidAfstemmen.blok.watBesproken")}<textarea value={besproken} onChange={(e) => setBesproken(e.target.value)} rows={2} className="mt-1 w-full resize-none rounded-md border border-border bg-background p-2 text-sm outline-none"/></label>
-              <label className="block text-xs font-semibold">{t("components.AanwezigheidAfstemmen.blok.afsprakenGemaakt")}<textarea value={gemaakteAfspraken} onChange={(e) => setGemaakteAfspraken(e.target.value)} rows={2} className="mt-1 w-full resize-none rounded-md border border-border bg-background p-2 text-sm outline-none"/></label>
+              <label className="block text-xs font-semibold">{t("components.AanwezigheidAfstemmen.blok.watBesproken")}<textarea value={besproken} onChange={(e) => setBesproken(e.target.value)} rows={2} className="mt-1 w-full resize-none rounded-2xl border border-border bg-card p-2 text-sm outline-none"/></label>
+              <label className="block text-xs font-semibold">{t("components.AanwezigheidAfstemmen.blok.afsprakenGemaakt")}<textarea value={gemaakteAfspraken} onChange={(e) => setGemaakteAfspraken(e.target.value)} rows={2} className="mt-1 w-full resize-none rounded-2xl border border-border bg-card p-2 text-sm outline-none"/></label>
               <div className="flex gap-2">
                 <Button size="sm" disabled={!besproken.trim() && !gemaakteAfspraken.trim()} onClick={() => { deelNabespreking(afspraakId, besproken, gemaakteAfspraken, "sanne"); setNabesprekingOpen(false); }}>{t("components.AanwezigheidAfstemmen.blok.delen")}</Button>
                 <Button size="sm" variant="outline" onClick={() => setNabesprekingOpen(false)}>{t("common.annuleren")}</Button>
               </div>
-            </div>) : (<button onClick={() => setNabesprekingOpen(true)} className="rounded-md border border-border px-3.5 py-2 text-xs font-semibold">{t("components.AanwezigheidAfstemmen.blok.puntenDelen")}</button>)}
+            </div>) : (<button onClick={() => setNabesprekingOpen(true)} className="rounded-full border border-border px-3.5 py-2 text-xs font-semibold">{t("components.AanwezigheidAfstemmen.blok.puntenDelen")}</button>)}
         </div>) : null}
 
       <AanwezigheidKiezer open={kiezerOpen} onSluit={() => setKiezerOpen(false)} onKies={kies}/>

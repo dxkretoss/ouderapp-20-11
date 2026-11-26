@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { startState, useStart } from "@/lib/start-store";
 import { useGezin } from "@/lib/gezin";
 import { categorieLabel, reactieLabel, reageerNuAfstemmen, startNuAfstemmen, } from "@/lib/nu-afstemmen-store";
+import { chip as chipStijl } from "@/lib/ui-stijl";
 const kindNamen = (ids) => ids.map((id) => startState().kinderen.find((k) => k.id === id)?.naam).filter(Boolean).join(" & ");
 /** Oplossingskaart: warm amber/klei, nooit fel rood. Gedeeld door Home en Berichten. */
 export function NuAfstemmenKaart({ n }) {
@@ -18,7 +19,7 @@ export function NuAfstemmenKaart({ n }) {
       <p className="mt-1 text-[11px] text-ink-soft">{t("components.NuAfstemmen.meta", { van: n.van === "ander" ? t("components.NuAfstemmen.vanAnder") : t("components.NuAfstemmen.doorJou"), reactie: reactieLabel[n.reactieGewenst].toLowerCase() })}</p>
       {n.van === "ander" ? (anders ? (<form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); if (tekst.trim())
             reageerNuAfstemmen(n.id, tekst.trim().slice(0, 500)); }}>
-            <input autoFocus value={tekst} onChange={(e) => setTekst(e.target.value)} maxLength={500} placeholder={t("components.NuAfstemmen.jouwVoorstel")} className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"/>
+            <input autoFocus value={tekst} onChange={(e) => setTekst(e.target.value)} maxLength={500} placeholder={t("components.NuAfstemmen.jouwVoorstel")} className="min-w-0 flex-1 min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm"/>
             <button className="min-h-11 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-primary-foreground">{t("components.NuAfstemmen.sturen")}</button>
           </form>) : (<div className="mt-3 flex flex-wrap gap-2">
             {n.opties.map((o) => (<button key={o} onClick={() => (isAnder(o) ? setAnders(true) : reageerNuAfstemmen(n.id, o))} className={`min-h-10 rounded-full px-4 text-xs font-semibold ${isAnder(o) ? "border border-border text-ink-soft" : "bg-brand text-primary-foreground"}`}>{o}</button>))}
@@ -47,7 +48,7 @@ export function NuAfstemmenStart({ open, onSluit }) {
         reset();
         onSluit();
     };
-    const chip = (aan) => `rounded-full border px-3 py-1.5 text-xs font-semibold ${aan ? "border-accent-warm bg-accent-warm/15 text-ink" : "border-border text-ink-soft"}`;
+    const chip = chipStijl;
     return (<Sheet open={open} onOpenChange={(o) => { if (!o) {
         reset();
         onSluit();
@@ -67,7 +68,7 @@ export function NuAfstemmenStart({ open, onSluit }) {
           <span className="self-center text-[11px] text-ink-soft">{t("components.NuAfstemmen.start.nietsGekozen")}</span>
         </div>
         <label className="mt-4 block text-xs font-semibold" htmlFor="na-titel">{t("components.NuAfstemmen.start.watIsEr")}</label>
-        <input id="na-titel" value={titel} onChange={(e) => setTitel(e.target.value)} maxLength={300} placeholder={t("components.NuAfstemmen.start.placeholder")} className="mt-2 w-full rounded-md border border-border bg-card px-3 py-2.5 text-sm"/>
+        <input id="na-titel" value={titel} onChange={(e) => setTitel(e.target.value)} maxLength={300} placeholder={t("components.NuAfstemmen.start.placeholder")} className="mt-2 w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2.5 text-sm"/>
         <p className="mt-4 text-xs font-semibold">{t("components.NuAfstemmen.start.reactieGewenst")}</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {Object.keys(reactieLabel).map((r) => <button key={r} onClick={() => setReactie(r)} className={chip(reactie === r)}>{reactieLabel[r]}</button>)}

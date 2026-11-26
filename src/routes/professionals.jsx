@@ -17,6 +17,7 @@ import { drukNiveau } from "@/lib/communicatiedruk";
 import { actieStatus, actieStatusLabel, dagenTot, datumKort, IK, mijnRechten, ontvangerLabel, rolLabel, toggleActie, useProWerk, zetMelding } from "@/lib/pro-journaal-store";
 import { uur } from "@/lib/tijd-tekst";
 import { recenteProGebeurtenissen } from "@/lib/pro-recent";
+import { VELD } from "@/lib/ui-stijl";
 /* Eigen acties: alleen wat jij zelf moet doen. Acties "voor ouders" tellen hier niet mee. */
 const eigenActie = (a) => a.voor.split(", ").includes(IK);
 export const Route = createFileRoute("/professionals")({
@@ -232,7 +233,7 @@ function Professionals() {
     return (<AppShell breed>
       <PageHeader titel={t("routes.professionals.ouderKant.titel")} subtitel={t("routes.professionals.ouderKant.subtitel")}/>
       <div className="mt-4 grid grid-cols-2 gap-1 rounded-md bg-surface p-1">
-        <button onClick={() => setKant("pro")} className="rounded-xl py-2 text-xs font-semibold text-ink-soft">{t("routes.professionals.ouderKant.alsProfessional")}</button>
+        <button onClick={() => setKant("pro")} className="rounded-full py-2 text-xs font-semibold text-ink-soft">{t("routes.professionals.ouderKant.alsProfessional")}</button>
         <span aria-current="page" className="rounded-xl bg-card py-2 text-center text-xs font-semibold text-ink">{t("routes.professionals.ouderKant.toegangProfessional")}</span>
       </div>
       <OuderToegang />
@@ -298,7 +299,7 @@ function ProCockpit({ onOuderKant, dossierState }) {
     };
     const NavKnop = ({ n }) => {
         const actief = nav === n;
-        return (<Button variant="ghost" onClick={() => kies(n)} aria-current={actief ? "page" : undefined} className={`relative flex h-auto min-h-11 w-full justify-start gap-3 whitespace-normal rounded-md px-3 py-2 text-left text-sm transition-colors duration-200 ${actief ? "bg-brand-soft font-semibold text-ink" : "text-ink-soft hover:bg-muted/70 hover:text-ink"}`}>
+        return (<Button variant="ghost" onClick={() => kies(n)} aria-current={actief ? "page" : undefined} className={`relative flex h-auto min-h-11 w-full justify-start gap-3 whitespace-normal rounded-2xl px-3 py-2 text-left text-sm transition-colors duration-200 ${actief ? "bg-brand-soft font-semibold text-ink" : "text-ink-soft hover:bg-muted/70 hover:text-ink"}`}>
         {actief && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-brand" aria-hidden/>}
         <Icoon naam={n} className={`size-[18px] ${actief ? "text-brand" : ""}`}/><span>{navLabel(n)}</span>
       </Button>);
@@ -314,7 +315,7 @@ function ProCockpit({ onOuderKant, dossierState }) {
     return (<div className="pro-cockpit min-h-screen w-full bg-background font-body text-ink">
       {/* Mobiel: compacte balk met uitklapbare navigatie */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background px-4 py-3 lg:hidden">
-        <button onClick={() => setMenuOpen((m) => !m)} aria-label={t("routes.professionals.menu")} aria-expanded={menuOpen} className="grid size-9 place-items-center rounded-md text-ink-soft hover:bg-muted"><Icoon naam="menu"/></button>
+        <button onClick={() => setMenuOpen((m) => !m)} aria-label={t("routes.professionals.menu")} aria-expanded={menuOpen} className="grid size-9 place-items-center rounded-full text-ink-soft hover:bg-muted"><Icoon naam="menu"/></button>
         <div className="min-w-0"><AppLogo formaat="klein"/><span className="block text-center text-xs text-ink-soft">{t("routes.professionals.professional")}</span></div>
         <span className="max-w-24 text-right text-xs text-ink-soft">{navLabel(nav)}</span>
       </header>
@@ -340,7 +341,7 @@ function ProCockpit({ onOuderKant, dossierState }) {
           <div className={intakeOpen ? "hidden" : huidig || nav === "Overzicht" ? "" : "xl:grid xl:grid-cols-[minmax(0,1fr)_280px] xl:gap-8"}>
             <main className="min-w-0">
               {nav !== "Overzicht" && !(nav === "Dossiers" && huidig) && (<button onClick={() => { kies("Overzicht"); if (typeof window !== "undefined")
-            window.scrollTo({ top: 0 }); }} className="mb-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-md text-sm font-medium text-ink-soft transition-colors hover:text-ink">
+            window.scrollTo({ top: 0 }); }} className="mb-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-full text-sm font-medium text-ink-soft transition-colors hover:text-ink">
                   <Icoon naam="terug" className="size-4"/>{navLabel("Overzicht")}
                 </button>)}
               {nav === "Overzicht" && (<Dashboard dossiers={actieve} signalen={sig} overleg={overleg} filter={dossierFilter} setFilter={setDossierFilter} onOpen={openDossier} onAfgehandeld={(id) => setAandacht((a) => a.filter((x) => x.id !== id))} naar={kies} naarAgendaDag={() => { setAgendaW("Dag"); kies("Agenda"); }}/>)}
@@ -578,7 +579,7 @@ function Dashboard({ dossiers, setFilter, onOpen, naar, naarAgendaDag }) {
           {tellers.map((tl) => {
             const inhoud = <><span className={`block font-display text-3xl font-bold tabular-nums leading-none ${tl.kleur}`}>{tl.aantal}</span><span className="mt-1.5 block text-xs text-ink-soft">{tl.label}</span>{tl.sub ? <span className="block text-[11px] text-ink-soft">{tl.sub}</span> : null}</>;
             return tl.onClick
-                ? <button key={tl.label} onClick={tl.onClick} className="rounded-lg border border-border px-3 py-3 text-left transition-colors hover:bg-brand-soft">{inhoud}</button>
+                ? <button key={tl.label} onClick={tl.onClick} className="rounded-2xl border border-border px-3 py-3 text-left transition-colors hover:bg-brand-soft">{inhoud}</button>
                 : <div key={tl.label} className="rounded-lg border border-border px-3 py-3" aria-label={t("routes.professionals.dashboard.labelGeenGegevens", { label: tl.label })}>{inhoud}</div>;
         })}
         </div>
@@ -604,12 +605,12 @@ function Dashboard({ dossiers, setFilter, onOpen, naar, naarAgendaDag }) {
       <section aria-labelledby="werk-kop">
         <h2 id="werk-kop" className="font-display text-xl">{t("routes.professionals.dashboard.mijnWerk")}</h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <button onClick={naarAgendaDag} className="flex items-center gap-3 rounded-lg border border-border px-3 py-3 text-left transition-colors hover:bg-brand-soft">
+          <button onClick={naarAgendaDag} className="flex items-center gap-3 rounded-2xl border border-border px-3 py-3 text-left transition-colors hover:bg-brand-soft">
             <AppIcon functie="agenda" maat="sm"/>
             <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t("routes.professionals.dashboard.mijnAfspraken", { n: vandaag.length })}</span><span className="block text-xs text-ink-soft">{eerstvolgende ? t("routes.professionals.dashboard.eerstvolgende", { wat: `${eerstvolgende.tijd ? uur(eerstvolgende.tijd) + " · " : ""}${eerstvolgende.soort}` }) : t("routes.professionals.dashboard.geenAfsprakenVandaag")}</span></span>
             <Chevron className="size-4 text-ink-soft"/>
           </button>
-          <button onClick={() => naar("Acties")} className="flex items-center gap-3 rounded-lg border border-border px-3 py-3 text-left transition-colors hover:bg-brand-soft">
+          <button onClick={() => naar("Acties")} className="flex items-center gap-3 rounded-2xl border border-border px-3 py-3 text-left transition-colors hover:bg-brand-soft">
             <AppIcon functie="taken" maat="sm"/>
             <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t("routes.professionals.dashboard.mijnActies", { n: openActies.length })}</span><span className="block text-xs text-ink-soft">{t("routes.professionals.dashboard.openstaandeActies", { count: openActies.length })}</span></span>
             <Chevron className="size-4 text-ink-soft"/>
@@ -651,7 +652,7 @@ function WeekAgenda({ dossiers, onOpen, naarAgenda }) {
         {dagen.map((d) => {
             const actief = zelfdeDag(gekozen, d);
             const heeft = alle.some((a) => zelfdeDag(a.ts, d));
-            return (<Button variant="ghost" key={d.getTime()} role="tab" aria-selected={actief} aria-label={d.toLocaleDateString(taalLocale(), { weekday: "long", day: "numeric", month: "long" })} onClick={() => setGekozen(d.getTime())} className={`h-auto w-full max-w-12 min-w-0 justify-self-center flex-col items-center gap-0 rounded-md px-0 py-1 text-[11px] transition-colors ${actief ? "bg-brand text-primary-foreground hover:bg-brand hover:text-primary-foreground" : zelfdeDag(nu.getTime(), d) ? "bg-brand-soft text-ink" : "text-ink-soft hover:bg-muted"}`}>
+            return (<Button variant="ghost" key={d.getTime()} role="tab" aria-selected={actief} aria-label={d.toLocaleDateString(taalLocale(), { weekday: "long", day: "numeric", month: "long" })} onClick={() => setGekozen(d.getTime())} className={`h-auto w-full max-w-12 min-w-0 justify-self-center flex-col items-center gap-0 rounded-2xl px-0 py-1 text-[11px] transition-colors ${actief ? "bg-brand text-primary-foreground hover:bg-brand hover:text-primary-foreground" : zelfdeDag(nu.getTime(), d) ? "bg-brand-soft text-ink" : "text-ink-soft hover:bg-muted"}`}>
               <span>{d.toLocaleDateString(taalLocale(), { weekday: "short" }).replace(".", "")}</span>
               <span className="text-sm font-semibold tabular-nums leading-tight">{d.getDate()}</span>
               <span className={`mt-0.5 size-1 rounded-full ${heeft ? (actief ? "bg-primary-foreground" : "bg-brand") : "bg-transparent"}`} aria-hidden/>
@@ -674,7 +675,7 @@ function ActieRegel({ a, onOpen }) {
     const { t } = useTranslation();
     const status = actieStatus(a);
     return (<div className="flex items-start gap-3 px-2 py-3 transition-colors duration-200 hover:bg-muted/40">
-      <button onClick={() => toggleActie(a.id)} aria-label={t("routes.professionals.acties.afvinken", { tekst: a.tekst })} className={`relative mt-0.5 grid size-5 shrink-0 place-items-center before:absolute before:-inset-2.5 before:content-[''] rounded-md border text-[11px] ${a.klaar ? "border-brand bg-brand text-primary-foreground" : "border-border"}`}>
+      <button onClick={() => toggleActie(a.id)} aria-label={t("routes.professionals.acties.afvinken", { tekst: a.tekst })} className={`relative mt-0.5 grid size-5 shrink-0 place-items-center before:absolute before:-inset-2.5 before:content-[''] rounded-full border text-[11px] ${a.klaar ? "border-brand bg-brand text-primary-foreground" : "border-border"}`}>
         {a.klaar ? <Vinkje className="size-3.5"/> : null}
       </button>
       <button onClick={() => onOpen(a.dossier, "Acties")} className="min-w-0 flex-1 text-left">
@@ -773,14 +774,14 @@ function DossierLijst({ dossiers, uitnodigingen, signalen, filter, setFilter, on
     });
     return (<>
       <div className="mt-4 grid grid-cols-3 gap-1 rounded-md bg-surface p-1">
-        {["Actief", "Uitnodigingen", "Afgesloten"].map((s) => (<button key={s} onClick={() => setSub(s)} className={`rounded-xl py-2 text-xs font-semibold ${sub === s ? "bg-card shadow-sm" : "text-ink-soft"}`}>
+        {["Actief", "Uitnodigingen", "Afgesloten"].map((s) => (<button key={s} onClick={() => setSub(s)} className={`rounded-full py-2 text-xs font-semibold ${sub === s ? "bg-card shadow-sm" : "text-ink-soft"}`}>
             {t(`routes.professionals.lijst.sub.${subSleutel[s]}`)}{s === "Uitnodigingen" && uitnodigingen.length > 0 ? ` (${uitnodigingen.length})` : ""}
           </button>))}
       </div>
       {sub === "Actief" ? (<>
           <label className="mt-4 block">
             <span className="sr-only">{t("routes.professionals.lijst.zoek")}</span>
-            <input value={zoek} onChange={(e) => setZoek(e.target.value)} placeholder={t("routes.professionals.lijst.zoekPlaceholder")} aria-label={t("routes.professionals.lijst.zoek")} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-brand"/>
+            <input value={zoek} onChange={(e) => setZoek(e.target.value)} placeholder={t("routes.professionals.lijst.zoekPlaceholder")} aria-label={t("routes.professionals.lijst.zoek")} className="w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm outline-none transition-colors focus:border-brand"/>
           </label>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 border-b border-border text-xs" role="tablist">
             {dossierFilters.map((f) => (<button key={f} role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} className={`-mb-px border-b-2 pb-2 font-semibold transition-colors duration-200 ${filter === f ? "border-brand text-ink" : "border-transparent text-ink-soft hover:text-ink"}`}>{t(`routes.professionals.lijst.filter.${dossierFilterSleutel[f]}`)}</button>))}
@@ -806,8 +807,8 @@ function DossierLijst({ dossiers, uitnodigingen, signalen, filter, setFilter, on
             </dl>
             <p className="mt-2 text-xs text-ink-soft">{t("routes.professionals.uitnodiging.gevraagd", { onderdelen: u.onderdelen.map(onderdeelLabel).join(" • ") })}</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <button onClick={() => onAccepteer(u.id)} className="rounded-xl bg-brand py-2 text-xs font-semibold text-primary-foreground">{t("routes.professionals.uitnodiging.accepteren")}</button>
-              <button onClick={() => onWeiger(u.id)} className="rounded-xl bg-muted py-2 text-xs font-semibold text-ink-soft">{t("routes.professionals.uitnodiging.weigeren")}</button>
+              <button onClick={() => onAccepteer(u.id)} className="rounded-full bg-brand py-2 text-xs font-semibold text-primary-foreground">{t("routes.professionals.uitnodiging.accepteren")}</button>
+              <button onClick={() => onWeiger(u.id)} className="rounded-full bg-muted py-2 text-xs font-semibold text-ink-soft">{t("routes.professionals.uitnodiging.weigeren")}</button>
             </div>
             <p className="mt-2 text-[11px] text-ink-soft">{t("routes.professionals.uitnodiging.pasNaAccepteren")}</p>
           </Card>)))}
@@ -833,7 +834,7 @@ function Agenda({ dossiers, w, setW, overleg, onOpen }) {
             .map((a) => ({ dag: datumKort(a.deadline), ts: opDatum(a.deadline), tijd: "", dossier: a.dossier, soort: t("routes.professionals.agenda.deadline", { tekst: a.tekst }), bron: "deadline", type: "Deadlines", sort: 1 })),
     ].filter((x) => (dossierF === "alle" || x.dossier === dossierF) && (soortF === "Alle" || x.type === soortF))
         .sort((a, b) => a.ts - b.ts || a.tijd.localeCompare(b.tijd));
-    const veld = "rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand";
+    const veld = `${VELD}`;
     return (<>
       <SectieTitel>{navLabel("Agenda")}</SectieTitel>
       <FilterBalk doorlopen opties={[{ id: "Dag", label: t("routes.professionals.agenda.dag") }, { id: "Week", label: t("routes.professionals.agenda.week") }, { id: "Maand", label: t("routes.professionals.agenda.maand") }]} waarde={w} onChange={setW}/>
@@ -927,8 +928,8 @@ function OuderToegang() {
             </div>
             {!p.ingetrokken && (<>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <label className="text-[11px] text-ink-soft">{t("routes.professionals.ouderToegang.startdatum")}<input type="date" value={p.start} onChange={(e) => upd(p.id, "start", e.target.value)} className="mt-1 w-full rounded-xl bg-surface px-2 py-1.5 text-xs text-ink"/></label>
-                  <label className="text-[11px] text-ink-soft">{t("routes.professionals.ouderToegang.einddatum")}<input type="date" value={p.einde} onChange={(e) => upd(p.id, "einde", e.target.value)} className="mt-1 w-full rounded-xl bg-surface px-2 py-1.5 text-xs text-ink"/></label>
+                  <label className="text-[11px] text-ink-soft">{t("routes.professionals.ouderToegang.startdatum")}<input type="date" value={p.start} onChange={(e) => upd(p.id, "start", e.target.value)} className="mt-1 w-full min-h-11 rounded-2xl border border-border bg-card px-2 py-1.5 text-xs text-ink"/></label>
+                  <label className="text-[11px] text-ink-soft">{t("routes.professionals.ouderToegang.einddatum")}<input type="date" value={p.einde} onChange={(e) => upd(p.id, "einde", e.target.value)} className="mt-1 w-full min-h-11 rounded-2xl border border-border bg-card px-2 py-1.5 text-xs text-ink"/></label>
                 </div>
                 <div className="mt-3 space-y-2">
                   {alleOnderdelen.map((o) => (<div key={o} className="flex items-center justify-between gap-2 rounded-xl bg-surface px-3 py-2">
@@ -939,7 +940,7 @@ function OuderToegang() {
                     </div>))}
                 </div>
               </>)}
-            <button onClick={() => setLijst((l) => l.map((x) => (x.id === p.id ? { ...x, ingetrokken: !x.ingetrokken } : x)))} className="mt-3 w-full rounded-xl bg-muted py-2 text-xs font-semibold text-ink-soft">
+            <button onClick={() => setLijst((l) => l.map((x) => (x.id === p.id ? { ...x, ingetrokken: !x.ingetrokken } : x)))} className="mt-3 w-full rounded-full bg-muted py-2 text-xs font-semibold text-ink-soft">
               {p.ingetrokken ? t("routes.professionals.ouderToegang.opnieuwGeven") : t("routes.professionals.ouderToegang.intrekken")}
             </button>
           </Card>))}
@@ -949,8 +950,8 @@ function OuderToegang() {
       {uitnodigen ? <form className="mt-3 space-y-3 border-y border-border py-4" onSubmit={(e) => { e.preventDefault(); if (!concept.naam.trim() || !concept.email.trim())
             return; setUitnodigingStatus(t("routes.professionals.ouderToegang.voorbereid", { naam: concept.naam.trim() })); setUitnodigen(false); }}>
         <h2 className="font-display font-bold">{t("routes.professionals.ouderToegang.uitnodigen")}</h2>
-        {[['naam', t("routes.professionals.ouderToegang.veld.naam")], ['email', t("routes.professionals.ouderToegang.veld.email")], ['organisatie', t("routes.professionals.ouderToegang.veld.organisatie")]].map(([veld, label]) => <label key={veld} className="block text-xs font-semibold">{label}<input aria-label={label} type={veld === 'email' ? 'email' : 'text'} required={veld !== 'organisatie'} value={concept[veld]} onChange={(e) => setConcept((c) => ({ ...c, [veld]: e.target.value }))} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"/></label>)}
-        <label className="block text-xs font-semibold">{t("routes.professionals.ouderToegang.rol")}<select aria-label={t("routes.professionals.ouderToegang.rolAria")} value={concept.rol} onChange={(e) => setConcept((c) => ({ ...c, rol: e.target.value }))} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">{["Mediator", "Gezinscoach", "Andere professional"].map((r) => <option key={r} value={r}>{rolLabel(r)}</option>)}</select></label>
+        {[['naam', t("routes.professionals.ouderToegang.veld.naam")], ['email', t("routes.professionals.ouderToegang.veld.email")], ['organisatie', t("routes.professionals.ouderToegang.veld.organisatie")]].map(([veld, label]) => <label key={veld} className="block text-xs font-semibold">{label}<input aria-label={label} type={veld === 'email' ? 'email' : 'text'} required={veld !== 'organisatie'} value={concept[veld]} onChange={(e) => setConcept((c) => ({ ...c, [veld]: e.target.value }))} className="mt-1 w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm"/></label>)}
+        <label className="block text-xs font-semibold">{t("routes.professionals.ouderToegang.rol")}<select aria-label={t("routes.professionals.ouderToegang.rolAria")} value={concept.rol} onChange={(e) => setConcept((c) => ({ ...c, rol: e.target.value }))} className="mt-1 w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm">{["Mediator", "Gezinscoach", "Andere professional"].map((r) => <option key={r} value={r}>{rolLabel(r)}</option>)}</select></label>
         <p className="text-xs text-ink-soft">{t("routes.professionals.ouderToegang.voorbeeld")}</p>
         <div className="flex gap-2"><Button type="submit">{t("routes.professionals.ouderToegang.voorbereiden")}</Button><Button type="button" variant="ghost" onClick={() => setUitnodigen(false)}>{t("common.annuleren")}</Button></div>
       </form> : null}

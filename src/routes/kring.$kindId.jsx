@@ -15,6 +15,7 @@ import { useGezin } from "@/lib/gezin";
 import { AppIcon } from "@/components/AppIcon";
 import { isGeldigTelefoon, TelefoonInvoer, telLink, toonTelefoon } from "@/components/TelefoonInvoer";
 import { geenRechten, isActief, laadKring, maakPersoon, niveau, onderdelen, periodeTekst, persoonLabel, rechtenSamenvatting, rolNaam, rolOpties, toggleNoodVeld, trekIn, kandidatenVoor, contactKandidaten, noodcontacten, ophalenBron, regelStatus, trekToewijzingIn, useKring, useOphalen, wijzigPersoon, zetNoodkaart, zetWie, } from "@/lib/kring-store";
+import { VELD } from "@/lib/ui-stijl";
 /** Eigen kinderen (server-uuid's) uit start-store; de kring hoort altijd bij het eigen gezin. */
 const useKinderen = () => useStart().kinderen.filter((k) => !String(k.id).startsWith("tmp-"));
 const kindNaam = (kinderen, id) => kinderen.find((x) => x.id === id)?.naam ?? "";
@@ -41,8 +42,8 @@ export const Route = createFileRoute("/kring/$kindId")({
 const sectieKop = "px-1 text-[13px] font-black uppercase tracking-[0.08em] text-ink-soft";
 const KAART = "rounded-[22px] border border-white/85 bg-white/60";
 const knop = "h-12 rounded-full bg-brand px-5 text-[15px] font-black text-primary-foreground shadow-[0_6px_18px_rgba(63,87,71,.22)] active:scale-[.99] disabled:opacity-40 disabled:shadow-none";
-const veldK = "mt-1.5 w-full rounded-xl border border-[#E3DACD] bg-white/85 px-3.5 py-3 text-[15px] text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15";
-const keuze = (aan) => `min-h-12 rounded-2xl border px-3 py-2.5 text-sm font-bold transition active:scale-[.99] ${aan ? "border-2 border-brand bg-[#E9EFE3] text-[#2F4A3A] shadow-[0_2px_8px_rgba(63,87,71,.12)]" : "border-[#E3DACD] bg-white/75 text-ink hover:bg-white"}`;
+const veldK = `mt-1.5 w-full ${VELD}`;
+const keuze = (aan) => `min-h-12 rounded-full border px-3 py-2.5 text-sm font-bold transition active:scale-[.99] ${aan ? "border-2 border-brand bg-[#E9EFE3] text-[#2F4A3A] shadow-[0_2px_8px_rgba(63,87,71,.12)]" : "border-[#E3DACD] bg-white/75 text-ink hover:bg-white"}`;
 function Rij({ icoon, titel, sub, extra, onClick }) {
     const inhoud = (<>
       <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[#E9EFE3] text-[#3F5747]">{icoon}</span>
@@ -139,7 +140,7 @@ function KringPagina() {
                   {status && status.wieSoort === "caregiver" && status.bevestigd ? (<span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-brand"><Check className="size-3"/>{status.toewijzing.aangekomenOp ? t("routes.kringKindId.lijst.isEr") : t("routes.kringKindId.lijst.bevestigd")}</span>) : null}
                 </div>
                 <p className="text-xs text-ink-soft">{m.plek}</p>
-                <select disabled={laden} value={wie} onChange={(e) => e.target.value && zetWie(m, e.target.value, kindId)} aria-label={t("routes.kringKindId.lijst.wieRegelt", { titel: m.titel })} className="mt-2.5 h-11 w-full rounded-xl border border-[#E3DACD] bg-white/80 px-3 text-sm font-semibold outline-none focus:border-brand disabled:opacity-60">
+                <select disabled={laden} value={wie} onChange={(e) => e.target.value && zetWie(m, e.target.value, kindId)} aria-label={t("routes.kringKindId.lijst.wieRegelt", { titel: m.titel })} className="mt-2.5 h-11 w-full rounded-2xl border border-[#E3DACD] bg-card px-3 text-sm font-semibold outline-none focus:border-brand disabled:opacity-60">
                   <option value="" disabled>{laden ? t("common.laden") : t("lib.kringStore.nogNiemand")}</option>
                   {gezin.ik ? <option value={gezin.ik.id}>{t("common.jij")}</option> : null}
                   {anderOuder ? <option value={anderOuder.id}>{t("common.deAndereOuder")}</option> : null}
@@ -233,7 +234,7 @@ function Toevoegen({ kindId, klaar, beginRol }) {
           <div className="mt-4 grid grid-cols-2 gap-2">
             {[...rolOpties, ...(professionalsAan ? ["Professional"] : [])].map((r) => <button key={r} onClick={() => setRol(r)} className={keuze(rol === r)}>{rolNaam(r)}</button>)}
           </div>
-          {rol === "Anders" ? <input value={anders} onChange={(e) => setAnders(e.target.value)} placeholder={t("routes.kringKindId.toevoegen.andersPlaceholder")} className="mt-3 w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm"/> : null}
+          {rol === "Anders" ? <input value={anders} onChange={(e) => setAnders(e.target.value)} placeholder={t("routes.kringKindId.toevoegen.andersPlaceholder")} className="mt-3 w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2.5 text-sm"/> : null}
           <button disabled={!rolLabel} onClick={() => setStap(2)} className={`mt-6 w-full ${knop}`}>{t("routes.kringKindId.toevoegen.verder")}</button>
         </>) : null}
 
@@ -328,7 +329,7 @@ function snelPeriodes() {
 function PeriodeKeuze({ periode, onChange }) {
     const { t } = useTranslation();
     const opties = [{ t: "doorlopend", l: t("routes.kringKindId.periode.doorlopend") }, { t: "tot", l: t("routes.kringKindId.periode.tot") }, { t: "periode", l: t("routes.kringKindId.periode.periode") }];
-    const veld = "rounded-md border border-border bg-background px-3 py-2 text-sm";
+    const veld = `${VELD}`;
     const [vandaag, overEenWeek] = (() => { const s = snelPeriodes(); return [s[0].start, s[2].eind]; })();
     return (<div className="mt-4 space-y-2">
       {opties.map((o) => (<button key={o.t} onClick={() => onChange(o.t === "doorlopend" ? { type: "doorlopend" } : o.t === "tot" ? { type: "tot", eind: overEenWeek } : { type: "periode", start: vandaag, eind: overEenWeek })} className={`flex w-full items-center gap-3 text-left ${keuze(periode.type === o.t)}`}>

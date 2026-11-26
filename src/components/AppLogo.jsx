@@ -1,19 +1,21 @@
 import { useTranslation } from "react-i18next";
 /**
- * Merk: app-icoon + woordmerk "Ouderschap & Co" in de huisletter.
- * (Het oorspronkelijke logo-bestand stond alleen op de Lovable-assetserver en is lokaal niet beschikbaar.)
+ * Merk: het logo "Ouderschap & Co" (public/ouderschap-co-logo.png; voor het web verkleind als .webp).
  * `formaat`: "groot" voor start/vergrendeling, "klein" voor kopregels.
  */
 export function AppLogo({ className = "", slogan = false, formaat = "groot" }) {
     const { t } = useTranslation();
     const groot = formaat === "groot";
     return (<div className={`min-w-0 ${className}`}>
-      <div className={`flex items-center justify-center ${groot ? "gap-3" : "gap-2"}`} role="img" aria-label={t("common.appNaam")}>
-        <img src="/favicon.png" alt="" width={64} height={64} className={`${groot ? "size-14 rounded-[18px]" : "size-9 rounded-xl"} shrink-0 bg-[#E9EFE3] p-1 shadow-[0_4px_14px_rgba(63,87,71,.18)]`}/>
-        <span className={`font-display font-black leading-[1.05] tracking-tight text-[#2F4A3A] dark:text-ink ${groot ? "text-[26px]" : "text-[17px]"}`} aria-hidden="true">
-          Ouderschap<br/><span className="text-brand">&amp; Co</span>
-        </span>
-      </div>
+      <picture>
+        <source srcSet="/ouderschap-co-logo.webp" type="image/webp"/>
+        <img src="/ouderschap-co-logo.png" alt={t("common.appNaam")} width={1507} height={468} decoding="async" className={`mx-auto h-auto object-contain ${groot ? "w-full max-w-[260px]" : "w-auto max-h-8"} dark:brightness-[1.6] dark:saturate-[.8]`}/>
+      </picture>
       {slogan ? <p className={`${groot ? "mt-3" : "mt-1.5"} text-center text-xs text-ink-soft`}>{t("components.AppLogo.slogan")}</p> : null}
     </div>);
+}
+/** Alleen het app-icoon (public/favicon.png), voor kleine plekken zoals de kopregel op Home. */
+export function AppIcoonMerk({ className = "" }) {
+    const { t } = useTranslation();
+    return <img src="/favicon.png" alt={t("common.appNaam")} width={64} height={64} className={`size-11 shrink-0 object-contain ${className}`}/>;
 }

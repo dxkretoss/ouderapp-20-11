@@ -76,7 +76,7 @@ export function EmailGesprek({ onTerug }) {
                   <p className="mt-1 text-[11px] text-ink-soft">{t("components.EmailGesprek.herkend")}</p>
                   <div className="mt-2 flex gap-2">
                     <Link to={doel[s.soort]} className="inline-flex min-h-10 items-center rounded-full bg-brand px-4 text-xs font-semibold text-primary-foreground">{s.actie}</Link>
-                    <button onClick={() => setGenegeerd((g) => [...g, b.id + s.soort])} className="rounded-md border border-border px-3 py-1.5 text-xs">{t("components.EmailGesprek.nietNu")}</button>
+                    <button onClick={() => setGenegeerd((g) => [...g, b.id + s.soort])} className="rounded-full border border-border px-3 py-1.5 text-xs">{t("components.EmailGesprek.nietNu")}</button>
                   </div>
                 </div>))}
             </div>);
@@ -88,16 +88,16 @@ export function EmailGesprek({ onTerug }) {
             <p className="text-[11px] font-semibold text-ink-soft">{t("components.EmailGesprek.voorstelJijKiest")}</p>
             <p className="mt-1">{voorstel}</p>
             <div className="mt-2 flex gap-2">
-              <button onClick={() => { setTekst(voorstel); setVoorstel(null); }} className="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t("components.EmailGesprek.gebruiken")}</button>
-              <button onClick={() => setVoorstel(null)} className="rounded-md border border-border px-3 py-1.5 text-xs">{t("components.EmailGesprek.mijnTekstHouden")}</button>
+              <button onClick={() => { setTekst(voorstel); setVoorstel(null); }} className="rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t("components.EmailGesprek.gebruiken")}</button>
+              <button onClick={() => setVoorstel(null)} className="rounded-full border border-border px-3 py-1.5 text-xs">{t("components.EmailGesprek.mijnTekstHouden")}</button>
             </div>
           </div>) : null}
-        <textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={3} placeholder={t("components.EmailGesprek.placeholder")} className="w-full resize-none rounded-md bg-surface p-3 text-sm outline-none"/>
+        <textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={3} placeholder={t("components.EmailGesprek.placeholder")} className="w-full resize-none rounded-2xl border border-border bg-card p-3 text-sm outline-none"/>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {stijlen.map(([k, sl]) => (<button key={k} disabled={!tekst.trim() || bezig} onClick={() => herschrijf(k)} className="rounded-full border border-border px-2.5 py-1 text-[11px] disabled:opacity-40">{t(`components.EmailGesprek.stijl.${sl}`)}</button>))}
         </div>
         {fout ? <p className="mt-2 text-xs text-accent-warm">{fout}</p> : null}
-        <button disabled={!tekst.trim()} onClick={() => { verstuurEmail(tekst); setTekst(""); }} className="mt-3 w-full rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.EmailGesprek.versturen")}</button>
+        <button disabled={!tekst.trim()} onClick={() => { verstuurEmail(tekst); setTekst(""); }} className="mt-3 w-full min-h-12 rounded-full bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.EmailGesprek.versturen")}</button>
         <p className="mt-2 text-[11px] text-ink-soft">{t("components.EmailGesprek.uitleg")}</p>
       </div>
       <button onClick={demoAntwoord} className="mt-3 text-[11px] text-ink-soft underline">{t("components.EmailGesprek.demoAntwoord")}</button>

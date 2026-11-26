@@ -19,10 +19,11 @@ import { drukLabel, drukNiveau, drukRedenen } from "@/lib/communicatiedruk";
 import { AfstemmingTab } from "@/components/pro/AfstemmingTab";
 import { maakProPdf } from "@/lib/pro-pdf";
 import { actieStatus, actieStatusLabel, alleRechten, contactTypeLabel, contactTypes, dagenTot, datumKort, doelStatusLabel, dossierStatusLabel, evalueerVeilig, gegevensLabel, geefToegang, IK, legeGegevens, legGezamenlijkVast, logAfspraak, logDocument, MAX_PINS, mijnRechten, momentKort, ontpin, ontvangerLabel, persoonLabel, pin, pinLabel, proRollen, rechtLabel, rolLabel, stuurBericht, toggleActie, trekToegangIn, useProWerk, verstuurGezamenlijk, voegActieToe, voegDoelToe, voegJournaalToe, voegNotitieToe, voegVeiligToe, wijzigRechten, wijzigZicht, zetDoelStatus, zetGegevens, zichtLabel, } from "@/lib/pro-journaal-store";
+import { VELD } from "@/lib/ui-stijl";
 const kop = "pro-section-title";
-const veld = "w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-brand";
+const veld = `w-full ${VELD}`;
 const chip = (aan) => `rounded-full border px-3 py-1 text-xs ${aan ? "border-brand bg-brand-soft text-brand" : "border-border text-ink-soft"}`;
-const knop = "rounded-md border border-border px-3 py-1.5 text-xs font-semibold";
+const knop = "rounded-full border border-border px-3 py-1.5 text-xs font-semibold";
 const toggle = (l, x) => (l.includes(x) ? l.filter((y) => y !== x) : [...l, x]);
 /** Tab-id's zijn Nederlandse waarden (logica); dit is de weergave. */
 const tabLabel = (x) => i18n.t(`pro.DossierWerkruimte.tab.${x.toLowerCase()}`, { defaultValue: x });
@@ -127,7 +128,7 @@ export function DossierWerkruimte({ dossier, druk, afspraken, onTerug, onBeeindi
         {mag("export") ? <button onClick={() => setExportOpen(true)} className={`${knop} inline-flex items-center gap-1.5`}><Download className="size-3.5"/>{t("pro.DossierWerkruimte.dossierExporteren")}</button> : null}
       </div>
       {zoek.trim().length >= 2 ? (<div className="mt-2 rounded-md border border-border p-2">
-          {zoekResultaten.length ? zoekResultaten.map((r, i) => (<button key={i} onClick={() => { setTab(r.bron); setZoek(""); }} className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-muted/60">
+          {zoekResultaten.length ? zoekResultaten.map((r, i) => (<button key={i} onClick={() => { setTab(r.bron); setZoek(""); }} className="block w-full rounded-2xl px-2 py-1.5 text-left text-sm hover:bg-muted/60">
               <span className="text-[11px] font-bold uppercase tracking-wider text-brand">{tabLabel(r.bron)}</span><span className="block truncate">{r.tekst}</span>
             </button>)) : <p className="px-2 py-1.5 text-sm text-ink-soft">{t("pro.DossierWerkruimte.nietsGevonden")}</p>}
         </div>) : null}
@@ -224,7 +225,7 @@ export function DossierWerkruimte({ dossier, druk, afspraken, onTerug, onBeeindi
                 <Lijst leeg={t("pro.DossierWerkruimte.geenActies")}>{acties.map((a) => {
                     const st = actieStatus(a);
                     return (<div key={a.id} className="flex items-start gap-3 py-3">
-                      <button onClick={() => toggleActie(a.id)} aria-label={a.klaar ? t("pro.DossierWerkruimte.heropenen") : t("pro.DossierWerkruimte.afronden")} className={`relative mt-0.5 grid size-5 shrink-0 place-items-center before:absolute before:-inset-2.5 before:content-[''] rounded border text-[11px] ${a.klaar ? "border-brand bg-brand text-primary-foreground" : "border-border"}`}>{a.klaar ? <Vinkje className="size-3.5"/> : null}</button>
+                      <button onClick={() => toggleActie(a.id)} aria-label={a.klaar ? t("pro.DossierWerkruimte.heropenen") : t("pro.DossierWerkruimte.afronden")} className={`relative mt-0.5 grid size-5 shrink-0 place-items-center before:absolute before:-inset-2.5 before:content-[''] rounded-full border text-[11px] ${a.klaar ? "border-brand bg-brand text-primary-foreground" : "border-border"}`}>{a.klaar ? <Vinkje className="size-3.5"/> : null}</button>
                       <div className="min-w-0 flex-1">
                         <p className={`text-sm font-semibold ${a.klaar ? "text-ink-soft line-through" : ""}`}>{a.tekst}</p>
                         {a.omschrijving ? <p className="text-xs text-ink-soft">{a.omschrijving}</p> : null}
@@ -381,7 +382,7 @@ function CommunicatieExport({ open, onSluit, dossier }) {
             <label className="flex items-center gap-2"><input type="checkbox" checked={delen.gezamenlijk} onChange={(e) => setDelen({ ...delen, gezamenlijk: e.target.checked })} className="accent-[var(--brand)]"/>{t("pro.DossierWerkruimte.gezamenlijkN", { n: gez.length })}</label>
           </div>
           <p className="flex items-center gap-1.5 text-xs text-ink-soft"><Lock className="size-3.5"/>{t("pro.DossierWerkruimte.nooitNotities")}</p>
-          <button onClick={maak} disabled={!delen.berichten && !delen.gezamenlijk} className="w-full rounded-md bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("pro.DossierWerkruimte.pdfMaken")}</button>
+          <button onClick={maak} disabled={!delen.berichten && !delen.gezamenlijk} className="w-full min-h-12 rounded-full bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("pro.DossierWerkruimte.pdfMaken")}</button>
         </div>
       </SheetContent>
     </Sheet>);
@@ -431,7 +432,7 @@ function DossierExport({ open, onSluit, dossier, rechten, afspraken }) {
             </label>))}
         </div>
         {notitiesAan ? <p className="mt-3 rounded-md bg-accent-soft p-3 text-xs text-accent-foreground">{t("pro.DossierWerkruimte.letOpNotities")}</p> : <p className="mt-3 text-xs text-ink-soft">{t("pro.DossierWerkruimte.notitiesStandaardNiet")}</p>}
-        <button onClick={maak} disabled={!gekozen.length} className="mt-4 w-full rounded-md bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("pro.DossierWerkruimte.pdfMaken")}</button>
+        <button onClick={maak} disabled={!gekozen.length} className="mt-4 w-full min-h-12 rounded-full bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("pro.DossierWerkruimte.pdfMaken")}</button>
       </SheetContent>
     </Sheet>);
 }
@@ -498,7 +499,7 @@ function GegevensTab({ dossierId, gegevens, pins, doelen, actief }) {
               {k === "status" ? (<select disabled={!actief} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={`${veld} mt-1`}>{["Actief", "Gepauzeerd", "Afgerond"].map((s) => <option key={s} value={s}>{dossierStatusLabel(s)}</option>)}</select>) : (<input disabled={!actief} type={k === "start" ? "date" : "text"} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} className={`${veld} mt-1`}/>)}
             </label>))}
         </div>
-        {gewijzigd ? <button onClick={() => zetGegevens(dossierId, form)} className="mt-3 rounded-md bg-brand px-4 py-2 text-xs font-semibold text-primary-foreground">{t("common.opslaan")}</button> : null}
+        {gewijzigd ? <button onClick={() => zetGegevens(dossierId, form)} className="mt-3 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-primary-foreground">{t("common.opslaan")}</button> : null}
       </section>
 
       <section>
@@ -528,7 +529,7 @@ function GegevensTab({ dossierId, gegevens, pins, doelen, actief }) {
               <label className="text-xs font-semibold">{t("pro.DossierWerkruimte.startdatum")}<input type="date" value={np.start} onChange={(e) => setNp({ ...np, start: e.target.value })} className={`${veld} mt-1`}/></label>
             </div>
             <div><p className="text-xs font-semibold">{t("pro.DossierWerkruimte.toegangsrechten")}</p><div className="mt-1 flex flex-wrap gap-1.5">{alleRechten.map((r) => <button key={r} onClick={() => setNp({ ...np, rechten: toggle(np.rechten, r) })} className={chip(np.rechten.includes(r))}>{rechtLabel[r]}</button>)}</div></div>
-            <button disabled={!np.naam.trim()} onClick={() => { geefToegang(dossierId, np.naam.trim(), np.rol, np.rechten, np.start); setOverdragen(false); setNp({ ...np, naam: "", rechten: [] }); }} className="w-full rounded-md bg-brand py-2.5 text-xs font-semibold text-primary-foreground disabled:opacity-40">{t("pro.DossierWerkruimte.toegangGeven")}</button>
+            <button disabled={!np.naam.trim()} onClick={() => { geefToegang(dossierId, np.naam.trim(), np.rol, np.rechten, np.start); setOverdragen(false); setNp({ ...np, naam: "", rechten: [] }); }} className="w-full min-h-12 rounded-full bg-brand py-2.5 text-xs font-semibold text-primary-foreground disabled:opacity-40">{t("pro.DossierWerkruimte.toegangGeven")}</button>
           </div>) : null}
         <Lijst leeg="">{pros.map((p) => (<details key={p.id} className={`py-2.5 ${p.actief ? "" : "opacity-60"}`}>
             <summary className="flex cursor-pointer items-center justify-between text-sm"><span><b>{p.naam}{p.naam === IK ? ` ${t("pro.DossierWerkruimte.jij")}` : ""}</b> · {rolLabel(p.rol)}</span><span className="text-[11px] text-ink-soft">{p.actief ? t("pro.DossierWerkruimte.sinds", { datum: datumKort(p.start) }) : t("pro.DossierWerkruimte.toegangBeeindigd")}</span></summary>
@@ -646,7 +647,7 @@ function ToevoegSheet({ modus, dossier, onSluit }) {
           {modus === "notitie" || modus === "overig" ? <p className="flex items-center gap-1.5 text-xs text-ink-soft"><Lock className="size-3.5"/>{t("pro.DossierWerkruimte.toevoeg.notitieUitleg")}</p> : null}
           {modus === "actie" ? <p className="flex items-center gap-1.5 text-xs text-ink-soft"><MessageSquareText className="size-3.5"/>{t("pro.DossierWerkruimte.toevoeg.actieUitleg")}</p> : null}
 
-          <button disabled={!kan} onClick={opslaan} className="w-full rounded-md bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">
+          <button disabled={!kan} onClick={opslaan} className="w-full min-h-12 rounded-full bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">
             {modus === "bericht" ? (aan ? t("pro.DossierWerkruimte.toevoeg.versturenAan", { aan: ontvangerLabel(aan).toLowerCase() }) : t("common.versturen")) : modus === "journaal" && zicht ? t("pro.DossierWerkruimte.toevoeg.opslaanZicht", { zicht: zicht === "ouders" ? t("pro.DossierWerkruimte.toevoeg.zichtKort.ouders") : zicht === "professionals" ? t("pro.DossierWerkruimte.toevoeg.zichtKort.professionals") : t("pro.DossierWerkruimte.toevoeg.zichtKort.aangepast") }) : t("common.opslaan")}
           </button>
         </div>

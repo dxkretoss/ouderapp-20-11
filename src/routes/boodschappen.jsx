@@ -19,6 +19,7 @@ import { useOnthouden } from "@/lib/onthouden";
 import { useGezin } from "@/lib/gezin";
 import { DeelLabel, DelenKeuze, deelCheck, VerwijderDialoog } from "@/components/DelenKeuze";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { VELD } from "@/lib/ui-stijl";
 export const Route = createFileRoute("/boodschappen")({
     head: () => ({
         meta: [
@@ -33,7 +34,7 @@ export const Route = createFileRoute("/boodschappen")({
     validateSearch: z.object({ item: z.string().max(120).optional(), kind: z.string().max(40).optional() }),
     component: Boodschappen,
 });
-const veld = "rounded-md border border-border bg-background px-3 py-2 text-sm";
+const veld = `${VELD}`;
 /**
  * Nog nodig van het eigen gezin: één gedeelde lijst (manage-still-needed) voor beide ouders.
  * Afvinken markeert alleen "gekocht"; kosten en budgetten ontstaan alleen via de bestaande flows bij Uitgaven.
@@ -167,7 +168,7 @@ function Boodschappen() {
           </button>))}
       </div> : null}
       <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); snelToevoegen(); }}>
-        <input value={snel} onChange={(e) => setSnel(e.target.value)} placeholder={t("routes.boodschappen.watNodig")} aria-label={t("routes.boodschappen.watNodig")} className="h-11 min-w-0 flex-1 rounded-full border border-[#E6DED2] bg-white px-4 text-[15px] outline-none"/>
+        <input value={snel} onChange={(e) => setSnel(e.target.value)} placeholder={t("routes.boodschappen.watNodig")} aria-label={t("routes.boodschappen.watNodig")} className="h-11 min-w-0 flex-1 rounded-2xl border border-[#E6DED2] bg-card px-4 text-[15px] outline-none"/>
         <button type="submit" disabled={!snel.trim() || !gekozenKind} className="h-11 shrink-0 rounded-full bg-brand px-4 text-sm font-black text-primary-foreground disabled:opacity-40">{t("common.toevoegen")}</button>
       </form>
       {snel.trim() && kindOpties.length > 1 ? (<div className="mt-2 flex flex-wrap items-center gap-2 px-1">

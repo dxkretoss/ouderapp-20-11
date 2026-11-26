@@ -61,7 +61,7 @@ function Solo() {
         <p className="text-sm leading-relaxed">
           {t("routes.solo.intro")}
         </p>
-        <button onClick={() => void start.zetGebruik(aan ? "samen" : "zelf")} role="switch" aria-checked={aan} className="mt-4 flex min-h-12 w-full items-center justify-between gap-3 rounded-md bg-surface px-4 py-3 text-left">
+        <button onClick={() => void start.zetGebruik(aan ? "samen" : "zelf")} role="switch" aria-checked={aan} className="mt-4 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-3 text-left">
           <span className="min-w-0 text-sm font-semibold">{aan ? t("routes.solo.modusAan") : t("routes.solo.modusUit")}</span>
           <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${aan ? "bg-brand" : "bg-border"}`}>
             <span className={`absolute top-0.5 size-5 rounded-full bg-card shadow transition-all ${aan ? "left-5" : "left-0.5"}`}/>
@@ -84,7 +84,7 @@ function Solo() {
         {t("routes.solo.logboekUitleg")}
       </p>
       <Card className="mt-3">
-        <textarea value={nieuw} onChange={(e) => setNieuw(e.target.value)} placeholder={t("routes.solo.placeholder")} rows={3} maxLength={4000} className="w-full resize-none rounded-xl bg-surface p-3 text-sm outline-none"/>
+        <textarea value={nieuw} onChange={(e) => setNieuw(e.target.value)} placeholder={t("routes.solo.placeholder")} rows={3} maxLength={4000} className="w-full resize-none rounded-2xl border border-border bg-card p-3 text-sm outline-none"/>
         <button disabled={!nieuw.trim() || bezig} onClick={() => void voegToe()} className="mt-2 min-h-11 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground disabled:opacity-40">
           {t("common.toevoegen")}
         </button>

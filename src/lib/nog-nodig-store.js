@@ -4,6 +4,7 @@ import { authState, opAuth } from "@/lib/auth-store";
 import { meldFout } from "@/lib/feedback";
 import { startState, useStart } from "@/lib/start-store";
 import { kindTekst } from "@/lib/kosten-store";
+import { bijTerugkeer } from "@/lib/terugkeer";
 /**
  * "Nog nodig" van het eigen gezin (manage-still-needed). Gedeelde lijst van beide ouders; een item
  * houdt alleen een optionele budgetId bij en wordt nooit vanzelf een uitgave of budget.
@@ -32,8 +33,8 @@ function koppel() {
             meld();
         }
     });
-    window.addEventListener("focus", () => { if (geladenVoor && Date.now() - laatste > 10000)
-        laadNogNodig(); });
+    bijTerugkeer("nog-nodig", () => { if (geladenVoor && Date.now() - laatste > 10000)
+        return laadNogNodig(); });
 }
 export async function laadNogNodig() {
     const a = authState();

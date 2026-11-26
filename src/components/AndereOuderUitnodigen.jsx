@@ -7,10 +7,11 @@ import { foutTekst } from "@/lib/api";
 import { bevestig, meldFout } from "@/lib/feedback";
 import { ProfielBeeld } from "@/components/ProfielBeeld";
 import { Vinkje } from "@/components/Tekens";
+import { VELD } from "@/lib/ui-stijl";
 const N = "components.AndereOuderUitnodigen.";
 const OPEN = ["sent", "pending", "viewed"];
-const veld = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-brand";
-const knop = "flex w-full items-center justify-center gap-2 rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40";
+const veld = `mt-1 w-full font-normal ${VELD}`;
+const knop = "flex w-full items-center justify-center gap-2 min-h-12 rounded-full bg-brand py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40";
 /**
  * De andere ouder uitnodigen (send-invitation) en de stand tonen: gekoppelde ouder (list-connected)
  * en verstuurde uitnodigingen (list-sent), met intrekken. Alles via start-store, dat de server spiegelt.

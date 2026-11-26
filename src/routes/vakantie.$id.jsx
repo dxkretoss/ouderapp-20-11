@@ -54,7 +54,7 @@ function VakantiePagina() {
           <p className="mt-1 text-sm">{status}</p>
           {v.status !== "afgesproken" && <p className="mt-1 text-xs text-ink-soft">{t("routes.vakantieId.totAkkoord")}</p>}
           {v.status === "open" && (<div className="mt-3 flex gap-2">
-              {["Sanne", "Joris", "Samen"].map((o) => (<button key={o} onClick={() => stelVerdelingVoor(v.id, o)} className="flex-1 rounded-md bg-surface py-2 text-xs font-medium">{o === "Sanne" ? t("routes.vakantieId.bijJou") : o === "Joris" ? t("routes.vakantieId.bijAnder") : t("routes.vakantieId.samen")}</button>))}
+              {["Sanne", "Joris", "Samen"].map((o) => (<button key={o} onClick={() => stelVerdelingVoor(v.id, o)} className="flex-1 rounded-full bg-surface py-2 text-xs font-medium">{o === "Sanne" ? t("routes.vakantieId.bijJou") : o === "Joris" ? t("routes.vakantieId.bijAnder") : t("routes.vakantieId.samen")}</button>))}
             </div>)}
           {melding ? <p role="status" className="mt-2 text-sm font-semibold text-brand">{melding}</p> : null}
           {v.status === "voorstel" && v.van && v.van !== "Sanne" && (<div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold">

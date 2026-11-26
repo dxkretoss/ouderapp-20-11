@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { CalendarDays, Clock, Lock, MapPin, X } from "lucide-react";
+import { Lock, MapPin, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AanwezigheidFormulier } from "@/components/AanwezigheidAfstemmen";
 import { HulpKnop } from "@/components/HulpVragen";
@@ -13,15 +13,17 @@ import { maakAfspraak, useAgenda } from "@/lib/agenda-store";
 import { startAfstemming } from "@/lib/aanwezigheid-store";
 import { voorkomens } from "@/lib/agenda-datum";
 import { useOverdracht } from "@/lib/overdracht-store";
+import { optieLabel } from "@/components/SlimmeMeeLijst";
 import { foutTekst } from "@/lib/api";
 import { bevestig } from "@/lib/feedback";
+import { chip as chipStijl, VELD } from "@/lib/ui-stijl";
 const F = "routes.agenda.form.";
 const FREQ = ["geen", "wekelijks", "tweewekelijks", "maandelijks", "aangepast"];
 const HERINNERING = ["geen", "uur", "dag", "twee"];
 const ALLE = "__alle";
 const vandaagIso = () => new Date().toLocaleDateString("sv-SE");
 function Chip({ actief, onClick, children }) {
-    return (<button type="button" onClick={onClick} aria-pressed={actief} className={`min-h-9 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${actief ? "border-brand bg-brand text-primary-foreground" : "border-border bg-card"}`}>{children}</button>);
+    return (<button type="button" onClick={onClick} aria-pressed={actief} className={chipStijl(actief)}>{children}</button>);
 }
 function Schakelaar({ aan, onWissel, label }) {
     return (<label className="inline-flex min-h-10 cursor-pointer items-center gap-2.5 text-sm font-semibold">
@@ -125,7 +127,7 @@ function Formulier({ onSluit, start, t }) {
             setBezig(false);
         }
     };
-    const veld = "w-full rounded-md border border-border bg-card px-3 py-2.5 text-sm outline-none";
+    const veld = `w-full ${VELD}`;
     const label = "mb-1 block text-xs font-semibold text-ink-soft";
     return (<div className="app-modal-achter z-40" onClick={sluit}>
       <div className="app-modal" role="dialog" aria-modal="true" aria-labelledby="afspraak-form-titel" onClick={(e) => e.stopPropagation()}>
@@ -144,7 +146,7 @@ function Formulier({ onSluit, start, t }) {
 
           <div className="grid grid-cols-[1fr_auto] items-end gap-3">
             <label className="block"><span className={label}>{meerdereDagen ? t(F + "startdatum") : t(F + "datum")}</span>
-              <span className="relative block"><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} className={veld}/><CalendarDays aria-hidden className="pointer-events-none absolute right-3 top-1/2 hidden size-4 -translate-y-1/2 text-ink-soft sm:block"/></span></label>
+              <span className="relative block"><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} className={veld}/></span></label>
             <Schakelaar aan={meerdereDagen} onWissel={(v) => { setMeerdereDagen(v); if (v && !einddatum) setEinddatum(datum); }} label={t(F + "meerdereDagen")}/>
           </div>
           {meerdereDagen ? (<label className="block"><span className={label}>{t(F + "einddatum")}</span>
@@ -153,9 +155,9 @@ function Formulier({ onSluit, start, t }) {
 
           {!heleDag ? (<div className="grid grid-cols-2 gap-2">
               <label className="block"><span className={label}>{t(F + "starttijd")}</span>
-                <span className="relative block"><input type="time" value={tijd} onChange={(e) => setTijd(e.target.value)} className={veld}/><Clock aria-hidden className="pointer-events-none absolute right-3 top-1/2 hidden size-4 -translate-y-1/2 text-ink-soft sm:block"/></span></label>
+                <span className="relative block"><input type="time" value={tijd} onChange={(e) => setTijd(e.target.value)} className={veld}/></span></label>
               <label className="block"><span className={label}>{t(F + "eindtijdKort")}</span>
-                <span className="relative block"><input type="time" value={eindtijd} onChange={(e) => setEindtijd(e.target.value)} aria-invalid={!!tijdFout} className={veld}/><Clock aria-hidden className="pointer-events-none absolute right-3 top-1/2 hidden size-4 -translate-y-1/2 text-ink-soft sm:block"/></span></label>
+                <span className="relative block"><input type="time" value={eindtijd} onChange={(e) => setEindtijd(e.target.value)} aria-invalid={!!tijdFout} className={veld}/></span></label>
               {tijdFout ? <span role="alert" className="col-span-2 text-xs text-destructive">{t(F + "tijdFout")}</span> : null}
             </div>) : null}
           <Schakelaar aan={heleDag} onWissel={setHeleDag} label={t(F + "heleDag")}/>
@@ -167,8 +169,8 @@ function Formulier({ onSluit, start, t }) {
             </div>
             {herhaling.freq === "aangepast" ? (<div className="mt-2 flex items-center gap-2 text-sm">
                 <span className="text-ink-soft">{t(F + "elke")}</span>
-                <input type="number" min={1} max={12} value={herhaling.interval} onChange={(e) => setHerhaling({ ...herhaling, interval: Math.max(1, Number(e.target.value) || 1) })} className="w-16 rounded-md border border-border bg-card px-2 py-1.5"/>
-                <select value={herhaling.eenheid} onChange={(e) => setHerhaling({ ...herhaling, eenheid: e.target.value })} className="rounded-md border border-border bg-card px-2 py-1.5">
+                <input type="number" min={1} max={12} value={herhaling.interval} onChange={(e) => setHerhaling({ ...herhaling, interval: Math.max(1, Number(e.target.value) || 1) })} className="w-16 min-h-11 rounded-2xl border border-border bg-card px-2 py-1.5"/>
+                <select value={herhaling.eenheid} onChange={(e) => setHerhaling({ ...herhaling, eenheid: e.target.value })} className="min-h-11 rounded-2xl border border-border bg-card px-2 py-1.5">
                   <option value="weken">{t(F + "weken")}</option><option value="maanden">{t(F + "maanden")}</option>
                 </select>
               </div>) : null}
@@ -194,12 +196,12 @@ function Formulier({ onSluit, start, t }) {
             <textarea value={toelichting} onChange={(e) => setToelichting(e.target.value)} rows={2} placeholder={t(F + "toelichtingHint")} className={veld}/></label>
           {kindIds.length ? (<div>
               <span className={label}>{t(F + "neemMee")}</span>
-              {neemMee.length ? <div className="mb-2 flex flex-wrap gap-2">{neemMee.map((x) => <button key={x} type="button" onClick={() => setNeemMee(neemMee.filter((y) => y !== x))} aria-label={t(F + "neemMeeWeg", { item: x })} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-brand bg-brand-soft px-3 py-1.5 text-xs font-semibold">{x}<X aria-hidden className="size-3.5"/></button>)}</div> : null}
+              {neemMee.length ? <div className="mb-2 flex flex-wrap gap-2">{neemMee.map((x) => <button key={x} type="button" onClick={() => setNeemMee(neemMee.filter((y) => y !== x))} aria-label={t(F + "neemMeeWeg", { item: optieLabel(t, x) })} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-brand bg-brand-soft px-3 py-1.5 text-xs font-semibold">{optieLabel(t, x)}<X aria-hidden className="size-3.5"/></button>)}</div> : null}
               <div className="flex gap-2">
                 <input value={meeTekst} onChange={(e) => setMeeTekst(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); voegMeeToe(meeTekst); } }} placeholder={t(F + "neemMeeHint")} className={veld}/>
                 <Button type="button" variant="outline" onClick={() => voegMeeToe(meeTekst)} disabled={!meeTekst.trim()}>{t("common.toevoegen")}</Button>
               </div>
-              {meeOpties.length ? <div className="mt-2 flex flex-wrap gap-2">{meeOpties.map((o) => <Chip key={o} actief={false} onClick={() => voegMeeToe(o)}>+ {o}</Chip>)}</div> : null}
+              {meeOpties.length ? <div className="mt-2 flex flex-wrap gap-2">{meeOpties.map((o) => <Chip key={o} actief={false} onClick={() => voegMeeToe(o)}>+ {optieLabel(t, o)}</Chip>)}</div> : null}
             </div>) : null}
           <label className="block"><span className={label}>{t(F + "herinnering")}</span>
             <select value={herinnering} onChange={(e) => setHerinnering(e.target.value)} className={veld}>

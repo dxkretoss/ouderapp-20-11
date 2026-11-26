@@ -18,6 +18,7 @@ import { IK, naam, nodig, ONDERWERPEN, onderwerpLabel, reageerOpVoorstel, stelNi
 import { useGezin } from "@/lib/gezin";
 import { useStart } from "@/lib/start-store";
 import { Chevron, MetChevron } from "@/components/Tekens";
+import { chip as chipStijl, VELD } from "@/lib/ui-stijl";
 export const Route = createFileRoute("/afspraken")({
     head: () => ({
         meta: [
@@ -148,7 +149,7 @@ function Detail({ a, onVoorstel, onReageer, onIntrekken }) {
     const [alt, setAlt] = useState(null);
     const [meer, setMeer] = useState(false);
     const [historie, setHistorie] = useState(false);
-    const veld = "w-full rounded-md border border-border bg-surface px-3 py-2 text-sm";
+    const veld = `w-full ${VELD}`;
     const v = a.voorstel;
     const kanAanpassen = a.status === "Actief" && !v && !verouderd;
     if (verouderd) {
@@ -237,8 +238,8 @@ function NieuweAfspraak({ voorinvul = "", onVerstuur, onAnnuleer }) {
     const gemengd = !kindIds.length ? false : g.gemengd(kindIds);
     const kiesOuder = !kindIds.length && g.coOuders.length > 1;
     const geldig = !!titel.trim() && !!tekst.trim() && !gemengd && (!kiesOuder || !!ander) && !bezig;
-    const veld = "w-full rounded-md border border-border bg-surface px-3 py-2 text-sm";
-    const chip = (aan) => `min-h-9 rounded-full border px-3 py-1.5 text-xs font-semibold ${aan ? "border-brand bg-brand text-primary-foreground" : "border-border bg-card"}`;
+    const veld = `w-full ${VELD}`;
+    const chip = chipStijl;
     const verstuur = async () => {
         if (!geldig)
             return;

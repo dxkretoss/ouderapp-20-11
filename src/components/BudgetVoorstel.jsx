@@ -19,6 +19,7 @@ import { nieuwBudget, reageer, wijzigBudgetVoorstel, stuurBudgetHerinnering, tre
 import { useDeelOpties } from "@/lib/kosten-delen";
 import { magHerinnering } from "@/lib/herinneringen";
 import { useVoorkeuren } from "@/lib/voorkeuren-store";
+import { chip as chipStijl, VELD } from "@/lib/ui-stijl";
 const euro = (n) => n.toLocaleString(taalLocale(), { style: "currency", currency: "EUR" });
 const statusLabel = (s) => i18n.t(`components.BudgetVoorstel.status.${s}`);
 /** Stappen bewaren de Nederlandse bronwaarde (logica en historie); alleen de weergave wordt vertaald. */
@@ -26,8 +27,8 @@ const STAP_SLEUTELS = { "Voorstel": "voorstel", "Akkoord": "akkoord", "Niet akko
 const stapLabel = (wat) => (STAP_SLEUTELS[wat] ? i18n.t(`components.BudgetVoorstel.stap.${STAP_SLEUTELS[wat]}`) : wat);
 /** "Meer tijd gevraagd" leest de laatste stap; het voorstel blijft gewoon open. */
 const meerTijd = (v) => v.stappen.at(-1)?.wat.startsWith("Meer tijd gevraagd") === true;
-const veld = "w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-brand";
-const chip = (a) => `min-h-9 rounded-full border px-3.5 text-xs font-semibold ${a ? "border-brand bg-brand-soft text-brand" : "border-border text-ink-soft"}`;
+const veld = `w-full ${VELD}`;
+const chip = chipStijl;
 /** filter "actie": alleen voorstellen die op jou wachten (voor "Nog te regelen"); "rest": de overige, met kop. Zelfde brondata. */
 export function BudgetVoorstel({ startOpen = false, voorinvul, voorKind, doelId, bronItem, onUitgave, filter = "alles", zonderKop = false, onKlaar }) {
     const { t } = useTranslation();

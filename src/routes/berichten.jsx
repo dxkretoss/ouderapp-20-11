@@ -37,6 +37,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { taalLocale } from "@/i18n";
 import { InhoudLaden, LaadFout } from "@/components/Laden";
 import i18n from "@/i18n";
+import { VELD } from "@/lib/ui-stijl";
 export const Route = createFileRoute("/berichten")({
     validateSearch: z.object({ concept: z.string().optional(), gesprek: z.string().optional() }),
     head: () => ({
@@ -124,7 +125,7 @@ function BerichtenPagina() {
         {verbonden ? <NieuwBericht open={berichtOpen} voorinvul={context.concept} gesprekken={lijst.map((x) => x.g)} onSluit={() => setBerichtOpen(false)} onStart={(gid, tekst) => { setBerichtOpen(false); setConcept(tekst); setActief(gid); }}/> : null}
         <NuAfstemmenStart open={naOpen} onSluit={() => setNaOpen(false)}/>
         <RustSheet open={rustOpen} onSluit={() => setRustOpen(false)}/>
-        {zoekOpen ? (<input autoFocus value={zoek} onChange={(e) => setZoek(e.target.value)} placeholder={t("routes.berichten.zoekPlaceholder")} aria-label={t("routes.berichten.zoekenLabel")} className="mt-3 w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm"/>) : null}
+        {zoekOpen ? (<input autoFocus value={zoek} onChange={(e) => setZoek(e.target.value)} placeholder={t("routes.berichten.zoekPlaceholder")} aria-label={t("routes.berichten.zoekenLabel")} className="mt-3 w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2.5 text-sm"/>) : null}
         {pauzeLoopt(vk) ? (<div className="mt-3 flex items-center gap-3 rounded-[18px] border border-white/85 bg-white/60 px-4 py-3" role="status">
             <BellOff className="size-[18px] shrink-0 text-[#3F5747]" strokeWidth={2} aria-hidden/>
             <span className="min-w-0 flex-1 text-[13px] text-ink-soft">{t("routes.berichten.pauzeBanner.tekst", { tijd: new Date(vk.berichtenPauzeTot).toLocaleString(taalLocale(), { weekday: "long", hour: "2-digit", minute: "2-digit" }) })}</span>
@@ -201,7 +202,7 @@ function BerichtenPagina() {
             {t("routes.berichten.onderwerpVoorbeelden")}
           </p>
           {nieuwOpen ? (<form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); void start(); }}>
-              <input autoFocus value={naam} onChange={(e) => setNaam(e.target.value)} maxLength={120} placeholder={t("routes.berichten.naamOnderwerp")} className="min-w-0 flex-1 rounded-md border bg-background px-3 py-2.5 text-sm"/>
+              <input autoFocus value={naam} onChange={(e) => setNaam(e.target.value)} maxLength={120} placeholder={t("routes.berichten.naamOnderwerp")} className="min-w-0 flex-1 min-h-11 rounded-2xl border bg-card px-3 py-2.5 text-sm"/>
               <button type="submit" disabled={!naam.trim()} className="min-h-11 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">
                 {t("routes.berichten.startKnop")}
               </button>
@@ -250,7 +251,7 @@ function NieuwBericht({ open, voorinvul, gesprekken, onSluit, onStart }) {
         setNieuwNaam("");
         setOnderwerp("nieuw");
     };
-    const veld = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm";
+    const veld = `mt-1 w-full ${VELD}`;
     return (<Sheet open={open} onOpenChange={(o) => !o && onSluit()}>
       <SheetContent side="bottom" className="left-1/2 max-h-[90dvh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-2xl bg-background px-5 pb-8">
         <SheetHeader className="text-left">
@@ -710,7 +711,7 @@ function Gesprek({ id, concept = "", onTerug }) {
               <span className="min-w-0"><span className="block text-[15.5px] font-black">{vraagLabel(akkoordVoor.tekst, suggestieNamen) ?? t("routes.berichten.akkoord.afspraakUitBericht")}</span><span className="block text-xs text-ink-soft">“{akkoordVoor.tekst}”</span></span>
             </div>
             <p className="mt-3 text-[14.5px]">{t("routes.berichten.akkoord.vroegDit", { naam: ander })}</p>
-            <textarea value={akkoordTekst} onChange={(e) => setAkkoordTekst(e.target.value)} rows={2} maxLength={4000} aria-label={t("routes.berichten.akkoord.berichtErbij")} placeholder={t("routes.berichten.akkoord.berichtErbijPlaceholder")} className="mt-2 w-full resize-none rounded-[16px] border border-[#E6DED2] bg-white px-3.5 py-2.5 text-[15px] outline-none"/>
+            <textarea value={akkoordTekst} onChange={(e) => setAkkoordTekst(e.target.value)} rows={2} maxLength={4000} aria-label={t("routes.berichten.akkoord.berichtErbij")} placeholder={t("routes.berichten.akkoord.berichtErbijPlaceholder")} className="mt-2 w-full resize-none rounded-2xl border border-[#E6DED2] bg-card px-3.5 py-2.5 text-[15px] outline-none"/>
             <button disabled={akkoordBezig || !gesprek.kanVersturen} onClick={() => void geefAkkoordOp(akkoordVoor)} className="mt-3 h-12 w-full rounded-full bg-brand text-[15px] font-black text-primary-foreground disabled:opacity-50">{akkoordBezig ? t("routes.berichten.akkoord.bezig") : t("routes.berichten.akkoord.gevenEnAgenda")}</button>
             <button onClick={() => { setAkkoordVoor(null); setAkkoordTekst(""); }} className="mt-2 h-12 w-full rounded-full border border-[#E6DED2] bg-white text-[15px] font-black text-[#2F4A3A]">{t("routes.berichten.akkoord.eerstBespreken")}</button>
             <p className="mt-2 text-center text-xs text-ink-soft">{t("routes.berichten.akkoord.zietInGesprek", { naam: ander })}</p>
@@ -778,7 +779,7 @@ function Gesprek({ id, concept = "", onTerug }) {
             </div>) : voorstel.tekst.trim() ? (<>
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-wider text-brand">{voorstel.soort === "antwoord" ? (voorstel.alGereageerd ? t("routes.berichten.voorstel.voorAanvulling") : t("routes.berichten.voorstel.voorAntwoord")) : t("routes.berichten.voorstel.voorgesteld")}</span>
-                <textarea value={voorstel.tekst} onChange={(e) => setVoorstel({ ...voorstel, tekst: e.target.value })} rows={4} className="mt-1 w-full resize-none rounded-md border border-border bg-card p-2.5 text-sm text-ink outline-none"/>
+                <textarea value={voorstel.tekst} onChange={(e) => setVoorstel({ ...voorstel, tekst: e.target.value })} rows={4} className="mt-1 w-full resize-none rounded-2xl border border-border bg-card p-2.5 text-sm text-ink outline-none"/>
               </label>
               {voorstel.veranderingen?.length ? (<div>
                   <p className="text-xs font-semibold text-ink-soft">{t("routes.berichten.voorstel.veranderd")}</p>
@@ -890,19 +891,19 @@ function GesprekOpties({ id, onderwerp, onSamenvatten }) {
         <MoreHorizontal className="size-5" strokeWidth={1.8}/>
       </button>
       {open ? (<div className="absolute right-0 top-11 z-10 w-60 rounded-xl border border-border bg-background p-1 text-sm">
-          {onSamenvatten ? <button onClick={() => { setOpen(false); onSamenvatten(); }} className="flex w-full items-center gap-2 rounded px-3 py-2.5 text-left hover:bg-brand-soft"><AppIcon functie="co" maat="sm"/>{t("routes.berichten.opties.samenvatten")}</button> : null}
+          {onSamenvatten ? <button onClick={() => { setOpen(false); onSamenvatten(); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2.5 text-left hover:bg-brand-soft"><AppIcon functie="co" maat="sm"/>{t("routes.berichten.opties.samenvatten")}</button> : null}
           <button onClick={() => { if (!wisselVastgezet(id))
-            bevestig(t("routes.berichten.opties.maxDrie"), { uitleg: t("routes.berichten.opties.maakLos") }); setOpen(false); }} className="flex w-full items-center gap-2 rounded px-3 py-2.5 text-left hover:bg-brand-soft">
+            bevestig(t("routes.berichten.opties.maxDrie"), { uitleg: t("routes.berichten.opties.maakLos") }); setOpen(false); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2.5 text-left hover:bg-brand-soft">
             {vast ? <PinOff className="size-4" strokeWidth={1.8}/> : <Pin className="size-4" strokeWidth={1.8}/>}{vast ? t("routes.berichten.opties.losmaken") : t("routes.berichten.opties.vastzetten")}
           </button>
-          {stil ? (<button onClick={() => { dempGesprek(id, null); setOpen(false); }} className="flex w-full items-center gap-2 rounded px-3 py-2.5 text-left hover:bg-brand-soft"><Bell className="size-4" strokeWidth={1.8}/>{t("routes.berichten.opties.weerAan")}</button>) : [[8, t("routes.berichten.opties.achtUur")], [24, t("routes.berichten.opties.dag")], [168, t("routes.berichten.opties.week")]].map(([u, l]) => (<button key={u} onClick={() => { dempGesprek(id, u); setOpen(false); bevestig(t("routes.berichten.opties.gedemptVoor", { duur: l }), { uitleg: t("routes.berichten.opties.spoed") }); }} className="flex w-full items-center gap-2 rounded px-3 py-2.5 text-left hover:bg-brand-soft"><BellOff className="size-4" strokeWidth={1.8}/>{t("routes.berichten.opties.dempen", { duur: l })}</button>))}
+          {stil ? (<button onClick={() => { dempGesprek(id, null); setOpen(false); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2.5 text-left hover:bg-brand-soft"><Bell className="size-4" strokeWidth={1.8}/>{t("routes.berichten.opties.weerAan")}</button>) : [[8, t("routes.berichten.opties.achtUur")], [24, t("routes.berichten.opties.dag")], [168, t("routes.berichten.opties.week")]].map(([u, l]) => (<button key={u} onClick={() => { dempGesprek(id, u); setOpen(false); bevestig(t("routes.berichten.opties.gedemptVoor", { duur: l }), { uitleg: t("routes.berichten.opties.spoed") }); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2.5 text-left hover:bg-brand-soft"><BellOff className="size-4" strokeWidth={1.8}/>{t("routes.berichten.opties.dempen", { duur: l })}</button>))}
         </div>) : null}
     </div>);
 }
 function RustSheet({ open, onSluit }) {
     const { t } = useTranslation();
     const vk = useVoorkeuren();
-    const veld = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm";
+    const veld = `mt-1 w-full ${VELD}`;
     return (<Sheet open={open} onOpenChange={(o) => !o && onSluit()}>
       <SheetContent side="bottom" className="left-1/2 w-full max-w-md -translate-x-1/2 rounded-t-2xl bg-background px-5 pb-8">
         <SheetHeader className="text-left">

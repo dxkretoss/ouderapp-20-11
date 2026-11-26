@@ -8,6 +8,7 @@ import { useAgenda } from "@/lib/agenda-store";
 import { iso, plusDagen, voorkomens, dt } from "@/lib/agenda-datum";
 import { bewaarConcept, conceptVoor, deelOverdracht, gedeeldVoor, legeInhoud, paarVan, useOverdracht, wijzigOverdracht } from "@/lib/overdracht-store";
 import { MetVinkje } from "@/components/Tekens";
+import { VELD } from "@/lib/ui-stijl";
 /** Overdracht (stijl A6): wat de andere ouder moet weten vóór de wissel. Alles optioneel, niets vooraf ingevuld. */
 const GEZONDHEID = ["Alles goed", "Medicijn", "Ziek geweest", "Arts of tandarts"];
 const SLAAP = ["Goed geslapen", "Onrustig", "Weinig gegeten"];
@@ -31,7 +32,7 @@ function Blok({ titel, icoon, tegel, kleur, open, wissel, children, extra }) {
       {open ? <div className="mt-2.5">{children}</div> : null}
     </section>);
 }
-const veld = "w-full rounded-[14px] border border-[#E6DED2] bg-white px-3 py-2 text-[15px] outline-none";
+const veld = `w-full ${VELD}`;
 export function OverdrachtFormulier({ momentId, aan, wanneer, viaSchool = false, kindIds }) {
     const { t, i18n: taal } = useTranslation();
     const st = useOverdracht();
@@ -124,7 +125,7 @@ function Notitie({ momentId, aan, wanneer, viaSchool, kinderen }) {
         <div className="flex flex-wrap gap-2">{GEZONDHEID.map((g) => <Chip key={g} aan={inhoud.gezondheid.includes(g)} onClick={() => toggle("gezondheid", g)}>{keuzeLabel(t, g)}</Chip>)}</div>
         {inhoud.gezondheid.includes("Medicijn") ? (<div className="mt-2.5 grid gap-2">
             <div className="flex gap-2">
-              <select value={inhoud.medicijn?.kindId ?? ""} onChange={(e) => zetInhoud({ ...inhoud, medicijn: { kindId: e.target.value, wat: inhoud.medicijn?.wat ?? "", laatst: inhoud.medicijn?.laatst ?? "", volgende: inhoud.medicijn?.volgende ?? "" } })} aria-label={t("components.OverdrachtFormulier.voorWelkKind")} className="h-10 rounded-full border border-[#E6DED2] bg-white px-3 text-sm font-black">
+              <select value={inhoud.medicijn?.kindId ?? ""} onChange={(e) => zetInhoud({ ...inhoud, medicijn: { kindId: e.target.value, wat: inhoud.medicijn?.wat ?? "", laatst: inhoud.medicijn?.laatst ?? "", volgende: inhoud.medicijn?.volgende ?? "" } })} aria-label={t("components.OverdrachtFormulier.voorWelkKind")} className="h-10 rounded-2xl border border-[#E6DED2] bg-card px-3 text-sm font-black">
                 <option value="">{t("components.OverdrachtFormulier.kind")}</option>{kids.map((k) => <option key={k.id} value={k.id}>{k.naam}</option>)}
               </select>
               <input value={inhoud.medicijn?.wat ?? ""} onChange={(e) => zetInhoud({ ...inhoud, medicijn: { kindId: inhoud.medicijn?.kindId ?? "", laatst: inhoud.medicijn?.laatst ?? "", volgende: inhoud.medicijn?.volgende ?? "", wat: e.target.value } })} placeholder={t("components.OverdrachtFormulier.welkMedicijn")} aria-label={t("components.OverdrachtFormulier.welkMedicijn")} className={`${veld} flex-1`}/>
@@ -167,7 +168,7 @@ function Notitie({ momentId, aan, wanneer, viaSchool, kinderen }) {
               <Chip aan={inhoud.betalen?.van === "eigen"} onClick={() => zetInhoud({ ...inhoud, betalen: inhoud.betalen?.van === "eigen" ? undefined : { van: "eigen", bedrag: inhoud.betalen?.bedrag ?? "" } })}>{t("components.OverdrachtFormulier.eigenRekening")}</Chip>
             </div>
             {inhoud.betalen ? (<label className="mt-2 flex items-center gap-2 text-sm font-bold text-ink-soft">{t("components.OverdrachtFormulier.ongeveer")}
-                <input inputMode="decimal" value={inhoud.betalen.bedrag} onChange={(e) => zetInhoud({ ...inhoud, betalen: { van: inhoud.betalen.van, bedrag: e.target.value.replace(/[^0-9,.]/g, "") } })} aria-label={t("components.OverdrachtFormulier.bedragOngeveer")} className="h-10 w-24 rounded-[12px] border border-[#E6DED2] bg-white px-2.5 text-[15px] text-ink outline-none"/>
+                <input inputMode="decimal" value={inhoud.betalen.bedrag} onChange={(e) => zetInhoud({ ...inhoud, betalen: { van: inhoud.betalen.van, bedrag: e.target.value.replace(/[^0-9,.]/g, "") } })} aria-label={t("components.OverdrachtFormulier.bedragOngeveer")} className="h-10 w-24 rounded-2xl border border-[#E6DED2] bg-card px-2.5 text-[15px] text-ink outline-none"/>
                 <span className="font-normal">{t("components.OverdrachtFormulier.optioneel")}</span>
               </label>) : null}
             {inhoud.betalen ? <p className="mt-1.5 text-xs text-ink-soft">{t("components.OverdrachtFormulier.naKopen", { aan })}</p> : null}

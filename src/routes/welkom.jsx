@@ -116,7 +116,7 @@ function Welkom() {
             <div className="flex-1 pb-8 pt-6">
               <h1 className="lora text-[30px] leading-tight">{t("routes.welkom.fijn")}</h1>
               <label className="mt-6 block text-sm font-semibold text-ink-soft">{t("routes.welkom.naamVraag")}
-                <input autoFocus value={naam} onChange={(e) => setNaam(e.target.value)} placeholder={t("routes.welkom.voornaam")} autoComplete="given-name" enterKeyHint="next" className="mt-2 h-14 w-full rounded-2xl border border-border bg-white/80 px-4 text-base text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"/>
+                <input autoFocus value={naam} onChange={(e) => setNaam(e.target.value)} placeholder={t("routes.welkom.voornaam")} autoComplete="given-name" enterKeyHint="next" className="mt-2 h-14 w-full rounded-2xl border border-border bg-card px-4 text-base text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"/>
               </label>
             </div>
             <button type="submit" disabled={!naam.trim()} className={primair}>{t("routes.welkom.verder")}</button>

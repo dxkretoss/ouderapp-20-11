@@ -35,6 +35,9 @@ import { categorieMeta } from "@/lib/demo-data";
 import { mijnKringen, useKring } from "@/lib/kring-store";
 import { useAuth } from "@/lib/auth-store";
 import { PaginaSkelet } from "@/components/Laden";
+import { AppIcoonMerk } from "@/components/AppLogo";
+import { ProfielBeeld } from "@/components/ProfielBeeld";
+import { useGezin } from "@/lib/gezin";
 export const Route = createFileRoute("/")({
     head: () => ({
         meta: [
@@ -135,6 +138,8 @@ function Dashboard() {
     const vandaagDatum = nu.toLocaleDateString(taalLocale(), { day: "numeric", month: "long" });
     const statusLabel = (s) => (s === "Wacht op jou" ? t("routes.index.status.wachtOpJou") : t("routes.index.status.loopt"));
     const st = useStart();
+    const gezinIk = useGezin().ik;
+    const mijnBeeld = st.beeld ?? gezinIk?.beeld ?? null;
     const [toevoegenOpen, setToevoegenOpen] = useState(false);
     const [voorstelMenu, setVoorstelMenu] = useState(false);
     const [afspraakMenu, setAfspraakMenu] = useState(false);
@@ -213,7 +218,9 @@ function Dashboard() {
     const [klokNu, setKlokNu] = useState(null);
     useEffect(() => setKlokNu(new Date()), []);
     const eigenVandaag = klokNu ? iso(klokNu) : "";
-    const eigenKomend = eigenVandaag ? agendaItems(agendaSt.events).flatMap((a) => voorkomens(a, eigenVandaag, plusDagen(eigenVandaag, 365)).map((datum) => ({ a, datum }))).sort((x, y) => (x.datum + x.a.tijd).localeCompare(y.datum + y.a.tijd)).slice(0, 2) : [];
+    // Een afspraak over meerdere dagen telt als één item (van–tot), niet als één regel per dag.
+    const alsBlokken = (a, dagen) => !(a.einddatum && a.einddatum > a.datum) ? dagen.map((datum) => ({ a, datum })) : dagen.filter((d, i) => i === 0 || plusDagen(dagen[i - 1], 1) !== d).map((datum) => { let eind = datum; while (dagen.includes(plusDagen(eind, 1))) eind = plusDagen(eind, 1); return { a, datum, eind }; });
+    const eigenKomend = eigenVandaag ? agendaItems(agendaSt.events).flatMap((a) => alsBlokken(a, voorkomens(a, eigenVandaag, plusDagen(eigenVandaag, 365)))).sort((x, y) => (x.datum + x.a.tijd).localeCompare(y.datum + y.a.tijd)).slice(0, 2) : [];
     const { moment: volgendeWissel } = volgendeVan(useWisselMomenten(14));
     const paklijst = volgendeWissel ? itemsVoor(overdrachtSt, volgendeWissel.id) : [];
     const paklijstTonen = !!volgendeWissel && klokNu && urenTot(volgendeWissel.datum, volgendeWissel.tijd, klokNu) <= 48;
@@ -222,12 +229,13 @@ function Dashboard() {
       <LivingSfeer moment={null}/>
 
       {/* header (stijl A6): Co, meldingen en je profiel rechtsboven */}
-      <div className="relative flex items-center justify-end gap-2">
+      <div className="relative flex items-center gap-2">
+        <AppIcoonMerk className="mr-auto"/>
         <Link to="/verhaal" aria-label={t("routes.index.praatMetCo")} className="grid size-11 place-items-center rounded-full border border-[#C9D6C3] bg-[#E9EFE3] text-[15px] font-black text-[#3F5747] shadow-[0_4px_14px_rgba(60,50,40,.08)]">Co</Link>
         <div className="flex items-center gap-1 rounded-full border border-white/90 bg-white/80 p-[3px] shadow-[0_4px_14px_rgba(60,50,40,.08)]">
           <ActiviteitenBel inBalk/>
-          <Link to="/instellingen" aria-label={t("routes.index.instellingen")} className="grid size-[38px] place-items-center rounded-full bg-brand-soft font-display text-[15px] font-black text-brand">
-            {st.naam.slice(0, 1).toUpperCase()}
+          <Link to="/instellingen" aria-label={t("routes.index.instellingen")} className="grid size-[38px] place-items-center overflow-hidden rounded-full bg-brand-soft font-display text-[15px] font-black text-brand">
+            {mijnBeeld ? <ProfielBeeld beeld={mijnBeeld} naam={st.naam} maat={38}/> : st.naam.slice(0, 1).toUpperCase()}
           </Link>
         </div>
       </div>
@@ -247,7 +255,7 @@ function Dashboard() {
 
       {eigenKomend.length ? <section className="relative mt-6">
         <div className="flex items-center justify-between gap-3"><h2 className="min-w-0 font-display text-[21px] font-black">{t("routes.index.binnenkort")}</h2><Link to="/agenda" className="inline-flex min-h-10 shrink-0 items-center text-[15px] font-extrabold text-brand">{t("routes.index.alleAfspraken")}</Link></div>
-        <ul className="mt-2.5 overflow-hidden rounded-[22px] border border-white/85 bg-white/60">{eigenKomend.map(({ a, datum }) => <li key={a.id + datum} className="border-b border-[#E9E1D5] last:border-0"><Link to="/agenda" search={{ afspraak: a.id, dag: datum }} className="flex items-center gap-4 px-4 py-3"><span className="w-[4.75rem] shrink-0 whitespace-nowrap leading-tight"><span className="block text-[15px] font-extrabold">{dt(datum).toLocaleDateString(taalLocale(), { weekday: "short", day: "numeric" })}</span><span className="block text-sm text-ink-soft">{a.tijd ? uur(a.tijd) : ""}</span></span><span className="min-w-0 flex-1 truncate text-[16px] font-black">{a.titel}</span></Link></li>)}</ul>
+        <ul className="mt-2.5 overflow-hidden rounded-[22px] border border-white/85 bg-white/60">{eigenKomend.map(({ a, datum, eind }) => <li key={a.id + datum} className="border-b border-[#E9E1D5] last:border-0"><Link to="/agenda" search={{ afspraak: a.id, dag: datum }} className="flex items-center gap-4 px-4 py-3"><span className="w-[4.75rem] shrink-0 whitespace-nowrap leading-tight"><span className="block text-[15px] font-extrabold">{dt(datum).toLocaleDateString(taalLocale(), { weekday: "short", day: "numeric" })}</span><span className="block text-sm text-ink-soft">{a.tijd ? uur(a.tijd) : ""}</span></span><span className="min-w-0 flex-1"><span className="block truncate text-[16px] font-black">{a.titel}</span>{eind && eind !== datum ? <span className="block truncate text-sm text-ink-soft">{t("routes.index.totEnMet", { datum: dt(eind).toLocaleDateString(taalLocale(), { weekday: "short", day: "numeric", month: "short" }) })}</span> : null}</span><Chevron className="size-4 shrink-0 text-ink-soft"/></Link></li>)}</ul>
       </section> : null}
 
       {/* Nog te regelen: één kaart, alleen wat op jou wacht */}

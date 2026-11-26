@@ -53,8 +53,9 @@ function Tijdlijn() {
     return (<AppShell>
       <PageHeader titel={t("routes.tijdlijn.titel")} subtitel={t("routes.tijdlijn.subtitel")}/>
       <FilterBalk className="mt-5" opties={cats} waarde={cat} onChange={setCat}/>
-      <ol className="mt-4 space-y-3 border-l-2 border-brand-soft pl-4">
-        {zicht.map((r) => (<li key={r.key}>
+      <ol className={`mt-4 space-y-3 ${zicht.length ? "ml-1.5 border-l-2 border-[color-mix(in_oklab,var(--brand)_22%,transparent)] pl-5" : ""}`}>
+        {zicht.map((r) => (<li key={r.key} className="relative">
+            <span aria-hidden className="absolute -left-[27px] top-1/2 size-3 -translate-y-1/2 rounded-full border-2 border-white bg-brand shadow-sm"/>
             <Card className="flex items-center gap-3">
               <AppIcon functie={r.icoon} maat="md"/>
               <div className="min-w-0 flex-1">

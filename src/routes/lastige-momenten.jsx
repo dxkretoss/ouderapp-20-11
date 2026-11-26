@@ -1,11 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useGezin } from "@/lib/gezin";
 import { z } from "zod";
-import { Annoyed, BellOff, Bookmark, BookmarkCheck, Check, Clock, Frown, Heart, ImageIcon, Meh, Repeat, Smile } from "lucide-react";
+import { Annoyed, BellOff, Bookmark, BookmarkCheck, Check, Clock, Frown, Heart, ImageIcon, Meh, Repeat, Smile, PenLine } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import i18n, { taalLocale, tLijst } from "@/i18n";
-import { AppShell, BackButton, TerugKnop } from "@/components/AppShell";
+import { AppShell } from "@/components/AppShell";
 import { useStart } from "@/lib/start-store";
 import { leeftijdGroep, zegPerKind } from "@/lib/lastige-momenten-kind";
 import { Zichtbaar } from "@/components/Zichtbaar";
@@ -92,6 +92,7 @@ function LastigeMomenten() {
     const ouder = st.naam;
     const { start } = Route.useSearch();
     const [stapel, setStapel] = useState(start ? [{ s: "start" }, { s: start }] : [{ s: "start" }]);
+    const router = useRouter();
     const scherm = stapel[stapel.length - 1];
     const ps = usePersoonlijk();
     const laadStatus = persoonlijkBron.useStatus();
@@ -111,10 +112,15 @@ function LastigeMomenten() {
     if (scherm.s === "adem")
         return <Ademen kleur={kleur} terug={terug}/>;
     return (<AppShell>
-      <div className="flex items-center gap-3">
-        {stapel.length > 1 ? <TerugKnop onClick={terug}/> : <BackButton terug="/verhaal"/>}
-        <p className="min-w-0 flex-1 text-sm font-semibold text-ink-soft">{t("routes.lastigeMomenten.kop")}</p>
-      </div>
+      <button type="button" onClick={() => { if (stapel.length > 1)
+            terug();
+        else if (typeof window !== "undefined" && window.history.length > 1)
+            router.history.back();
+        else
+            void router.navigate({ to: "/verhaal" }); }} aria-label={t("common.terug")} className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-white/85 bg-white/60 py-1 pl-2 pr-4 text-sm font-semibold text-ink shadow-sm transition hover:bg-white/80">
+        <Chevron richting="links" className="size-4 text-ink-soft"/>
+        <span className="min-w-0 truncate">{t("routes.lastigeMomenten.kop")}</span>
+      </button>
       {scherm.s === "start" && <Start ouder={ouder} ga={ga} aantalHouvast={houvast.bewaard.length + houvast.zinnen.length}/>}
       {scherm.s === "alles" && <Alles ga={ga}/>}
       {scherm.s === "onderwerp" && <OnderwerpLijst i={scherm.i} ga={ga} bewaard={houvast.bewaard}/>}
@@ -357,7 +363,7 @@ function MijnHouvast({ houvast, ga }) {
           </div>))}
         <div className="flex gap-2">
           <input value={nieuw} onChange={(e) => setNieuw(e.target.value)} maxLength={500} onKeyDown={(e) => { if (e.key === "Enter")
-            voegToe(); }} placeholder={t("routes.lastigeMomenten.houvast.placeholder")} aria-label={t("routes.lastigeMomenten.houvast.nieuwAria")} className="h-12 min-w-0 flex-1 rounded-2xl border border-white/85 bg-white px-3.5 text-[15px] outline-none"/>
+            voegToe(); }} placeholder={t("routes.lastigeMomenten.houvast.placeholder")} aria-label={t("routes.lastigeMomenten.houvast.nieuwAria")} className="h-12 min-w-0 flex-1 rounded-2xl border border-white/85 bg-card px-3.5 text-[15px] outline-none"/>
           <button onClick={voegToe} disabled={!nieuw.trim() || houvast.zinnen.length >= 50} className="h-12 shrink-0 rounded-full bg-brand px-4 text-sm font-black text-primary-foreground disabled:opacity-45">{t("routes.lastigeMomenten.houvast.toevoegen")}</button>
         </div>
       </div>
@@ -413,14 +419,14 @@ function Ademen({ kleur, terug }) {
     const stop = () => { if (timer.current)
         clearTimeout(timer.current); setBezig(false); setFase("uit"); };
     const groot = bezig && fase === "in";
-    return (<div className="min-h-screen w-full px-5 pb-10 pt-8 text-ink" style={{ background: "linear-gradient(180deg, #D3E0CC 0%, #E9EFE3 50%, #F3EDE3 100%)" }}>
-      <div className="mx-auto max-w-md">
+    return (<div className="min-h-screen w-full text-ink">
+      <div className="mx-auto min-h-screen max-w-md px-5 pb-10 pt-8" style={{ background: "linear-gradient(180deg, #D3E0CC 0%, #E9EFE3 50%, #F3EDE3 100%)" }}>
         <div className="flex items-center justify-between">
           <span className="text-sm font-black tracking-[0.08em] text-[#4F6B58]">{t("routes.lastigeMomenten.ademen.kop")}</span>
           <button onClick={() => { stop(); terug(); }} className="grid size-11 place-items-center rounded-full border border-white/85 bg-white/60" aria-label={t("common.sluiten")}><Kruis className="size-5"/></button>
         </div>
         <div className="mt-5 flex gap-1 rounded-full bg-white/55 p-1" role="tablist" aria-label={t("routes.lastigeMomenten.ademen.tabsAria")}>
-          {["kijken", "voelen", "kind"].map((s) => (<button key={s} role="tab" aria-selected={stand === s} onClick={() => { stop(); setStand(s); }} className={`h-10 flex-1 rounded-full text-sm ${stand === s ? "bg-white font-black text-brand" : "font-bold text-ink-soft"}`}>{t(`routes.lastigeMomenten.ademen.tab.${s}`)}</button>))}
+          {["kijken", "voelen", "kind"].map((s) => (<button key={s} role="tab" aria-selected={stand === s} onClick={() => { stop(); setStand(s); }} className={`h-10 flex-1 rounded-full text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-brand/40 ${stand === s ? "bg-white font-black text-brand shadow-sm" : "font-bold text-ink-soft"}`}>{t(`routes.lastigeMomenten.ademen.tab.${s}`)}</button>))}
         </div>
         <p className="mx-6 mt-5 text-center text-base leading-relaxed text-[#3F5747]">
           {t(`routes.lastigeMomenten.ademen.uitleg.${stand}`)}
@@ -550,7 +556,7 @@ function HoeGingDeWissel({ ouder, log, ga }) {
         {HIELP.map((h) => { const aan = hielp.includes(h); return <button key={h} onClick={() => setHielp((l) => (aan ? l.filter((x) => x !== h) : [...l, h]))} aria-pressed={aan} className={`h-10 rounded-full px-4 text-sm font-extrabold ${aan ? "bg-[#4F6B58] text-white" : "border border-white/85 bg-white/70"}`}>{hielpLabel(t, h)}</button>; })}
       </div>
       <h2 className="mt-5 font-display text-[19px] font-black">{t("routes.lastigeMomenten.na.onthoudVraag")}</h2>
-      <textarea value={onthoud} onChange={(e) => { setOnthoud(e.target.value); setKlaar(false); }} rows={3} maxLength={500} aria-label={t("routes.lastigeMomenten.na.onthoudAria")} className="mt-2 w-full resize-none rounded-[18px] border border-white/85 bg-white/80 px-4 py-3 text-[15px] outline-none"/>
+      <textarea value={onthoud} onChange={(e) => { setOnthoud(e.target.value); setKlaar(false); }} rows={3} maxLength={500} aria-label={t("routes.lastigeMomenten.na.onthoudAria")} className="mt-2 w-full resize-none rounded-2xl border border-white/85 bg-card px-4 py-3 text-[15px] outline-none"/>
       {klaar ? <p className="mt-3 rounded-2xl bg-[rgba(220,230,210,.85)] px-4 py-3 text-sm font-extrabold text-[#2F4A3A]">{t("routes.lastigeMomenten.na.bewaard")}</p> : null}
       <button onClick={() => void bewaar()} disabled={bezig || klaar || ((!ging || gelogd === ging) && !onthoud.trim())} className="mt-4 h-[54px] w-full rounded-full bg-brand text-base font-black text-primary-foreground disabled:opacity-45">{t("routes.lastigeMomenten.houvast.bewaarIn")}</button>
       <Link to="/verhaal" className={`${GLAS} mt-2.5 flex h-[50px] w-full items-center justify-center rounded-full text-[15px] font-black`}><AppIcon functie="co" maat="sm" className="mr-1.5"/>{t("routes.lastigeMomenten.co.vertellen")}</Link>
@@ -693,10 +699,10 @@ function CoNaWissel({ ging, ga }) {
         <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border border-[#C9D6C3] bg-[#E9EFE3] text-xs font-black text-[#3F5747]" aria-hidden>Co</span>
         <div className="min-w-0 text-[#2F4A3A]"><p className="text-[16px] font-black">{t(`routes.lastigeMomenten.na.reactie.${ging}.zin`)}</p><p className="mt-0.5 text-[15px] leading-snug">{t(`routes.lastigeMomenten.na.reactie.${ging}.sub`)}</p></div>
       </div>
-      {r.steun ? (<div className="mt-3 grid grid-cols-2 gap-2">
-          <button onClick={() => ga({ s: "adem" })} className="min-h-11 w-full rounded-full bg-brand px-3 text-center leading-tight text-sm font-black text-primary-foreground">{t("routes.lastigeMomenten.adem.metMeMee")}</button>
-          <Link to="/verhaal" className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-white/85 bg-white/80 px-3 text-center text-sm font-black leading-tight text-[#2F4A3A]">{t("routes.lastigeMomenten.co.vertellen")}</Link>
-          {ging === "Heftig" ? <button onClick={() => ga({ s: "afschrijven" })} className="col-span-2 min-h-11 w-full rounded-full border border-white/85 bg-white/80 px-3 text-sm font-black text-[#2F4A3A]">{t("routes.lastigeMomenten.afschrijven.titel")}</button> : null}
+      {r.steun ? (<div className="mt-3.5 flex flex-col gap-2">
+          <button onClick={() => ga({ s: "adem" })} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-brand px-4 text-[15px] font-semibold text-primary-foreground shadow-sm">{t("routes.lastigeMomenten.adem.metMeMee")}</button>
+          <Link to="/verhaal" className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-4 text-[15px] font-semibold text-ink"><AppIcon functie="co" maat="sm" className="shrink-0"/>{t("routes.lastigeMomenten.co.vertellen")}</Link>
+          {ging === "Heftig" ? <button onClick={() => ga({ s: "afschrijven" })} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold text-brand"><PenLine aria-hidden="true" className="size-4 shrink-0"/>{t("routes.lastigeMomenten.afschrijven.titel")}</button> : null}
         </div>) : null}
       {ging === "Heftig" ? <p className="mt-3 text-[12.5px] text-[#3F5747]">{t("routes.lastigeMomenten.na.gevaar")}</p> : null}
     </div>);

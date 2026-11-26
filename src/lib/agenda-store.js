@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { api, foutTekst, leesToken } from "@/lib/api";
 import { authState, opAuth } from "@/lib/auth-store";
 import { startState, useStart } from "@/lib/start-store";
+import { bijTerugkeer } from "@/lib/terugkeer";
 /**
  * Afspraken van het eigen gezin (één bron: manage-agenda op de server) plus de laadhub voor het hele
  * agendadomein: één `list`-aanroep vult deze store, zorg-store (voorstellen, uitzonderingen, versies),
@@ -102,8 +103,7 @@ function koppel() {
     };
     opAuth(volg);
     queueMicrotask(volg);
-    window.addEventListener("focus", () => { if (voor)
-        herlaadAlles(); });
+    bijTerugkeer("agenda", () => (voor ? herlaadAlles() : undefined));
 }
 /** Start het laden bij het eerste gebruik (elke store van dit domein roept dit aan). */
 export const startAgendaSync = koppel;

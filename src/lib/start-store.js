@@ -3,6 +3,7 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { api, foutTekst } from "@/lib/api";
 import { auth, authState, opAuth } from "@/lib/auth-store";
+import { bijTerugkeer } from "@/lib/terugkeer";
 /** Zachte kleuren per kind (uit het iconenpalet). Zelf aan te passen in het kindprofiel. */
 const NS = "lib.startStore";
 /** Item met een vertaalde naam (en eventueel uitleg), opgezocht bij het lezen. */
@@ -180,6 +181,22 @@ function koppelAanAccount() {
     afmelden = opAuth(() => volgAccount(authState()));
     // Niet tijdens het renderen bijwerken: pas na de huidige taak.
     queueMicrotask(() => volgAccount(authState()));
+    // Terug in de app (na echt weg zijn): alleen de kinderen opnieuw; daar staan regeling en bevestiging op.
+    bijTerugkeer("gezin", () => verversGezinAlsOud());
+}
+let laatsteVerversing = 0;
+/**
+ * Alleen de kinderen opnieuw van de server (één verzoek), hooguit eens per 30 s tenzij `forceer`.
+ * Uitnodigingen en gekoppelde ouders veranderen zelden en hebben hun eigen momenten (herlaadGekoppeld).
+ */
+export async function verversGezinAlsOud(forceer = false) {
+    const a = authState();
+    if (a.status !== "aan" || !a.gebruiker)
+        return;
+    if (!forceer && Date.now() - laatsteVerversing < 30000)
+        return;
+    laatsteVerversing = Date.now();
+    await start.herlaadKinderen();
 }
 function volgAccount(a) {
     const g = a.gebruiker;
@@ -246,6 +263,18 @@ const isServerFoto = (b) => typeof b === "string" && /^https?:\/\//i.test(b);
 const beeldVelden = (b) => (b?.startsWith("data:") ? { image_base64: b } : { avatar: b || null });
 const regelingNaarServer = (r) => (r === "later" ? { later: true } : { ...r, patroonId: r.patroon, ikId: authState().gebruiker?.id });
 export const start = {
+    /** Alleen de kinderlijst (met regeling en bevestiging) opnieuw: één verzoek in plaats van drie. */
+    herlaadKinderen: async () => {
+        try {
+            const r = await api("manage-children", "list");
+            const lijst = r.children ?? [];
+            const regeling = regelingVanServer(lijst, authState().gebruiker?.id) ?? state.regeling;
+            zet({ kinderen: lijst.map(kindVanServer), regeling, gezag: gezagVanServer(lijst, authState().gebruiker) });
+        }
+        catch (e) {
+            meldFout(e);
+        }
+    },
     /** Gezinsgegevens van de server ophalen (na inloggen, na accepteren, of handmatig verversen). */
     hydrateer: async () => {
         const { p, fout } = await haalGezin();
@@ -312,7 +341,7 @@ export const start = {
             if (!state.kinderen.some((k) => !String(k.id).startsWith("tmp-")))
                 return auth.updateProfile({ preferences: { regelingConcept: regelingNaarServer(r) } });
             await api("manage-children", "save-schedule", { schedule: regelingNaarServer(r), ...(kindId ? { child_id: kindId } : {}) });
-            start.hydrateer();
+            await start.herlaadKinderen();
         });
     },
     /** De andere ouder over de vaste verdeling van een kind: klopt (true) of klopt niet (false, met opmerking). */

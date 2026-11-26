@@ -5,6 +5,7 @@ import { api, foutTekst } from "@/lib/api";
 import { authState, opAuth } from "@/lib/auth-store";
 import { start, startState } from "@/lib/start-store";
 import { useVoorkeuren } from "@/lib/voorkeuren-store";
+import { bijTerugkeer } from "@/lib/terugkeer";
 /**
  * Berichten tussen de twee gekoppelde ouders (Phase 2): één bron, gespiegeld van edge function
  * `manage-messages`. Gesprekken per onderwerp, berichten, ongelezen-tellers en de eigen
@@ -396,22 +397,20 @@ function koppel() {
         if (state.status === "leeg")
             void laadGesprekken();
     });
-    window.addEventListener("focus", () => {
-        if (mijnId() && Date.now() - state.laatsteLading > 10_000)
-            void laadGesprekken();
-    });
+    bijTerugkeer("berichten", () => { if (mijnId() && Date.now() - state.laatsteLading > 10_000)
+        return laadGesprekken(); }, { minMs: 15_000 });
     queueMicrotask(() => { if (mijnId() && state.status === "leeg")
         void laadGesprekken(); });
 }
 export function useBerichten() {
     return useSyncExternalStore((l) => { koppel(); luisteraars.add(l); return () => luisteraars.delete(l); }, () => state, () => leeg);
 }
-/** Totaal ongelezen voor de badge in de onderste balk; ververst hooguit elke 15 s bij het openen van een pagina. */
+/** Totaal ongelezen voor de badge in de onderste balk; ververst hooguit elke 60 s bij het openen van een pagina. */
 export function useOngelezenTotaal() {
     const s = useBerichten();
     const vk = useVoorkeuren();
     useEffect(() => {
-        if (mijnId() && s.status !== "laden" && Date.now() - s.laatsteLading > 15_000)
+        if (mijnId() && s.status !== "laden" && Date.now() - s.laatsteLading > 60_000)
             void laadGesprekken();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
     // Even pauze: berichten komen binnen, maar de badge blijft stil tot de pauze voorbij is.
@@ -431,7 +430,7 @@ export function usePeilBerichten(actiefId) {
                 void laadBerichten(actiefId);
         };
         const t = setInterval(ververs, PEIL_MS);
-        window.addEventListener("focus", ververs);
-        return () => { clearInterval(t); window.removeEventListener("focus", ververs); };
+        const af = actiefId ? bijTerugkeer("berichten-open", () => laadBerichten(actiefId), { minMs: 15_000 }) : () => { };
+        return () => { clearInterval(t); af(); };
     }, [actiefId]);
 }

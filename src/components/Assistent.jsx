@@ -174,7 +174,7 @@ export function Assistent({ pagina } = {}) {
         e.preventDefault();
         setUitSpraak(false);
         stel();
-    } }} placeholder={t(`${NS}.placeholder`)} aria-label={t(`${NS}.jeVraag`)} className="min-w-0 flex-1 resize-none rounded-md border border-border bg-card px-3 py-2.5 text-sm outline-none"/>
+    } }} placeholder={t(`${NS}.placeholder`)} aria-label={t(`${NS}.jeVraag`)} className="min-w-0 flex-1 resize-none rounded-2xl border border-border bg-card px-3 py-2.5 text-sm outline-none"/>
             {bezig === "opnemen" ? (<button type="button" onClick={() => rec.current?.stop()} aria-label={t(`${NS}.opnameStoppen`)} className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-warm text-primary-foreground"><Square className="size-4"/></button>) : (<button type="button" onClick={startOpname} disabled={!!bezig} aria-label={t(`${NS}.inspreken`)} className="grid size-10 shrink-0 place-items-center rounded-full border border-brand/40 text-brand disabled:opacity-40"><Mic className="size-4"/></button>)}
           </form>
           {bezig === "opnemen" ? <p role="status" className="mt-2 flex items-center gap-2 text-xs font-semibold text-accent-warm"><span className="size-2 animate-pulse rounded-full bg-accent-warm"/> {t(`${NS}.luisteren`)}</p> : null}
@@ -184,8 +184,8 @@ export function Assistent({ pagina } = {}) {
           {uitSpraak && vraag && !bezig ? (<div className="mt-3 rounded-md border border-border bg-card p-3 text-sm">
               <p className="text-xs text-ink-soft">{t(`${NS}.verstaan`)}</p>
               <div className="mt-2 grid grid-cols-2 gap-2">
-                <button onClick={() => { setVraag(""); setUitSpraak(false); invoer.current?.focus(); }} className="rounded-md border border-border py-2 text-sm font-semibold text-ink-soft">{t(`${NS}.wissen`)}</button>
-                <button onClick={() => { setUitSpraak(false); stel(); }} className="rounded-md bg-brand py-2 text-sm font-semibold text-primary-foreground">{t(`${NS}.jaVerder`)}</button>
+                <button onClick={() => { setVraag(""); setUitSpraak(false); invoer.current?.focus(); }} className="rounded-full border border-border py-2 text-sm font-semibold text-ink-soft">{t(`${NS}.wissen`)}</button>
+                <button onClick={() => { setUitSpraak(false); stel(); }} className="rounded-full bg-brand py-2 text-sm font-semibold text-primary-foreground">{t(`${NS}.jaVerder`)}</button>
               </div>
             </div>) : null}
 
@@ -205,7 +205,7 @@ export function Assistent({ pagina } = {}) {
                   <p className="mt-3 text-[11px] text-ink-soft">{t(`${NS}.nogNietsVeranderd`)}</p>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button onClick={aanpassen} className="min-h-11 rounded-full border border-border bg-card px-4 text-sm font-semibold text-ink-soft">{t(`${NS}.aanpassen`)}</button>
-                    <button onClick={() => openFlow(antwoord)} className="rounded-md bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{knopLabel(antwoord.actie)}</button>
+                    <button onClick={() => openFlow(antwoord)} className="rounded-full bg-brand py-2.5 text-sm font-semibold text-primary-foreground">{knopLabel(antwoord.actie)}</button>
                   </div>
                 </>) : null}
             </div>) : null}
@@ -242,7 +242,7 @@ function DirectGevonden({ zoek, kies }) {
     return (<div className="mt-3">
       <p className="text-xs font-semibold text-ink-soft">{t(`${NS}.directGevonden`)}</p>
       <ul className="mt-1 space-y-1">
-        {res.map((r, i) => (<li key={i}><button type="button" onClick={() => kies(r)} className="w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted">{r.label}<span className="block text-[11px] text-ink-soft">{r.soort}</span></button></li>))}
+        {res.map((r, i) => (<li key={i}><button type="button" onClick={() => kies(r)} className="w-full rounded-2xl px-2 py-1.5 text-left text-sm hover:bg-muted">{r.label}<span className="block text-[11px] text-ink-soft">{r.soort}</span></button></li>))}
       </ul>
       <p className="mt-1 text-[11px] text-ink-soft">{t(`${NS}.enter`)}</p>
     </div>);

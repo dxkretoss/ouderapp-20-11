@@ -96,7 +96,7 @@ export function Vooruitkijken() {
             <Button variant="outline" onClick={() => herinner(false)}>{t("components.Vooruitkijken.vanavond")}</Button>
             <Button variant="outline" onClick={() => herinner(true)}>{t("common.morgen")}</Button>
           </div>
-          <label className="mt-4 block text-sm font-semibold">{t("components.Vooruitkijken.andereDag")}<input type="datetime-local" value={laterDag} onChange={(e) => setLaterDag(e.target.value)} className="mt-2 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"/></label>
+          <label className="mt-4 block text-sm font-semibold">{t("components.Vooruitkijken.andereDag")}<input type="datetime-local" value={laterDag} onChange={(e) => setLaterDag(e.target.value)} className="mt-2 block w-full min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm"/></label>
           <Button className="mt-3 w-full" disabled={!laterDag || !Number.isFinite(new Date(laterDag).getTime()) || new Date(laterDag).getTime() <= Date.now()} onClick={() => { if (!laterId)
         return; laterHerinneren(laterId, new Date(laterDag).getTime()); setLaterId(null); }}>{t("components.Vooruitkijken.bewaren")}</Button>
         </SheetContent>

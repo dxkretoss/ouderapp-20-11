@@ -26,7 +26,7 @@ export function GeschiedenisKnop({ soort, itemId, naam }) {
               {regels.length === 0 ? <li className="pb-4 text-sm text-ink-soft">{t("components.Geschiedenis.leeg")}</li> : null}
             </ol>
             <p className="text-[11px] text-ink-soft">{t("components.Geschiedenis.voetnoot")}</p>
-            <button onClick={() => setOpen(false)} className="mt-4 w-full rounded-md border border-border py-2.5 text-sm">{t("common.sluiten")}</button>
+            <button onClick={() => setOpen(false)} className="mt-4 w-full rounded-full border border-border py-2.5 text-sm">{t("common.sluiten")}</button>
           </div>
         </div>) : null}
     </>);

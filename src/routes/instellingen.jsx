@@ -135,7 +135,7 @@ function Instellingen() {
             <Wissel label={t("routes.instellingen.w.bijzonder.label")} uitleg={t("routes.instellingen.w.bijzonder.uitleg")} aan={vk.bijzondereMomenten} onWissel={() => zetVoorkeur("bijzondereMomenten", !vk.bijzondereMomenten)}/>
             <Wissel label={t("routes.instellingen.w.beweging.label")} uitleg={t("routes.instellingen.w.beweging.uitleg")} aan={vk.beweging === "verminderd"} onWissel={() => zetVoorkeur("beweging", vk.beweging === "verminderd" ? "automatisch" : "verminderd")}/>
             <label className="mt-1 block text-xs text-ink-soft">{t("routes.instellingen.levendig.weerVoor")}
-              <input defaultValue={vk.weerPlaats} onBlur={(e) => zetVoorkeur("weerPlaats", e.target.value.trim() || "Haarlem")} className="mt-1 block w-full rounded-full border border-[#E6DED2] bg-white px-4 py-2 text-sm text-ink"/>
+              <input defaultValue={vk.weerPlaats} onBlur={(e) => zetVoorkeur("weerPlaats", e.target.value.trim() || "Haarlem")} className="mt-1 block w-full min-h-11 rounded-2xl border border-[#E6DED2] bg-card px-4 py-2 text-sm text-ink"/>
             </label>
             <p className="mt-1 text-[11px] text-ink-soft">{t("routes.instellingen.levendig.alleenPlaats")}</p>
           </>}

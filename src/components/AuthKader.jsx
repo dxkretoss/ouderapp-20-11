@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { AlertCircle, Eye, EyeOff, Info, Loader2 } from "lucide-react";
 import { TALEN, zetTaal } from "@/i18n";
 import { TerugKnop } from "@/components/AppShell";
+import { AppLogo } from "@/components/AppLogo";
 /**
  * Gedeelde opbouw van /welkom, /inloggen, /registreren, /verifieren, /wachtwoord-vergeten en de
  * uitnodiging: volle hoogte mobiele kolom, bovenbalk met terug + taal, inhoud, knop onderaan.
@@ -24,7 +25,7 @@ export function AuthKader({ terug, terugLabel, midden, children }) {
       <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-6" style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 0px))", paddingBottom: "max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1rem))" }}>
         <header className="flex h-14 items-center gap-3">
           {terug ? <TerugKnop onClick={terug} label={terugLabel}/> : <span className="size-10"/>}
-          <div className="flex flex-1 justify-center gap-1.5">{midden}</div>
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">{midden === undefined ? <AppLogo formaat="klein"/> : midden}</div>
           <TaalWissel/>
         </header>
         {children}
@@ -109,8 +110,7 @@ export function Laden() {
     const { t } = useTranslation();
     return (<div className="app-canvas fixed inset-0 grid place-items-center font-body" role="status" aria-live="polite">
       <div className="flex flex-col items-center gap-[18px] motion-safe:animate-in motion-safe:fade-in">
-        <img src="/favicon.png" alt="" width={64} height={64} className="size-16 rounded-[20px] bg-[#E9EFE3] p-1 shadow-[0_6px_18px_rgba(63,87,71,.2)]"/>
-        <span className="font-display text-xl font-black tracking-tight text-[#2F4A3A] dark:text-ink">{t("common.appNaam")}</span>
+        <AppLogo className="w-56"/>
         <span aria-hidden="true" className="size-[26px] animate-spin rounded-full border-[3px] border-[rgba(63,87,71,.18)] border-t-[#4F6B58] motion-reduce:[animation-duration:2.4s]"/>
         <span className="text-sm font-semibold text-ink-soft">{t("common.laden")}</span>
       </div>

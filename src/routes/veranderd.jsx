@@ -18,6 +18,7 @@ import { iso, plusDagen, voorkomens, dt } from "@/lib/agenda-datum";
 import { taalLocale } from "@/i18n";
 import { HulpForm } from "@/components/HulpVragen";
 import { uur } from "@/lib/tijd-tekst";
+import { chip as chipStijl, VELD } from "@/lib/ui-stijl";
 const situaties = ["ziek", "later", "halen", "anderhaalt", "afspraak", "taak", "anders"];
 export const Route = createFileRoute("/veranderd")({
     validateSearch: z.object({ situatie: z.enum(situaties).optional(), moment: z.string().optional(), kind: z.string().optional() }),
@@ -57,9 +58,12 @@ function useMomenten() {
     ].sort((a, b) => (a.datum + a.tijd).localeCompare(b.datum + b.tijd)), [wissels, agenda.events, vandaag, t]);
 }
 const useKindNaam = () => { const st = useStart(); return (id) => st.kinderen.find((k) => k.id === id)?.naam ?? ""; };
-const kop = "text-xs font-semibold uppercase tracking-[0.12em] text-ink-soft";
-const knop = "rounded-md border border-border px-3 py-2 text-left text-sm";
-const primair = "rounded-md bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground";
+const kop = "px-1 text-[13px] font-semibold text-ink-soft";
+const kaart = "rounded-[22px] border border-white/85 bg-white/60 shadow-[0_1px_2px_rgba(0,0,0,0.03)]";
+const veld = `mt-1.5 w-full ${VELD}`;
+const chip = chipStijl;
+const knop = `flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold ${kaart}`;
+const primair = "inline-flex min-h-12 w-full items-center justify-center rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground shadow-sm";
 const momentLabel = (m) => `${m.dag}${m.tijd ? ` · ${uur(m.tijd)}` : ""} · ${m.titel}`;
 function Veranderd() {
     const { t } = useTranslation();
@@ -72,27 +76,27 @@ function Veranderd() {
     const kind = s.kind ?? moment?.kindIds[0];
     return (<AppShell>
       <PageHeader titel={t("routes.veranderd.titel")} subtitel={s.situatie ? situatieTitel(s.situatie) : t("routes.veranderd.waarover")} terug="/"/>
-      {moment ? (<p className="mt-4 border-l-2 border-brand pl-3 text-sm">
-          <b>{momentLabel(moment)}</b>
+      {moment ? (<div className={`mt-4 flex items-center gap-3 px-4 py-3 ${kaart}`}><span className="h-10 w-1 shrink-0 rounded-full bg-brand" aria-hidden/><p className="min-w-0 text-sm">
+          <b className="first-letter:uppercase block">{momentLabel(moment)}</b>
           <span className="block text-xs text-ink-soft">{moment.kindIds.map((k) => kindNaam(k)).join(" & ")}{moment.plek ? ` · ${moment.plek}` : ""}</span>
-        </p>) : null}
+        </p></div>) : null}
 
-      {!s.situatie ? (<ul className="mt-6 divide-y divide-border border-y border-border">
+      {!s.situatie ? (<ul className="mt-6 space-y-2.5">
           {opties.map((o) => (<li key={o.id}>
-              <button onClick={() => ga({ situatie: o.id })} className="flex w-full items-center gap-3 py-3.5 text-left">
+              <button onClick={() => ga({ situatie: o.id })} className={`flex min-h-16 w-full items-center gap-3.5 px-4 py-3 text-left transition active:scale-[0.99] ${kaart}`}>
                 <AppIcon functie={o.icoon}/>
-                <span className="flex-1 text-sm font-semibold">{situatieTitel(o.id)}</span>
+                <span className="flex-1 text-[15px] font-semibold">{situatieTitel(o.id)}</span>
                 <Chevron className="size-4 text-ink-soft"/>
               </button>
             </li>))}
         </ul>) : s.situatie === "later" ? (<Later moment={moment}/>) : s.situatie === "ziek" ? (<Ziek kind={kind} onKind={(k) => ga({ kind: k })} onAfspraak={(id) => ga({ situatie: "afspraak", moment: id })} onHalen={(id) => ga({ situatie: "anderhaalt", moment: id })}/>) : s.situatie === "halen" || s.situatie === "anderhaalt" ? (<Halen moment={moment} kind={kind} kiesMoment={(id) => ga({ moment: id })} direct={s.situatie === "anderhaalt"} onTijd={() => ga({ situatie: "afspraak" })}/>) : s.situatie === "afspraak" ? (<AfspraakWijzigen moment={moment} kind={kind} kiesMoment={(id) => ga({ moment: id })}/>) : s.situatie === "taak" ? (<div className="mt-6 space-y-3">
-          <p className="text-sm text-ink-soft">{t("routes.veranderd.taak.uitleg")}</p>
-          <Link to="/taken" className={`inline-block ${primair}`}>{t("routes.veranderd.taak.naar")}</Link>
+          <p className={`px-4 py-3 text-sm text-ink-soft ${kaart}`}>{t("routes.veranderd.taak.uitleg")}</p>
+          <Link to="/taken" className={primair}>{t("routes.veranderd.taak.naar")}</Link>
         </div>) : (<div className="mt-6 space-y-3">
-          <p className="text-sm text-ink-soft">{t("routes.veranderd.anders.uitleg")}</p>
+          <p className="px-1 text-sm text-ink-soft">{t("routes.veranderd.anders.uitleg")}</p>
           <div className="grid gap-2">
-            <Link to="/berichten" className={`${knop} flex min-h-11 items-center justify-between gap-2`}>{t("routes.veranderd.anders.bericht")}<Chevron className="size-4 text-ink-soft"/></Link>
-            <Link to="/samen-regelen" className={`${knop} flex min-h-11 items-center justify-between gap-2`}>{t("routes.veranderd.anders.samen")}<Chevron className="size-4 text-ink-soft"/></Link>
+            <Link to="/berichten" className={knop}>{t("routes.veranderd.anders.bericht")}<Chevron className="size-4 text-ink-soft"/></Link>
+            <Link to="/samen-regelen" className={knop}>{t("routes.veranderd.anders.samen")}<Chevron className="size-4 text-ink-soft"/></Link>
           </div>
         </div>)}
       {s.situatie ? <button onClick={() => router.navigate({ to: "/veranderd", search: {}, replace: true })} className="mt-8 inline-flex min-h-10 items-center text-xs font-semibold text-ink-soft"><MetChevron richting="links">{t("routes.veranderd.andereSituatie")}</MetChevron></button> : null}
@@ -101,7 +105,7 @@ function Veranderd() {
 function KindKeuze({ kind, onKind }) {
     const st = useStart();
     return (<div className="mt-2 flex flex-wrap gap-2">
-      {st.kinderen.map((k) => (<button key={k.id} onClick={() => onKind(k.id)} aria-pressed={kind === k.id} className={`rounded-full px-4 py-1.5 text-sm font-semibold ${kind === k.id ? "bg-brand text-primary-foreground" : "border border-border text-ink-soft"}`}>{k.naam}</button>))}
+      {st.kinderen.map((k) => (<button key={k.id} onClick={() => onKind(k.id)} aria-pressed={kind === k.id} className={chip(kind === k.id)}>{k.naam}</button>))}
     </div>);
 }
 const gevolgOpties = ["school", "halen", "wissel", "activiteit", "geen"];
@@ -117,13 +121,13 @@ function Ziek({ kind, onKind, onAfspraak, onHalen }) {
       <div><p className={kop}>{t("routes.veranderd.ziek.wie")}</p><KindKeuze kind={kind} onKind={onKind}/></div>
       {kind ? (<div>
           <p className={kop}>{t("routes.veranderd.ziek.gevolgen")}</p>
-          <div className="mt-2 grid gap-2">
-            {gevolgOpties.map((g) => (<label key={g} className="flex items-center gap-3 text-sm">
-                <input type="checkbox" checked={gevolgen.includes(g)} onChange={() => toggle(g)} className="size-4 accent-[var(--brand)]"/>{t(`routes.veranderd.ziek.gevolg.${g}`)}
+          <div className={`mt-2 divide-y divide-border px-4 ${kaart}`}>
+            {gevolgOpties.map((g) => (<label key={g} className="flex min-h-12 cursor-pointer items-center gap-3 py-2.5 text-sm">
+                <input type="checkbox" checked={gevolgen.includes(g)} onChange={() => toggle(g)} className="size-5 shrink-0 accent-[var(--brand)]"/>{t(`routes.veranderd.ziek.gevolg.${g}`)}
               </label>))}
           </div>
         </div>) : null}
-      {kind && gevolgen.length ? (<div className="space-y-4 border-t border-border pt-4">
+      {kind && gevolgen.length ? (<div className={`space-y-4 p-4 ${kaart}`}>
           {gevolgen.includes("school") ? <p className="text-sm">{t("routes.veranderd.ziek.school")}</p> : null}
           {gevolgen.includes("wissel") && wissel ? (<div>
               <p className="text-sm">{t("routes.veranderd.ziek.wisselGepland", { dag: wissel.dag, tijd: wissel.tijd ? uur(wissel.tijd) : "" })}</p>
@@ -153,7 +157,7 @@ function MomentKeuze({ kind, moment, kiesMoment, filter }) {
     return (<div className="mt-6">
       <p className={kop}>{t("routes.veranderd.welkMoment")}</p>
       <div className="mt-2 grid gap-2">
-        {lijst.map((m) => <button key={m.id} onClick={() => kiesMoment(m.id)} className={knop}>{momentLabel(m)}</button>)}
+        {lijst.map((m) => <button key={m.id} onClick={() => kiesMoment(m.id)} className={knop}><span className="min-w-0 first-letter:uppercase">{momentLabel(m)}</span><Chevron className="size-4 shrink-0 text-ink-soft"/></button>)}
         {!lijst.length ? <p className="text-sm text-ink-soft">{t("routes.veranderd.geenMomenten")}</p> : null}
       </div>
     </div>);
@@ -180,20 +184,20 @@ function Halen({ moment, kind, kiesMoment, direct, onTijd }) {
       {!kringOpen ? (<div>
           <p className={kop}>{t("routes.veranderd.halen.watDoen")}</p>
           <div className="mt-2 grid gap-2">
-            <button onClick={() => setKringOpen(true)} className={knop}>{t("routes.veranderd.halen.kring")}</button>
-            <Link to="/agenda" search={{ zorgActie: "wijziging", dag: moment.datum }} className={knop}>{t("routes.veranderd.halen.andereOplossing")}</Link>
-            <button onClick={onTijd} className={knop}>{t("routes.veranderd.halen.tijd")}</button>
-            <button onClick={onTijd} className={knop}>{t("routes.veranderd.halen.locatie")}</button>
-            <button onClick={() => setHulpOpen(true)} className={knop}>{t("routes.veranderd.halen.netwerk")}</button>
+            <button onClick={() => setKringOpen(true)} className={knop}><span className="min-w-0">{t("routes.veranderd.halen.kring")}</span><Chevron className="size-4 shrink-0 text-ink-soft"/></button>
+            <Link to="/agenda" search={{ zorgActie: "wijziging", dag: moment.datum }} className={knop}><span className="min-w-0">{t("routes.veranderd.halen.andereOplossing")}</span><Chevron className="size-4 shrink-0 text-ink-soft"/></Link>
+            <button onClick={onTijd} className={knop}><span className="min-w-0">{t("routes.veranderd.halen.tijd")}</span><Chevron className="size-4 shrink-0 text-ink-soft"/></button>
+            <button onClick={onTijd} className={knop}><span className="min-w-0">{t("routes.veranderd.halen.locatie")}</span><Chevron className="size-4 shrink-0 text-ink-soft"/></button>
+            <button onClick={() => setHulpOpen(true)} className={knop}><span className="min-w-0">{t("routes.veranderd.halen.netwerk")}</span><Chevron className="size-4 shrink-0 text-ink-soft"/></button>
           </div>
           {hulpOpen ? <HulpForm voorstel={{ kind: moment.kindIds.length > 1 ? "beide" : moment.kindIds[0] ?? "beide", wat: moment.titel, tijd: moment.tijd }} onKlaar={() => setHulpOpen(false)}/> : null}
         </div>) : (<div>
           <p className={kop}>{t("routes.veranderd.halen.wieOvernemen")}</p>
           <div className="mt-2 grid gap-2">
-            {kandidaten.map((p) => (<button key={p.id} onClick={() => kies(p.id)} aria-pressed={kringStatus?.wie === p.id && kringStatus.status !== "declined"} className={`${knop} flex items-center justify-between ${kringStatus?.wie === p.id && kringStatus.status !== "declined" ? "border-brand" : ""}`}>
+            {kandidaten.map((p) => (<button key={p.id} onClick={() => kies(p.id)} aria-pressed={kringStatus?.wie === p.id && kringStatus.status !== "declined"} className={`${knop} ${kringStatus?.wie === p.id && kringStatus.status !== "declined" ? "!border-brand !bg-brand-soft" : ""}`}>
                 <span>{t("routes.veranderd.halen.vragen", { naam: persoonLabel(p) })}</span>{kringStatus?.wie === p.id && kringStatus.status !== "declined" ? <Check className="size-4 text-brand"/> : null}
               </button>))}
-            {contactKandidaten({ ...moment, kindIds: groep.kids }).map((p) => (<button key={p.id} onClick={() => kies(p.id)} aria-pressed={kringStatus?.wie === p.id && kringStatus.status !== "declined"} className={`${knop} flex items-center justify-between ${kringStatus?.wie === p.id && kringStatus.status !== "declined" ? "border-brand" : ""}`}>
+            {contactKandidaten({ ...moment, kindIds: groep.kids }).map((p) => (<button key={p.id} onClick={() => kies(p.id)} aria-pressed={kringStatus?.wie === p.id && kringStatus.status !== "declined"} className={`${knop} ${kringStatus?.wie === p.id && kringStatus.status !== "declined" ? "!border-brand !bg-brand-soft" : ""}`}>
                 <span>{persoonLabel(p)} <span className="text-[11px] font-normal text-ink-soft">{t("routes.veranderd.halen.zonderApp")}</span></span>{kringStatus?.wie === p.id && kringStatus.status !== "declined" ? <Check className="size-4 text-brand"/> : null}
               </button>))}
             {kringStatus ? <p className="text-[11px] text-ink-soft">{kringStatus.bevestigd ? <MetVinkje achter>{kringStatus.tekst}</MetVinkje> : kringStatus.tekst}</p> : null}
@@ -202,7 +206,7 @@ function Halen({ moment, kind, kiesMoment, direct, onTijd }) {
             <Link to="/kring/$kindId" params={{ kindId: basis }} className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-brand"><Plus aria-hidden="true" className="size-4 shrink-0"/>{t("routes.veranderd.halen.verzorgerToevoegen").replace(/^\+\s*/, "")}</Link>
           </div>
           <p className="mt-3 text-[11px] text-ink-soft">{t("routes.veranderd.halen.vragenUitleg")}</p>
-          {kringStatus && kringStatus.status !== "declined" && kandidaten.some((p) => p.id === kringStatus.wie) ? (<div className="mt-4 border-t border-border pt-3">
+          {kringStatus && kringStatus.status !== "declined" && kandidaten.some((p) => p.id === kringStatus.wie) ? (<div className={`mt-4 p-4 ${kaart}`}>
               <p className={kop}>{t("routes.veranderd.halen.teZien", { naam: persoonLabel(kandidaten.find((p) => p.id === kringStatus.wie)) })}</p>
               <p className="mt-1 text-sm font-semibold">{moment.dag} · {moment.titel}</p>
               <p className="text-xs text-ink-soft">{moment.tijd ? uur(moment.tijd) : ""}{moment.plek ? ` · ${moment.plek}` : ""}</p>
@@ -238,10 +242,10 @@ function AfspraakWijzigen({ moment, kind, kiesMoment }) {
             setKlaar(t("routes.veranderd.afspraak.aangepast"));
         }
     };
-    return (<div className="mt-6 space-y-3">
-      {isWissel ? <p className="text-xs text-ink-soft">{t("routes.veranderd.afspraak.wisselUitleg")}</p> : null}
-      <label className="block text-xs text-ink-soft">{t("routes.veranderd.afspraak.tijd")}<input type="time" value={tijd} onChange={(e) => setTijd(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-ink"/></label>
-      <label className="block text-xs text-ink-soft">{t("routes.veranderd.afspraak.locatie")}<input value={plek} onChange={(e) => setPlek(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-ink"/></label>
+    return (<div className="mt-6 space-y-4">
+      {isWissel ? <p className={`px-4 py-3 text-xs leading-relaxed text-ink-soft ${kaart}`}>{t("routes.veranderd.afspraak.wisselUitleg")}</p> : null}
+      <label className="block px-1 text-[13px] font-semibold text-ink-soft">{t("routes.veranderd.afspraak.tijd")}<input type="time" value={tijd} onChange={(e) => setTijd(e.target.value)} className={veld}/></label>
+      <label className="block px-1 text-[13px] font-semibold text-ink-soft">{t("routes.veranderd.afspraak.locatie")}<input value={plek} onChange={(e) => setPlek(e.target.value)} className={veld}/></label>
       {klaar ? <p className="text-sm font-semibold text-brand">{klaar}</p> : (<button disabled={tijd === moment.tijd && plek === moment.plek} onClick={opslaan} className={`${primair} disabled:opacity-40`}>{isWissel ? t("routes.veranderd.afspraak.voorstelVersturen") : t("common.opslaan")}</button>)}
     </div>);
 }
@@ -254,17 +258,17 @@ function Later({ moment }) {
     const wat = moment ? `${moment.titel} (${uur(moment.tijd)})` : t("routes.veranderd.later.onsWisselmoment");
     const tekst = min ? t("routes.veranderd.later.minuten", { min, wat }) : tijd ? t("routes.veranderd.later.tijd", { wat, tijd: uur(tijd) }) : "";
     if (klaar)
-        return <p className="mt-6 flex items-center gap-2 text-sm font-semibold"><Check className="size-4 text-brand"/> {t("routes.veranderd.later.klaar")}</p>;
+        return <p className={`mt-6 flex items-center gap-2 px-4 py-3 text-sm font-semibold ${kaart}`}><Check className="size-4 shrink-0 text-brand"/> {t("routes.veranderd.later.klaar")}</p>;
     return (<div className="mt-6 space-y-4">
       <p className={kop}>{t("routes.veranderd.later.hoeveel")}</p>
       <div className="flex flex-wrap gap-2">
-        {[10, 20, 30].map((m) => (<button key={m} onClick={() => { setMin(m); setAnder(false); }} aria-pressed={min === m} className={`rounded-full px-4 py-2 text-sm font-semibold ${min === m ? "bg-brand text-primary-foreground" : "border border-border"}`}>{t("routes.veranderd.later.plusMin", { m })}</button>))}
-        <button onClick={() => { setAnder(true); setMin(null); }} aria-pressed={ander} className={`rounded-full px-4 py-2 text-sm font-semibold ${ander ? "bg-brand text-primary-foreground" : "border border-border"}`}>{t("routes.veranderd.later.andereTijd")}</button>
+        {[10, 20, 30].map((m) => (<button key={m} onClick={() => { setMin(m); setAnder(false); }} aria-pressed={min === m} className={chip(min === m)}>{t("routes.veranderd.later.plusMin", { m })}</button>))}
+        <button onClick={() => { setAnder(true); setMin(null); }} aria-pressed={ander} className={chip(ander)}>{t("routes.veranderd.later.andereTijd")}</button>
       </div>
-      {ander ? <input type="time" value={tijd} onChange={(e) => setTijd(e.target.value)} className="rounded-md border border-border bg-background px-3 py-2 text-sm" aria-label={t("routes.veranderd.later.verwachteTijd")}/> : null}
+      {ander ? <input type="time" value={tijd} onChange={(e) => setTijd(e.target.value)} className={`${veld} max-w-40`} aria-label={t("routes.veranderd.later.verwachteTijd")}/> : null}
       {tekst ? (<div className="space-y-3">
           <p className={kop}>{t("routes.veranderd.later.berichtAan")}</p>
-          <p className="border-l-2 border-brand pl-3 text-sm">{tekst}</p>
+          <p className="rounded-2xl rounded-bl-md bg-brand-soft px-4 py-3 text-sm text-ink">{tekst}</p>
           <button onClick={() => { startNuAfstemmen({ categorie: "halen", kindIds: moment?.kindIds ?? [], titel: tekst, toelichting: "", reactieGewenst: "zsm", ...(moment?.tijd ? { oudeTijd: moment.tijd } : {}) }); setKlaar(true); }} className={primair}>{t("routes.veranderd.later.versturen")}</button>
         </div>) : null}
     </div>);

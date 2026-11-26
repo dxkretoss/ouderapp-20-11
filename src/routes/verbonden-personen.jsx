@@ -27,7 +27,7 @@ export const Route = createFileRoute("/verbonden-personen")({
     component: VerbondenPersonen,
 });
 const GLAS = "rounded-[22px] border border-white/85 bg-white/60";
-const knop = "rounded-md bg-brand px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40";
+const knop = "rounded-full bg-brand px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40";
 /**
  * Verbonden personen: één overzicht van wie er met het gezin verbonden is — de andere ouder(s) (koppeling,
  * gedeelde kinderen, ontkoppelen), openstaande uitnodigingen (intrekken) en de kring rond de kinderen
@@ -145,7 +145,7 @@ function Ontkoppelen({ ouder, namen, sluit }) {
             await api("accept-invitation", "disconnect", { co_parent_id: ouder.id });
             // Gezin én agenda, vakanties en overdracht opnieuw: gedeelde kinderen zijn nu losgekoppeld.
             await start.herlaadGekoppeld();
-            laadKring();
+            laadKring(true);
             bevestig(t(N + "ontkoppel.klaar"));
             sluit();
         }

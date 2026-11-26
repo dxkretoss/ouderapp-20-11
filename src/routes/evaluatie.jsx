@@ -25,7 +25,7 @@ function Vraag({ titel, sub, waarde, zet, ph }) {
     return (<label className="block">
       <span className="block text-[16.5px] font-black">{titel}</span>
       {sub ? <span className="block text-sm text-ink-soft">{sub}</span> : null}
-      <textarea value={waarde} onChange={(e) => zet(e.target.value)} rows={3} placeholder={ph} className="mt-2 w-full resize-none rounded-[16px] border border-[#E6DED2] bg-white px-3.5 py-2.5 text-[15px] leading-relaxed outline-none"/>
+      <textarea value={waarde} onChange={(e) => zet(e.target.value)} rows={3} placeholder={ph} className="mt-2 w-full resize-none rounded-2xl border border-[#E6DED2] bg-card px-3.5 py-2.5 text-[15px] leading-relaxed outline-none"/>
     </label>);
 }
 function Kaart({ children, kleur }) {

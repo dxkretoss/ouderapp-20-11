@@ -7,6 +7,7 @@ import { start, startState } from "@/lib/start-store";
 import { gezinState, isIk, naamVan } from "@/lib/gezin";
 import { serverBron } from "@/lib/praktisch-sync";
 import i18n, { taalLocale } from "@/i18n";
+import { bijTerugkeer } from "@/lib/terugkeer";
 const t = (sleutel, opties) => i18n.t(sleutel, opties);
 const niv = (id, sleutel) => ({ id, get label() { return t(`lib.kringStore.niveau.${sleutel}`); } });
 const onderdeel = (id, niveaus) => ({ id, get titel() { return t(`lib.kringStore.onderdelen.${id}.titel`); }, get uitleg() { return t(`lib.kringStore.onderdelen.${id}.uitleg`); }, niveaus });
@@ -93,14 +94,18 @@ function meldFout(e) {
 }
 let bezig = null;
 /** Kring van de server halen (na inloggen, bij terugkeer naar het venster, of handmatig). */
-export function laadKring() {
+let laatstGeladen = 0;
+/** Kring van de server. Zonder `forceer` niet opnieuw als het minder dan 30 s geleden al geladen is (schermen roepen dit bij openen aan). */
+export function laadKring(forceer = false) {
     const a = authState();
     if (a.status !== "aan" || !a.gebruiker)
         return Promise.resolve();
     if (bezig)
         return bezig;
+    if (!forceer && state.geladen && state.voor === a.gebruiker.id && Date.now() - laatstGeladen < 30_000)
+        return Promise.resolve();
     bezig = api("manage-caregivers", "list")
-        .then((r) => zet({ personen: (r.members ?? []).map(persoonVanServer), ...noodkaartUitKinderen(), geladen: true, voor: a.gebruiker.id }))
+        .then((r) => { laatstGeladen = Date.now(); zet({ personen: (r.members ?? []).map(persoonVanServer), ...noodkaartUitKinderen(), geladen: true, voor: a.gebruiker.id }); })
         .catch(meldFout)
         .finally(() => { bezig = null; });
     return bezig;
@@ -124,8 +129,7 @@ function koppel() {
     };
     opAuth(volg);
     queueMicrotask(volg);
-    window.addEventListener("focus", () => { if (authState().status === "aan")
-        laadKring(); });
+    bijTerugkeer("kring", () => (authState().status === "aan" ? laadKring(true) : undefined));
 }
 export function useKring() {
     return useSyncExternalStore((l) => { koppel(); listeners.add(l); return () => listeners.delete(l); }, () => state, () => leeg);
@@ -259,8 +263,9 @@ let ververser = null;
 function startVerversen() {
     if (ververser || typeof window === "undefined")
         return;
-    // Live genoeg voor een overdracht: elke minuut opnieuw zolang het venster zichtbaar is (plus bij focus).
-    ververser = window.setInterval(() => { if (document.visibilityState === "visible" && ophalenBron.isEigen())
+    // Live genoeg voor een overdracht: elke minuut opnieuw, maar alleen zolang een scherm met ophalen open staat
+    // (er is een abonnee) en het venster zichtbaar is. Anders geen verkeer.
+    ververser = window.setInterval(() => { if (ophalenLuisteraars.size > 0 && document.visibilityState === "visible" && ophalenBron.isEigen())
         ophalenBron.ververs(); }, 60_000);
 }
 /** Toewijzingen, check-ins en hulpverzoeken (ouderkant). */

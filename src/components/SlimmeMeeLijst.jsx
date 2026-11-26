@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Check, ChevronDown, Minus, Plus, X } from "lucide-react";
-import { Link } from "@tanstack/react-router";
 import { uur } from "@/lib/tijd-tekst";
 import { bevestig } from "@/lib/feedback";
 import { KindPil } from "@/components/KostenTabs";
@@ -13,7 +12,7 @@ import { tLijst } from "@/i18n";
 import { dt } from "@/lib/agenda-datum";
 /** Opties en getypte spullen blijven zoals ze zijn opgeslagen; bekende opties krijgen een vertaald label. */
 const OPTIE_SLEUTEL = { Zwemspullen: "zwemspullen", Gymtas: "gymtas", Medicijnen: "medicijnen", Voetbalspullen: "voetbalspullen", Sportkleding: "sportkleding", Schooltas: "schooltas", Knuffel: "knuffel", Pyjama: "pyjama", Jas: "jas", Oplader: "oplader", Tablet: "tablet", Huiswerk: "huiswerk" };
-const optieLabel = (t, n) => (OPTIE_SLEUTEL[n] ? t(`components.SlimmeMeeLijst.optie.${OPTIE_SLEUTEL[n]}`) : n);
+export const optieLabel = (t, n) => (OPTIE_SLEUTEL[n] ? t(`components.SlimmeMeeLijst.optie.${OPTIE_SLEUTEL[n]}`) : n);
 /**
  * Mee met de wissel (stijl A6) voor één wisselmoment (id = datum). De lijst komt van de server: vaste spullen
  * per kind, wat een ouder toevoegt (een toevoeging van de ontvangende ouder is een verzoek) en wat de vorige
@@ -64,9 +63,9 @@ export function SlimmeMeeLijst({ moment: m, daarna }) {
       <div className="rounded-[26px] px-5 py-4" style={{ background: "rgba(220,230,210,.75)" }}>
         <p className="font-display text-[24px] font-black leading-tight">{m.tijd ? uur(m.tijd) : t("components.SlimmeMeeLijst.geenTijd")}{m.plek ? ` · ${m.plek}` : ""}</p>
         <p className="mt-0.5 text-[15px] text-[#3F5747] first-letter:uppercase">{m.dag} · {m.naarMij ? t("components.SlimmeMeeLijst.naarJou") : t("components.SlimmeMeeLijst.naarAnder")} · {m.namen.join(` ${t("common.en")} `)}</p>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#EADFD1]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={t("components.SlimmeMeeLijst.ingepakt")}>
+        {lijst.length ? <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#EADFD1]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={t("components.SlimmeMeeLijst.ingepakt")}>
           <div className="h-full rounded-full bg-[#4F6B58] transition-all" style={{ width: `${pct}%` }}/>
-        </div>
+        </div> : null}
         <p className="mt-2 text-sm font-black text-[#3F5747]">{lijst.length ? (nog.length ? t("components.SlimmeMeeLijst.vanIngepakt", { n: ingepakt.length, totaal: lijst.length }) : <MetVinkje achter>{t("components.SlimmeMeeLijst.allesIngepakt")}</MetVinkje>) : t("components.SlimmeMeeLijst.nogNiets")}</p>
       </div>
 
@@ -103,16 +102,13 @@ export function SlimmeMeeLijst({ moment: m, daarna }) {
             setNieuw("");
             setToevoegen(false);
         } }}>
-            <input autoFocus value={nieuw} onChange={(e) => setNieuw(e.target.value)} placeholder={t("components.SlimmeMeeLijst.watMee")} aria-label={t("components.SlimmeMeeLijst.watMee")} className="h-12 min-w-0 flex-1 rounded-2xl border border-white/85 bg-white px-4 text-[15px] outline-none"/>
+            <input autoFocus value={nieuw} onChange={(e) => setNieuw(e.target.value)} placeholder={t("components.SlimmeMeeLijst.watMee")} aria-label={t("components.SlimmeMeeLijst.watMee")} className="h-12 min-w-0 flex-1 rounded-2xl border border-white/85 bg-card px-4 text-[15px] outline-none"/>
             <button disabled={!nieuw.trim()} className="h-12 rounded-full bg-brand px-5 text-sm font-black text-primary-foreground disabled:opacity-45">{t("components.SlimmeMeeLijst.opDeLijst")}</button>
           </form>
         </div>) : (<button onClick={() => setToevoegen(true)} className="mt-5 flex h-[54px] w-full items-center justify-center gap-2 rounded-full bg-brand text-base font-black text-primary-foreground"><Plus className="size-5" aria-hidden/>{t("components.SlimmeMeeLijst.ietsToevoegen")}</button>)}
-      <div className="mt-3 flex items-center justify-between px-1 text-[15px] font-black text-brand">
-        <Link to="/agenda" search={{ zorgActie: "wijziging", dag: m.datum }}>{t("components.SlimmeMeeLijst.verschuiven")}</Link>
-        {magNalopen ? <button onClick={() => setControle(true)}>{t("components.SlimmeMeeLijst.allesMeegekomen")}</button> : null}
-      </div>
+      {magNalopen ? <button onClick={() => setControle(true)} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-semibold text-brand"><Check aria-hidden="true" className="size-4"/>{t("components.SlimmeMeeLijst.allesMeegekomen")}</button> : null}
       {/school|opvang|nursery|childcare/i.test(m.plek ?? "") ? <p className="mt-3 rounded-2xl bg-[#E9EFE3] px-3.5 py-2.5 text-[13.5px] text-[#2F4A3A]"><Trans i18nKey="components.SlimmeMeeLijst.viaSchool" components={{ b: <b/> }}/></p> : null}
-      <p className="mt-2 px-1 text-[12px] text-ink-soft">{t("components.SlimmeMeeLijst.standaard")}</p>
+      <p className="mt-2.5 px-1 text-xs leading-relaxed text-ink-soft">{t("components.SlimmeMeeLijst.standaard")}</p>
     </section>);
 }
 /** Na de wissel: de ouder bij wie de kinderen nu zijn, loopt de lijst na. Niet meegekomen = op de lijst van de volgende wissel. */

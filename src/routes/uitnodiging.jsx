@@ -60,7 +60,7 @@ function KringUitnodiging({ sleutel }) {
         return () => { weg = true; };
     }, [sleutel]);
     const ingelogd = a.status === "aan" || a.status === "onboarding";
-    const knop = "flex w-full items-center justify-center gap-2 rounded-md bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40";
+    const knop = "flex w-full items-center justify-center gap-2 min-h-12 rounded-full bg-brand py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40";
     const accepteren = async () => {
         setBezig(true);
         setActieFout(null);
@@ -104,7 +104,7 @@ function KringUitnodiging({ sleutel }) {
       {!ingelogd ? (<><p className="mt-6 text-sm">{t("routes.uitnodiging.privacy")}</p>
           {a.status === "laden" ? <p className="mt-4 flex items-center gap-2 text-sm text-ink-soft" role="status"><Loader2 className="size-4 animate-spin" aria-hidden="true"/>{t("common.laden")}</p> : <>
           <button onClick={() => { bewaarUitnodiging(sleutel); nav({ to: "/inloggen" }); }} className={`mt-4 ${knop}`}>{t("routes.uitnodiging.inloggen")}</button>
-          <button onClick={() => { bewaarUitnodiging(sleutel); nav({ to: "/registreren" }); }} className="mt-2 w-full rounded-md border border-border py-3 text-sm font-semibold">{t("routes.uitnodiging.registreren")}</button>
+          <button onClick={() => { bewaarUitnodiging(sleutel); nav({ to: "/registreren" }); }} className="mt-2 w-full rounded-full border border-border py-3 text-sm font-semibold">{t("routes.uitnodiging.registreren")}</button>
           </>}</>) : (<>
           <h2 className="mt-6 text-[11px] font-bold uppercase tracking-[0.14em] text-brand">{t("routes.uitnodiging.teZien")}</h2>
           <div className="mt-1 divide-y divide-border border-y border-border">

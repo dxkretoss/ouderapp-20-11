@@ -11,6 +11,7 @@ import { useBudgettenPaar } from "@/lib/budget-store";
 import { useStart } from "@/lib/start-store";
 import { leesBon } from "@/lib/bon.functions";
 import { kindLabel } from "@/components/KostenTabs";
+import { VELD } from "@/lib/ui-stijl";
 const docCategorieen = ["Bonnen", "Schooldocumenten", "Medisch", "Verzekeringen", "Officiële afspraken", "Brieven", "Overig"];
 /** Documentcategorie en verdeling blijven als (Nederlandse) waarde bewaard; alleen de weergave wordt vertaald. */
 const DOC_SLEUTELS = { "Bonnen": "bonnen", "Schooldocumenten": "school", "Medisch": "medisch", "Verzekeringen": "verzekeringen", "Officiële afspraken": "officieel", "Brieven": "brieven", "Overig": "overig" };
@@ -147,12 +148,12 @@ export function BonScanner({ standaard = "kosten", standaardPct = 50, onKosten, 
         }
         finaliseer(koppel ?? undefined);
     };
-    const veld = "w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none";
-    const tab = (a) => `min-h-10 flex-1 rounded-xl py-2 text-xs font-semibold ${a ? "bg-brand text-primary-foreground" : "text-ink-soft"}`;
+    const veld = `w-full ${VELD}`;
+    const tab = (a) => `min-h-10 flex-1 rounded-full py-2 text-xs font-semibold ${a ? "bg-brand text-primary-foreground" : "text-ink-soft"}`;
     return (<div className="rounded-lg border border-border p-4">
       <input ref={invoer} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { kies(e.target.files?.[0]); e.target.value = ""; }}/>
       {!foto ? (<>
-          <button onClick={() => invoer.current?.click()} className="flex w-full items-center gap-3 rounded-md border border-dashed border-brand/40 bg-surface p-4 text-left">
+          <button onClick={() => invoer.current?.click()} className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-brand/40 bg-surface p-4 text-left">
             <AppIcon functie="foto" maat="lg"/>
             <span>
               <span className="block text-sm font-semibold">{t("components.BonScanner.fotograferen")}</span>

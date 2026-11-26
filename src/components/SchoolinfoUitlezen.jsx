@@ -35,15 +35,15 @@ export function SchoolinfoUitlezen() {
         }
     };
     if (!open)
-        return (<button onClick={() => setOpen(true)} className="w-full rounded-md border border-border bg-card px-4 py-3 text-left">
+        return (<button onClick={() => setOpen(true)} className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-left">
       <p className="text-sm font-semibold">{t("components.SchoolinfoUitlezen.titel")}</p>
       <p className="text-xs text-ink-soft">{t("components.SchoolinfoUitlezen.intro")}</p>
     </button>);
     return (<div className="rounded-md border border-border bg-card p-4">
       <p className="font-display text-base">{t("components.SchoolinfoUitlezen.titel")}</p>
-      <textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={5} aria-label={t("components.SchoolinfoUitlezen.tekstLabel")} placeholder={t("components.SchoolinfoUitlezen.placeholder")} className="mt-3 w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm outline-none"/>
+      <textarea value={tekst} onChange={(e) => setTekst(e.target.value)} rows={5} aria-label={t("components.SchoolinfoUitlezen.tekstLabel")} placeholder={t("components.SchoolinfoUitlezen.placeholder")} className="mt-3 w-full resize-none rounded-2xl border border-border bg-card px-3 py-2 text-sm outline-none"/>
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <button onClick={() => { setOpen(false); setItems(null); }} className="rounded-md border border-border py-2 text-sm font-semibold text-ink-soft">{t("common.sluiten")}</button>
+        <button onClick={() => { setOpen(false); setItems(null); }} className="rounded-full border border-border py-2 text-sm font-semibold text-ink-soft">{t("common.sluiten")}</button>
         <button onClick={start} disabled={bezig || tekst.trim().length < 10} className="min-h-11 rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground disabled:opacity-40">{t("components.SchoolinfoUitlezen.uitlezen")}</button>
       </div>
       {bezig ? <p role="status" className="mt-3 flex items-center gap-2 text-sm text-ink-soft"><Loader2 className="size-4 animate-spin"/> {t("components.SchoolinfoUitlezen.bezig")}</p> : null}

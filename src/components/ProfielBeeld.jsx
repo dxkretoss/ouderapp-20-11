@@ -68,7 +68,7 @@ export function BeeldKiezer({ beeld, naam, onKies, overslaanTekst: eigenOverslaa
     const [fout, setFout] = useState("");
     const [bezig, setBezig] = useState(false);
     const invoer = useRef(null);
-    const knop = "flex min-h-[48px] w-full items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold transition-colors hover:bg-muted/60 disabled:opacity-50";
+    const knop = "flex min-h-[48px] w-full items-center justify-center rounded-full border border-border bg-card px-4 text-sm font-semibold transition-colors hover:bg-muted/60 disabled:opacity-50";
     return (<div>
       <div className="flex justify-center"><ProfielBeeld beeld={beeld} naam={naam || "?"} maat={80}/></div>
       <input ref={invoer} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" aria-label={t("components.ProfielBeeld.fotoKiezen")} onChange={async (e) => {

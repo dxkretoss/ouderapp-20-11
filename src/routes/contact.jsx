@@ -95,8 +95,8 @@ function Contact() {
           {bewerkNacht ? (<div className="mt-2 space-y-2">
               <label className="flex min-h-11 items-center justify-between text-sm">{t(N + "dempen")}<input type="checkbox" checked={nachtrust} onChange={(e) => zetVoorkeur("nachtrustAan", e.target.checked)} className="size-5 accent-[var(--color-brand)]"/></label>
               <div className="flex gap-2 text-sm">
-                <input type="time" value={van} onChange={(e) => zetVoorkeur("nachtrustVan", e.target.value)} className="flex-1 rounded-xl bg-surface px-3 py-2" aria-label={t(N + "vanaf")}/>
-                <input type="time" value={tot} onChange={(e) => zetVoorkeur("nachtrustTot", e.target.value)} className="flex-1 rounded-xl bg-surface px-3 py-2" aria-label={t(N + "tot")}/>
+                <input type="time" value={van} onChange={(e) => zetVoorkeur("nachtrustVan", e.target.value)} className="flex-1 min-h-11 rounded-2xl border border-border bg-card px-3 py-2" aria-label={t(N + "vanaf")}/>
+                <input type="time" value={tot} onChange={(e) => zetVoorkeur("nachtrustTot", e.target.value)} className="flex-1 min-h-11 rounded-2xl border border-border bg-card px-3 py-2" aria-label={t(N + "tot")}/>
               </div>
               <p className="text-[11px] text-ink-soft">{t(N + "nietsVoorJoris")}</p>
             </div>) : null}

@@ -2,6 +2,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { api, foutTekst } from "@/lib/api";
 import { start } from "@/lib/start-store";
+import { bijTerugkeer } from "@/lib/terugkeer";
 /**
  * Het volledige kindprofiel ("Alles over …") van de server: manage-children `get` (bestaande kolommen +
  * profielsecties) en de eigen privénotitie (`get-private-note`, alleen voor de ingelogde ouder).
@@ -93,9 +94,7 @@ export function useKindProfiel(id) {
         if (!id)
             return;
         laadKind(id);
-        const terug = () => laadKind(id);
-        window.addEventListener("focus", terug);
-        return () => window.removeEventListener("focus", terug);
+        return bijTerugkeer(`kindprofiel-${id}`, () => laadKind(id));
     }, [id]);
     return { kind: s.kinderen[id], notitie: s.notities[id] ?? "", laden: !!s.laden[id], fout: !!s.fouten?.[id] };
 }

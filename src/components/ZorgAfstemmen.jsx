@@ -21,6 +21,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { dt, plusDagen } from "@/lib/agenda-datum";
 import { zorgOp } from "@/lib/zorg-store";
 import { ouderLabel } from "@/lib/agenda-zorg";
+import { VELD } from "@/lib/ui-stijl";
 /**
  * Wijzigingen in de verdeling van de week.
  * - weergave "alles" (standaard): verzoeken, eigen vragen en eerdere voorstellen (in het voorstellen-overzicht)
@@ -28,7 +29,7 @@ import { ouderLabel } from "@/lib/agenda-zorg";
  * - weergave "formulier": alleen het formulier "Wijziging voorstellen" als pop-up (vanaf + of een dag)
  */
 export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bronOmschrijving, datum, weergave = "alles" }) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const router = useRouter();
     const zorg = useZorg();
     const st = useStart();
@@ -94,7 +95,7 @@ export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bro
     const dagOpties = Array.from({ length: 31 }, (_, i) => i + 1);
     const voorstelOuder = (k, d) => soort === "eenmalig" ? naar : structureelOp(zorg, k, vanDatum, naar, d);
     const vergelijking = voor.flatMap((k) => Array.from({ length: soort === "structureel" ? 14 : Math.max(0, Math.round((dt(totDatum).getTime() - dt(vanDatum).getTime()) / 86400000) + 1) }, (_, i) => plusDagen(vanDatum, i)).slice(0, 366).map((d) => ({ k, d, nu: zorgOp(zorg, k, d).ouder, voorstel: voorstelOuder(k, d) })));
-    const sel = "mt-1 w-full rounded-xl bg-surface px-3 py-2 text-sm text-ink outline-none";
+    const sel = `mt-1 w-full ${VELD}`;
     const rij = (l, w) => (<div className="flex items-start justify-between gap-3 py-2">
       <dt className="text-ink-soft">{l}</dt>
       <dd className="text-right font-semibold">{w}</dd>
@@ -180,8 +181,17 @@ export function ZorgAfstemmen({ startActie, kind, sluit, doel, voorstelType, bro
         <p className="-mt-1 text-xs text-ink-soft">{t("components.ZorgAfstemmen.sheet.reactieDatumUitleg")}</p>
         <div className="grid grid-cols-2 gap-2"><label className="text-xs text-ink-soft">{t("components.ZorgAfstemmen.sheet.wisseltijd")}<input type="time" value={wisseltijd} onChange={(e) => setWisseltijd(e.target.value)} className={sel}/></label><label className="text-xs text-ink-soft">{t("components.ZorgAfstemmen.sheet.locatie")}<input value={plek} onChange={(e) => setPlek(e.target.value)} className={sel}/></label></div>
         <div className="flex items-start gap-2.5 rounded-2xl bg-[#E9EFE3] p-3"><span className="grid size-7 shrink-0 place-items-center rounded-full border border-[#C9D6C3] bg-[#E9EFE3] text-[10px] font-black text-[#3F5747]" aria-hidden>Co</span><div className="text-[13.5px] leading-snug text-[#2F4A3A]"><Trans i18nKey="components.ZorgAfstemmen.sheet.tip" components={{ b: <b/> }}/>{plek.trim() ? null : <button type="button" onClick={() => setPlek(t("components.ZorgAfstemmen.sheet.school"))} className="mt-1.5 block font-black text-brand">{t("components.ZorgAfstemmen.sheet.schoolKiezen")}</button>}</div></div>
-        <div className="overflow-x-auto"><table className="w-full text-left text-xs"><caption className="mb-2 text-left font-semibold">{t("components.ZorgAfstemmen.sheet.tabel.caption")}</caption><thead><tr className="border-b border-border"><th className="py-2">{t("components.ZorgAfstemmen.sheet.tabel.dagKind")}</th><th>{t("components.ZorgAfstemmen.sheet.tabel.nu")}</th><th>{t("components.ZorgAfstemmen.sheet.tabel.voorstel")}</th></tr></thead><tbody>{vergelijking.filter((r) => alleDagen || r.nu !== r.voorstel).map((r) => <tr key={r.k + r.d} className="border-b border-border"><td className="py-1.5">{r.d} · {kindNamen[r.k]}</td><td>{ouderLabel(r.nu)}</td><td className="font-semibold text-brand">{ouderLabel(r.voorstel)}</td></tr>)}</tbody></table>{!vergelijking.some((r) => r.nu !== r.voorstel) ? <p className="text-xs text-ink-soft">{t("components.ZorgAfstemmen.sheet.tabel.gelijk")}</p> : null}<Button variant="ghost" onClick={() => setAlleDagen(!alleDagen)}>{alleDagen ? t("components.ZorgAfstemmen.sheet.tabel.gewijzigd") : t("components.ZorgAfstemmen.sheet.tabel.alle")}</Button></div>
-        <textarea value={nieuw} onChange={(e) => setNieuw(e.target.value)} rows={2} placeholder={t("components.ZorgAfstemmen.sheet.placeholder")} className="w-full resize-none rounded-xl bg-surface p-3 text-sm outline-none"/>
+        <section className="rounded-[20px] border border-white/85 bg-white/60 p-3.5">
+          <p className="text-[13px] font-semibold text-ink">{t("components.ZorgAfstemmen.sheet.tabel.caption")}</p>
+          {(() => { const rijen = vergelijking.filter((r) => alleDagen || r.nu !== r.voorstel); const taal = i18n.language?.startsWith("en") ? "en-GB" : "nl-NL"; return rijen.length ? <ul className="mt-2.5 space-y-2">{rijen.map((r) => { const anders = r.nu !== r.voorstel; return <li key={r.k + r.d} className="rounded-2xl bg-card px-3 py-2.5">
+            <p className="text-[13px] font-semibold first-letter:uppercase">{dt(r.d).toLocaleDateString(taal, { weekday: "short", day: "numeric", month: "short" })} <span className="font-normal text-ink-soft">· {kindNamen[r.k]}</span></p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs"><span className={`rounded-full px-2.5 py-1 ${anders ? "bg-[color-mix(in_oklab,var(--foreground)_6%,transparent)] text-ink-soft line-through decoration-ink-soft/50" : "bg-[color-mix(in_oklab,var(--foreground)_6%,transparent)] text-ink-soft"}`}>{ouderLabel(r.nu)}</span>{anders ? <><span aria-hidden className="text-ink-soft">→</span><span className="rounded-full bg-brand-soft px-2.5 py-1 font-semibold text-brand">{ouderLabel(r.voorstel)}</span></> : null}</div>
+            <span className="sr-only">{t("components.ZorgAfstemmen.sheet.tabel.nu")}: {ouderLabel(r.nu)}. {t("components.ZorgAfstemmen.sheet.tabel.voorstel")}: {ouderLabel(r.voorstel)}.</span>
+          </li>; })}</ul> : null; })()}
+          {!vergelijking.some((r) => r.nu !== r.voorstel) ? <p className="mt-2 text-xs text-ink-soft">{t("components.ZorgAfstemmen.sheet.tabel.gelijk")}</p> : null}
+          <button type="button" onClick={() => setAlleDagen(!alleDagen)} className="mt-2.5 inline-flex min-h-9 items-center gap-1 text-[13px] font-semibold text-brand"><Chevron className={`size-4 transition-transform ${alleDagen ? "-rotate-90" : "rotate-90"}`}/>{alleDagen ? t("components.ZorgAfstemmen.sheet.tabel.gewijzigd") : t("components.ZorgAfstemmen.sheet.tabel.alle")}</button>
+        </section>
+        <textarea value={nieuw} onChange={(e) => setNieuw(e.target.value)} rows={2} placeholder={t("components.ZorgAfstemmen.sheet.placeholder")} className="w-full resize-none rounded-2xl border border-border bg-card p-3 text-sm outline-none"/>
         {ga && eerderZonderAkkoord(zorg.voorstellen, { soort, kinderen: voor, dagen: soort === "eenmalig" ? Array.from({ length: Math.max(dagVan, dagTot) - dagVan + 1 }, (_, i) => dagVan + i) : [dagVan], datumLabel: "", naarOuder: naar }) ? <p className="text-xs text-ink-soft">{t("components.ZorgAfstemmen.sheet.eerderZonderAkkoord")}</p> : null}
       </div>
         <div className="shrink-0 border-t border-border bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">

@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import { useSyncExternalStore } from "react";
 import { foutTekst } from "@/lib/api";
 import { authState, opAuth } from "@/lib/auth-store";
+import { bijTerugkeer } from "@/lib/terugkeer";
 /**
  * Serverbronnen van het praktische domein (taken, spullen, momentjes, documenten, afspraken, geschiedenis,
  * meldingen, evaluaties): laden na inloggen, verversen bij focus (geen realtime: RLS blokkeert dat),
@@ -11,6 +12,10 @@ const bronnen = new Set();
 let gestart = false;
 let voorId = null;
 const MIN_TUSSEN = 4000;
+/** Een bron geldt als "in gebruik" als een scherm hem de laatste minuut opvroeg. */
+const IN_GEBRUIK = 60_000;
+/** Gegevens ouder dan dit worden bij het volgende gebruik op de achtergrond ververst. */
+const VERSHEID = 120_000;
 function huidigAccount() {
     const a = authState();
     return (a.status === "aan" || a.status === "onboarding") && a.gebruiker ? a.gebruiker.id : null;
@@ -29,10 +34,9 @@ function start() {
     gestart = true;
     opAuth(controleer);
     queueMicrotask(controleer);
-    const opFocus = () => { if (voorId && document.visibilityState !== "hidden")
-        bronnen.forEach((b) => b.ververs(false)); };
-    window.addEventListener("focus", opFocus);
-    document.addEventListener("visibilitychange", opFocus);
+    // Terug in de app: alleen bronnen die een scherm de laatste minuut gebruikte; de rest ververst pas bij gebruik.
+    bijTerugkeer("praktisch", () => { if (voorId)
+        bronnen.forEach((b) => { if (Date.now() - b.gebruikt < IN_GEBRUIK) b.ververs(false); }); });
 }
 /** Meldt een bron aan. `laad()` haalt alles op (async), `wis()` zet de store terug naar leeg. */
 export function serverBron({ laad, wis }) {
@@ -46,6 +50,7 @@ export function serverBron({ laad, wis }) {
         statusLuisteraars.forEach((l) => l());
     } };
     const b = {
+        gebruikt: 0,
         wis: () => { zetStatus("leeg"); wis(); },
         ververs(direct) {
             if (bezig || (!direct && Date.now() - laatst < MIN_TUSSEN))
@@ -62,8 +67,15 @@ export function serverBron({ laad, wis }) {
     bronnen.add(b);
     return {
         /** Zorgt dat het volgen loopt (aanroepen vanuit hooks/getters; doet niets op de server-side render of in tests). */
-        zorg: () => { start(); if (gestart && voorId === null)
-            controleer(); },
+        zorg: () => {
+            start();
+            if (gestart && voorId === null)
+                controleer();
+            b.gebruikt = Date.now();
+            // Verouderd en een scherm vraagt erom: op de achtergrond verversen (niet tijdens het renderen).
+            if (voorId && status === "klaar" && !bezig && Date.now() - laatst > VERSHEID)
+                queueMicrotask(() => b.ververs(false));
+        },
         ververs: () => b.ververs(true),
         isEigen: () => voorId !== null,
         /** "leeg" | "laden" | "klaar" | "fout" — voor laad- en foutweergaven (zie LaadStatus in components/Laden). */

@@ -90,10 +90,10 @@ function Beslissingen() {
 
       <Card className="mt-5 space-y-3">
         <p className="text-sm font-semibold">{t(N + "nieuw")}</p>
-        <input value={titel} maxLength={200} onChange={(e) => setTitel(e.target.value)} placeholder={t(N + "placeholderEigen")} className="w-full rounded-md border border-white/70 bg-white/80 p-3 text-sm"/>
+        <input value={titel} maxLength={200} onChange={(e) => setTitel(e.target.value)} placeholder={t(N + "placeholderEigen")} className="w-full min-h-11 rounded-2xl border border-white/70 bg-card p-3 text-sm"/>
         <div className="flex gap-2">
-          <select value={soort} onChange={(e) => setSoort(e.target.value)} className="min-w-0 flex-1 rounded-md border border-white/70 bg-white/80 p-2.5 text-sm">{soorten.map((x) => <option key={x} value={x}>{soortNaam(x, t)}</option>)}</select>
-          <select value={kind} onChange={(e) => setKind(e.target.value)} className="min-w-0 flex-1 rounded-md border border-white/70 bg-white/80 p-2.5 text-sm">{st.kinderen.map((k) => <option key={k.id} value={k.id}>{k.naam}</option>)}</select>
+          <select value={soort} onChange={(e) => setSoort(e.target.value)} className="min-w-0 flex-1 min-h-11 rounded-2xl border border-white/70 bg-card p-2.5 text-sm">{soorten.map((x) => <option key={x} value={x}>{soortNaam(x, t)}</option>)}</select>
+          <select value={kind} onChange={(e) => setKind(e.target.value)} className="min-w-0 flex-1 min-h-11 rounded-2xl border border-white/70 bg-card p-2.5 text-sm">{st.kinderen.map((k) => <option key={k.id} value={k.id}>{k.naam}</option>)}</select>
         </div>
         {samen ? (<p className="text-xs text-ink-soft">{t(N + "pasAlsAllebei")}</p>) : (<div className="flex gap-2">
             {["mening", "informatie"].map((m) => (<button key={m} onClick={() => setMening(m)} className={`min-h-10 flex-1 rounded-full border px-3 text-xs font-semibold ${mening === m ? "border-brand bg-white" : "border-border bg-surface text-ink-soft"}`}>{m === "mening" ? t(N + "graagMening") : t(N + "terInformatie")}</button>))}

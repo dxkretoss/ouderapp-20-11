@@ -6,7 +6,7 @@ import i18n, { taalLocale } from "@/i18n";
 import { AppShell, BackButton } from "@/components/AppShell";
 import { Assistent } from "@/components/Assistent";
 import { ContextToevoegen } from "@/components/ContextToevoegen";
-import { FileText, FileUp, ReceiptText, School } from "lucide-react";
+import { FileText, FileUp, ReceiptText, School, Plus } from "lucide-react";
 import { BonScanner } from "@/components/BonScanner";
 import { documentCategorieLabel } from "@/lib/demo-data";
 import { laadWeergave } from "@/components/Laden";
@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { useStart } from "@/lib/start-store";
 import { bevestig } from "@/lib/feedback";
 import { useNavigate } from "@tanstack/react-router";
+import { chip as chipStijl, KNOP, KAART, VELD } from "@/lib/ui-stijl";
 
 // Eigen gezin (altijd, na inloggen): documenten van de server (manage-documents), volledige weergave.
 function DocumentenWrap() {
@@ -46,7 +47,6 @@ function Documenten() {
     const { t, i18n: taal } = useTranslation();
     const st = useStart();
     const g = useGezin();
-    const nav = useNavigate();
     const { lijst: serverLijst } = useDocumenten();
     const laadStatus = documentenBron.useStatus();
     const kindNaam = (id) => st.kinderen.find((k) => k.id === id)?.naam;
@@ -121,9 +121,9 @@ function Documenten() {
           </div>
         </section>) : null}
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        {cats.map((c) => <button key={c} onClick={() => setCat(c)} aria-pressed={cat === c} className={`h-9 rounded-full px-3.5 text-[13.5px] font-extrabold ${cat === c ? "bg-brand text-primary-foreground" : "border border-white/95 bg-white/75"}`}>{catLabel(c)}</button>)}
-      </div>
+      {cats.length > 2 ? <div className="mt-5 flex flex-wrap gap-2">
+        {cats.map((c) => <button key={c} onClick={() => setCat(c)} aria-pressed={cat === c} className={chipStijl(cat === c)}>{catLabel(c)}</button>)}
+      </div> : null}
       {alle.length ? <ul className="mt-3 divide-y divide-[#E9E1D5] rounded-[22px] border border-white/85 bg-white/60 px-3.5">
         {gesorteerd.map((d) => {
             const sv = stijl(d.categorie);
@@ -143,13 +143,11 @@ function Documenten() {
         })}
         {!gesorteerd.length && alle.length ? <li className="py-4 text-center text-sm text-ink-soft">{t("routes.documenten.leegCategorie")}</li> : null}
       </ul> : null}
-      {!alle.length && !bestand && !toon ? (laadWeergave(laadStatus, documentenBron.ververs) ?? <div className="mt-10 flex flex-col items-center text-center">
-          <p className="font-display text-lg font-bold">{t("routes.documenten.eigen.rustig")}</p>
+      {!alle.length && !bestand && !toon ? (laadWeergave(laadStatus, documentenBron.ververs) ?? <div className={`mt-6 flex flex-col items-center px-5 py-7 text-center ${KAART}`}>
+          <span className="grid size-14 place-items-center rounded-full bg-brand-soft"><AppIcon functie="documenten" vorm="kaal"/></span>
+          <p className="mt-3 font-display text-lg font-bold">{t("routes.documenten.eigen.rustig")}</p>
           <p className="mt-1 max-w-xs text-sm text-ink-soft">{t("routes.documenten.eigen.leegUitleg")}</p>
-          <div className="mt-6 flex w-full max-w-xs flex-col gap-2.5">
-            <button onClick={() => upload.current?.click()} className="min-h-12 w-full rounded-full bg-brand px-5 text-sm font-semibold text-primary-foreground">{t("routes.documenten.eigen.eerste")}</button>
-            <button onClick={() => nav({ to: "/meer" })} className="min-h-11 w-full rounded-full border border-border bg-card px-5 text-sm font-semibold text-ink-soft">{t("routes.documenten.eigen.terugMenu")}</button>
-          </div>
+          <button onClick={() => upload.current?.click()} className={`mt-5 w-full ${KNOP}`}><Plus aria-hidden="true" className="size-4"/>{t("routes.documenten.eigen.eerste")}</button>
         </div>) : null}
       <input ref={upload} type="file" className="hidden" aria-label={t("routes.documenten.kiezen")} accept=".pdf,.doc,.docx,.txt,image/jpeg,image/png,image/webp" onChange={(e) => { const f = e.target.files?.[0]; if (f) {
         if (f.size > MAX_DOCUMENT_BYTES) {
@@ -162,9 +160,9 @@ function Documenten() {
         }
     } e.target.value = ""; }}/>
       {bestand ? <form className="mt-3 space-y-3 rounded-[22px] border border-white/85 bg-white/60 px-4 py-3.5" onSubmit={(e) => { e.preventDefault(); opslaan(); }}>
-        <label className="block text-xs font-semibold">{t("routes.documenten.upload.naam")}<input aria-label={t("routes.documenten.upload.naam")} value={uploadNaam} onChange={(e) => setUploadNaam(e.target.value)} required className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"/></label>
-        <label className="block text-xs font-semibold">{t("routes.documenten.upload.voorWie")}<select aria-label={t("routes.documenten.upload.voorWieLabel")} value={uploadKind} onChange={(e) => setUploadKind(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">{st.kinderen.map((k) => <option key={k.id} value={k.id}>{k.naam}</option>)}<option value="">{t("routes.documenten.eigen.heleGezin")}</option></select></label>
-        <label className="block text-xs font-semibold">{t("routes.documenten.upload.categorie")}<select aria-label={t("routes.documenten.upload.categorie")} value={uploadCat} onChange={(e) => setUploadCat(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">{DOCUMENT_CATEGORIEEN.map((c) => <option key={c} value={c}>{documentCategorieLabel(c)}</option>)}</select></label>
+        <label className="block text-xs font-semibold">{t("routes.documenten.upload.naam")}<input aria-label={t("routes.documenten.upload.naam")} value={uploadNaam} onChange={(e) => setUploadNaam(e.target.value)} required className={`mt-1 w-full ${VELD}`}/></label>
+        <label className="block text-xs font-semibold">{t("routes.documenten.upload.voorWie")}<select aria-label={t("routes.documenten.upload.voorWieLabel")} value={uploadKind} onChange={(e) => setUploadKind(e.target.value)} className={`mt-1 w-full ${VELD}`}>{st.kinderen.map((k) => <option key={k.id} value={k.id}>{k.naam}</option>)}<option value="">{t("routes.documenten.eigen.heleGezin")}</option></select></label>
+        <label className="block text-xs font-semibold">{t("routes.documenten.upload.categorie")}<select aria-label={t("routes.documenten.upload.categorie")} value={uploadCat} onChange={(e) => setUploadCat(e.target.value)} className={`mt-1 w-full ${VELD}`}>{DOCUMENT_CATEGORIEEN.map((c) => <option key={c} value={c}>{documentCategorieLabel(c)}</option>)}</select></label>
         <DelenKeuze kindIds={uploadKind ? [uploadKind] : []} gedeeld={uploadGedeeld} onGedeeld={setUploadGedeeld} anderId={uploadAnder} onAnderId={setUploadAnder}/>
         <p className="text-xs text-ink-soft">{t("routes.documenten.upload.veiligKeuze")}</p>
         <div className="grid grid-cols-2 gap-2"><Button type="submit" disabled={!uploadNaam.trim() || bezig || !uploadDelen.ok} className="h-auto min-h-11 w-full whitespace-normal rounded-full">{t("routes.documenten.upload.toevoegen")}</Button><Button type="button" variant="outline" onClick={() => setBestand(null)} className="h-auto min-h-11 w-full whitespace-normal rounded-full">{t("common.annuleren")}</Button></div>
@@ -226,8 +224,8 @@ function DocumentBeheer({ d, onSluit }) {
               <SheetDescription>{d.naam}</SheetDescription>
             </SheetHeader>
             <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); opslaan(); }}>
-              <label className="block text-xs font-semibold">{t("routes.documenten.upload.naam")}<input value={naam} maxLength={200} onChange={(e) => setNaam(e.target.value)} required className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"/></label>
-              <label className="block text-xs font-semibold">{t("routes.documenten.upload.categorie")}<select value={categorie} onChange={(e) => setCategorie(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">{DOCUMENT_CATEGORIEEN.map((c) => <option key={c} value={c}>{documentCategorieLabel(c)}</option>)}</select></label>
+              <label className="block text-xs font-semibold">{t("routes.documenten.upload.naam")}<input value={naam} maxLength={200} onChange={(e) => setNaam(e.target.value)} required className={`mt-1 w-full ${VELD}`}/></label>
+              <label className="block text-xs font-semibold">{t("routes.documenten.upload.categorie")}<select value={categorie} onChange={(e) => setCategorie(e.target.value)} className={`mt-1 w-full ${VELD}`}>{DOCUMENT_CATEGORIEEN.map((c) => <option key={c} value={c}>{documentCategorieLabel(c)}</option>)}</select></label>
               <DelenKeuze kindIds={d.kindId ? [d.kindId] : []} gedeeld={gedeeld} onGedeeld={setGedeeld} anderId={ander} onAnderId={setAnder}/>
               <div className="voet-vast-sheet6 space-y-2">
                 <Button type="submit" className="min-h-11 w-full rounded-full" disabled={!geldig}>{t("common.opslaan")}</Button>

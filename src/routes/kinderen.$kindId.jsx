@@ -23,6 +23,7 @@ import { InhoudLaden, LaadFout } from "@/components/Laden";
 import { TelefoonInvoer, telLink, toonTelefoon } from "@/components/TelefoonInvoer";
 import { laadKind, bewaarKind, bewaarNotitie, useKindProfiel, zetKindBeeld } from "@/lib/kindprofiel-store";
 import { GezagToegang, GezagToegangRij } from "@/components/GezagToegang";
+import { VELD } from "@/lib/ui-stijl";
 const N = "routes.kinderenKindId.";
 export const Route = createFileRoute("/kinderen/$kindId")({
     loader: ({ params }) => {
@@ -75,7 +76,7 @@ function KindProfielWrap() {
     return <KindProfiel kort={k} kind={kind} notitie={notitie}/>;
 }
 const GLAS = "rounded-[22px] border border-white/85 bg-white/60";
-const veld = "mt-1.5 w-full rounded-xl border border-[#E3DACD] bg-white/85 px-3.5 py-2.5 text-[15px] font-normal text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15";
+const veld = `mt-1.5 w-full font-normal ${VELD}`;
 const knopOpslaan = "flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-brand px-5 text-sm font-black text-primary-foreground shadow-[0_4px_12px_rgba(63,87,71,.2)] active:scale-[.99] disabled:opacity-50";
 const knopAnnuleer = "flex h-11 flex-1 items-center justify-center rounded-full border border-[#E3DACD] bg-white/70 px-5 text-sm font-bold text-ink active:scale-[.99]";
 const obj = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
@@ -145,7 +146,7 @@ function LijstVelden({ titel, items, velden, onChange, toevoegenTekst }) {
             : v.type === "tel" ? (<div key={v.id} className="text-[11px] font-semibold text-ink-soft">{v.label}<TelefoonInvoer value={it[v.id] ?? ""} ariaLabel={v.label} onChange={(nr) => zetItem(i, { [v.id]: nr })}/></div>)
             : (<label key={v.id} className="block text-[11px] font-semibold text-ink-soft">{v.label}<input type={v.type === "email" ? "email" : "text"} value={it[v.id] ?? ""} onChange={(e) => zetItem(i, { [v.id]: e.target.value })} className={veld}/></label>))}
         </div>))}
-      <button type="button" onClick={() => onChange([...items, { id: nieuwId() }])} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#CBD8C6] text-sm font-extrabold text-[#3F5747] transition hover:bg-white/50 active:scale-[.99]"><Plus aria-hidden="true" strokeWidth={2.2} className="size-4"/>{toevoegenTekst}</button>
+      <button type="button" onClick={() => onChange([...items, { id: nieuwId() }])} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-dashed border-[#CBD8C6] text-sm font-extrabold text-[#3F5747] transition hover:bg-white/50 active:scale-[.99]"><Plus aria-hidden="true" strokeWidth={2.2} className="size-4"/>{toevoegenTekst}</button>
     </fieldset>);
 }
 function KindProfiel({ kort, kind, notitie }) {
@@ -356,7 +357,7 @@ function KindProfiel({ kort, kind, notitie }) {
             <Button variant="ghost" className="min-h-11 w-full justify-between" onClick={() => { setToevoegen(false); setDeelOpen(true); }}>{t(N + "momenten.delen")}<Chevron className="size-4 shrink-0 text-ink-soft"/></Button>
             <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!mijlpaalTekst.trim())
             return; voegMijlpaal({ kind: kindId, jaar: new Date().getFullYear(), tekst: mijlpaalTekst.trim() }); setMijlpaalTekst(""); setToevoegen(false); }}>
-              <input aria-label={t(N + "momenten.mijlpaal")} className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm" placeholder={t(N + "momenten.mijlpaalPlaceholder")} value={mijlpaalTekst} onChange={(e) => setMijlpaalTekst(e.target.value)}/>
+              <input aria-label={t(N + "momenten.mijlpaal")} className="min-w-0 flex-1 min-h-11 rounded-2xl border border-border bg-card px-3 py-2 text-sm" placeholder={t(N + "momenten.mijlpaalPlaceholder")} value={mijlpaalTekst} onChange={(e) => setMijlpaalTekst(e.target.value)}/>
               <button className="min-h-11 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-primary-foreground">{t(N + "momenten.bewaar")}</button>
             </form>
             <button type="button" onClick={() => setToevoegen(false)} className="min-h-11 w-full text-sm font-semibold text-ink-soft">{t("common.annuleren")}</button>

@@ -72,12 +72,12 @@ export function Afrekenen({ onTerug, onBerekening, startVerzoek = false }) {
       <h2 className="font-display text-lg font-bold">{t("components.Afrekenen.betaalverzoek")}</h2>
       <GeldInvoer label={t("components.Afrekenen.bedragVerzoek")} value={bedragTekst} onChange={setBedragTekst}/>
       {leesGeld(bedragTekst) !== bedrag ? <p className="text-sm text-accent-warm">{t("components.Afrekenen.gebruikBedrag")}</p> : null}
-      <label className="block text-sm font-semibold">{t("components.Afrekenen.omschrijving")}<input aria-label={t("components.Afrekenen.omschrijvingLabel")} value={omschrijving} disabled={!kanVerzoek} onChange={(e) => setOmschrijving(e.target.value)} className="mt-1 min-h-11 w-full rounded-md border border-border bg-background px-3 text-sm"/></label>
+      <label className="block text-sm font-semibold">{t("components.Afrekenen.omschrijving")}<input aria-label={t("components.Afrekenen.omschrijvingLabel")} value={omschrijving} disabled={!kanVerzoek} onChange={(e) => setOmschrijving(e.target.value)} className="mt-1 min-h-11 w-full rounded-2xl border border-border bg-card px-3 text-sm"/></label>
       <p className="text-xs text-ink-soft">{t("components.Afrekenen.gekoppeld")}</p>
       <p className="text-sm text-ink-soft">{t("components.Afrekenen.controleerDienst")}</p>
       {v?.betaalverzoek ? <><p className="break-all text-xs text-ink-soft">{v.betaalverzoek}</p><Button variant="outline" asChild><a href={v.betaalverzoek} target="_blank" rel="noopener noreferrer">{t("components.Afrekenen.linkOpenen")} <AppIcon functie="link" maat="sm" vorm="kaal"/></a></Button></> : null}
       {kanVerzoek ? <>
-        <label className="block text-sm font-semibold">{t("components.Afrekenen.linkControleren")}<input type="url" aria-label={t("components.Afrekenen.betaallink")} value={link} onChange={(e) => { setLink(e.target.value); setControle(false); }} placeholder="https://tikkie.me/pay/…" className="mt-1 min-h-11 w-full rounded-md border border-border bg-background px-3 text-sm"/></label>
+        <label className="block text-sm font-semibold">{t("components.Afrekenen.linkControleren")}<input type="url" aria-label={t("components.Afrekenen.betaallink")} value={link} onChange={(e) => { setLink(e.target.value); setControle(false); }} placeholder="https://tikkie.me/pay/…" className="mt-1 min-h-11 w-full rounded-2xl border border-border bg-card px-3 text-sm"/></label>
         {link ? veiligeBetaallink(link) ? <><p className="text-xs text-ink-soft">{t("components.Afrekenen.bestemming", { host: new URL(link).hostname })}</p><Button variant="outline" asChild><a href={veiligeBetaallink(link) ?? undefined} target="_blank" rel="noopener noreferrer">{t("components.Afrekenen.linkControlerenKnop")} <AppIcon functie="link" maat="sm" vorm="kaal"/></a></Button></> : <p role="alert" className="text-sm text-accent-warm">{t("components.Afrekenen.onveilig")}</p> : null}
         <p className="text-xs text-ink-soft">{t("components.Afrekenen.voorbeeldSessie")}</p>
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={controle} onChange={(e) => setControle(e.target.checked)} className="mt-1"/>{t("components.Afrekenen.gecontroleerd")}</label>
@@ -96,8 +96,8 @@ export function Afrekenen({ onTerug, onBerekening, startVerzoek = false }) {
       {kanVerzoek ? <>
         <p className="text-sm text-ink-soft">{t("components.Afrekenen.bank.vraagIban")}</p>
         <p className="text-xs text-ink-soft">{t("components.Afrekenen.bank.opslag")}</p>
-        <label className="block text-sm font-semibold">{t("components.Afrekenen.bank.naamHouder")}<input value={rekeninghouder} onChange={(e) => setRekeninghouder(e.target.value)} className="mt-1 min-h-11 w-full rounded-md border border-border bg-background px-3 text-sm"/></label>
-        <label className="block text-sm font-semibold">{t("components.Afrekenen.bank.iban")}<input value={iban} onChange={(e) => setIban(e.target.value)} autoComplete="off" className="mt-1 min-h-11 w-full rounded-md border border-border bg-background px-3 text-sm"/></label>
+        <label className="block text-sm font-semibold">{t("components.Afrekenen.bank.naamHouder")}<input value={rekeninghouder} onChange={(e) => setRekeninghouder(e.target.value)} className="mt-1 min-h-11 w-full rounded-2xl border border-border bg-card px-3 text-sm"/></label>
+        <label className="block text-sm font-semibold">{t("components.Afrekenen.bank.iban")}<input value={iban} onChange={(e) => setIban(e.target.value)} autoComplete="off" className="mt-1 min-h-11 w-full rounded-2xl border border-border bg-card px-3 text-sm"/></label>
         {iban && !geldigeIban(iban) ? <p role="alert" className="text-sm text-accent-warm">{t("components.Afrekenen.bank.ibanOngeldig")}</p> : null}
         <p className="text-xs text-ink-soft">{t("components.Afrekenen.bank.tijdelijk")}</p>
         <Button disabled={bezig || !geldigeIban(iban) || !rekeninghouder.trim()} onClick={() => deel({ iban, rekeninghouder }, t("components.Afrekenen.melding.bankGedeeld"))}>{t("components.Afrekenen.bank.delen")}</Button>

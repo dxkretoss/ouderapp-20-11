@@ -98,16 +98,18 @@ export function AppShell({ children, breed = false }) {
         {children}
       </div>
 
-      <nav aria-label={t("components.AppShell.navLabel")} className="fixed bottom-0 left-1/2 z-20 w-full max-w-md -translate-x-1/2 px-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}>
-        <div className="grid grid-cols-5 rounded-[28px] border border-white/70 bg-[color-mix(in_oklab,var(--card)_84%,transparent)] px-1.5 pb-2 pt-2 shadow-[0_14px_34px_-12px_rgba(47,74,58,.38),0_2px_8px_rgba(60,50,40,.06)] backdrop-blur-xl backdrop-saturate-150 dark:border-white/10">
+      <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-[var(--background)] via-[color-mix(in_oklab,var(--background)_75%,transparent)] to-transparent"/>
+      <nav aria-label={t("components.AppShell.navLabel")} className="fixed bottom-0 left-1/2 z-20 w-full max-w-md -translate-x-1/2 px-4" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}>
+        <div className="grid grid-cols-5 overflow-hidden rounded-[26px] border border-white/80 bg-[color-mix(in_oklab,var(--card)_94%,transparent)] px-1 shadow-[0_18px_40px_-16px_rgba(47,74,58,.35),0_2px_10px_rgba(60,50,40,.06)] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/10">
           {navItems.map((item) => {
             const actief = isActive(item.to);
-            return (<Link key={item.to} to={item.to} onClick={wisTerug} aria-current={actief ? "page" : undefined} className="group flex flex-col items-center gap-1 rounded-2xl py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
-              <span className={`relative grid h-8 w-14 place-items-center rounded-full transition-all duration-300 ease-out ${actief ? "scale-100 bg-[#DCE6D6] dark:bg-[color-mix(in_oklab,var(--brand)_28%,transparent)]" : "scale-95 group-hover:bg-[color-mix(in_oklab,var(--foreground)_5%,transparent)] group-active:scale-90"}`}>
+            return (<Link key={item.to} to={item.to} onClick={wisTerug} aria-current={actief ? "page" : undefined} className="group relative flex min-h-[62px] flex-col items-center justify-center gap-1 outline-none focus-visible:bg-brand-soft/60">
+              <span aria-hidden="true" className={`absolute top-0 h-[3px] rounded-b-full bg-brand transition-all duration-300 ease-out ${actief ? "w-8 opacity-100" : "w-0 opacity-0"}`}/>
+              <span className={`relative grid place-items-center transition-transform duration-300 ease-out group-active:scale-90 ${actief ? "-translate-y-px [&_svg]:!text-brand [&_svg]:![fill:color-mix(in_oklab,var(--brand)_14%,transparent)] [&_svg]:!opacity-100" : "[&_svg]:!text-ink-soft [&_svg]:![fill:none] [&_svg]:!opacity-80 group-hover:[&_svg]:!opacity-100"}`}>
                 <AppIcon functie={item.icoon} vorm="kaal" maat="lg" actief={actief}/>
-                {item.to === "/berichten" && ongelezen > 0 ? (<span aria-label={t("components.AppShell.ongelezen", { count: ongelezen })} className="absolute -right-1 -top-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand px-1 text-[10.5px] font-black leading-none text-primary-foreground ring-2 ring-[var(--card)]">{ongelezen > 9 ? "9+" : ongelezen}</span>) : null}
+                {item.to === "/berichten" && ongelezen > 0 ? (<span aria-label={t("components.AppShell.ongelezen", { count: ongelezen })} className="absolute -right-2.5 -top-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#C9694B] px-1 text-[10.5px] font-black leading-none text-white ring-2 ring-[var(--card)]">{ongelezen > 9 ? "9+" : ongelezen}</span>) : null}
               </span>
-              <span className={`text-[11px] leading-none tracking-[0.01em] transition-colors ${actief ? "font-extrabold text-[#2F4A3A] dark:text-ink" : "font-semibold text-ink-soft"}`}>
+              <span className={`text-[11px] leading-none tracking-[0.01em] transition-colors ${actief ? "font-extrabold text-brand" : "font-semibold text-ink-soft"}`}>
                 {t(`components.AppShell.nav.${item.id}`)}
               </span>
             </Link>);

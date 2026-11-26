@@ -83,15 +83,21 @@ function Overdracht() {
         </div>) : null}
 
       {tab === "paklijst" && getoond ? (<>
-          {gekozen ? <Link to="/overdracht" search={{}} className="mt-3 inline-flex min-h-10 items-center text-sm font-bold text-brand"><MetChevron>{t("routes.overdracht.naarVolgende")}</MetChevron></Link> : null}
+          {gekozen ? <Link to="/overdracht" search={{}} className="mt-4 inline-flex min-h-9 items-center rounded-full border border-white/85 bg-white/60 pl-4 pr-3 text-sm font-semibold text-brand"><MetChevron>{t("routes.overdracht.naarVolgende")}</MetChevron></Link> : null}
           {!gekozen && vorigeNalopen && !vorigeTonen ? <button onClick={() => setVorigeTonen(true)} className="mt-4 flex w-full items-center gap-3 rounded-[22px] border border-white/85 bg-white/70 px-4 py-3 text-left"><AppIcon functie="overdracht" maat="sm" vorm="kaal"/><span className="min-w-0 flex-1 text-[15px] font-black">{t("routes.overdracht.vorigeNalopen")}</span><Chevron className="size-5 text-ink-soft"/></button> : null}
           {!gekozen && vorigeTonen ? <button onClick={() => setVorigeTonen(false)} className="mt-3 inline-flex min-h-10 items-center text-sm font-bold text-brand"><MetChevron>{t("routes.overdracht.naarVolgende")}</MetChevron></button> : null}
           <SlimmeMeeLijst moment={getoond} daarna={gekozen ? gekozenDaarna : vorigeTonen ? moment : daarna}/>
           <OnderwegStatus momentId={getoond.id}/>
-          <IkBenLater moment={getoond}/>
-          <Link to="/veranderd" search={{ moment: getoond.id }} className="mt-1 flex min-h-10 items-center px-1 text-sm font-bold text-brand">{t("routes.overdracht.veranderd")}</Link>
+          {!odGedeeld ? <button onClick={() => setTab("meegeven")} className="mt-4 flex w-full items-center gap-3 rounded-[22px] border-2 border-[#A9BCA8] px-4 py-3.5 text-left" style={{ background: "linear-gradient(135deg, rgba(220,230,210,.95), rgba(233,239,227,.9))" }}><AppIcon functie="notitie" maat="sm"/><span className="min-w-0 flex-1"><span className="block text-[16px] font-black text-[#2F4A3A]">{t("routes.overdracht.overdrachtVoorJoris")}</span><span className="block text-sm text-[#3F5747]">{t("routes.overdracht.vulIn")}</span></span><Chevron className="size-5 text-[#3F5747]"/></button> : null}
+          <section className="mt-6">
+            <h2 className="font-display text-lg font-bold">{t("routes.overdracht.ietsAnders")}</h2>
+            <div className="mt-2 divide-y divide-border overflow-hidden rounded-[22px] border border-white/85 bg-white/60">
+              <Link to="/agenda" search={{ zorgActie: "wijziging", dag: getoond.datum }} className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-brand-soft/40"><AppIcon functie="agenda" maat="sm"/><span className="min-w-0 flex-1 text-[15px] font-semibold">{t("components.SlimmeMeeLijst.verschuiven")}</span><Chevron className="size-4 shrink-0 text-ink-soft"/></Link>
+              <IkBenLater moment={getoond} rij="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-brand-soft/40"/>
+              <Link to="/veranderd" search={{ moment: getoond.id }} className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-brand-soft/40"><AppIcon functie="planwijziging" maat="sm"/><span className="min-w-0 flex-1 text-[15px] font-semibold">{t("routes.overdracht.veranderd")}</span><Chevron className="size-4 shrink-0 text-ink-soft"/></Link>
+            </div>
+          </section>
           <VasteRoutines />
-          {!odGedeeld ? <button onClick={() => setTab("meegeven")} className="mt-4 flex w-full items-center gap-3 rounded-[22px] border-2 border-[#A9BCA8] px-4 py-3 text-left" style={{ background: "linear-gradient(135deg, rgba(220,230,210,.95), rgba(233,239,227,.9))" }}><span className="min-w-0 flex-1"><span className="block text-[16px] font-black text-[#2F4A3A]">{t("routes.overdracht.overdrachtVoorJoris")}</span><span className="block text-sm text-[#3F5747]">{t("routes.overdracht.vulIn")}</span></span><Chevron className="size-5 text-[#3F5747]"/></button> : null}
         </>) : tab === "meegeven" && getoond ? (<OverdrachtFormulier key={getoond.id} momentId={getoond.id} kindIds={getoond.kindIds} aan={t("common.deAndereOuder")} wanneer={wanneer} viaSchool={/school|opvang|childcare|nursery/i.test(getoond.plek ?? "")}/>) : tab === "terugblik" ? (<div className="mt-5 space-y-4">
           <p className="text-sm text-ink-soft">{t("routes.overdracht.terugblikUitleg")}</p>
           {st.kinderen.length > 1 ? <div className="flex flex-wrap gap-2">

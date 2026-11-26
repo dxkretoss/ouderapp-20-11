@@ -2798,6 +2798,7 @@
         "invullen": "Vul alvast in wat de andere ouder moet weten."
       },
       "binnenkort": "Binnenkort",
+      "totEnMet": "T/m {{datum}}",
       "alleAfspraken": "Agenda",
       "nogTeRegelen": "Nog te regelen",
       "enAndere_one": "{{titel}} en {{count}} ander",
@@ -3645,6 +3646,7 @@
       "nogInTeVullen": "nog in te vullen",
       "gedeeld": "gedeeld",
       "veranderd": "Er is iets veranderd? Nu afstemmen",
+      "ietsAnders": "Loopt het anders?",
       "overdrachtVoorJoris": "Overdracht voor de andere ouder",
       "vulIn": "Vul in wat de andere ouder moet weten voor de wissel",
       "wanneer": "vrijdag 14:30",

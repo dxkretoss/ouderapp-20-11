@@ -22,8 +22,8 @@ export function VerdeelHulp() {
           </ul>
           <p className="mt-2 text-[11px] text-ink-soft">{t("components.VerdeelHulp.verandertNiets")}</p>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <button onClick={() => setOpen(false)} className="rounded-md border border-border py-2 text-sm font-semibold text-ink-soft">{t("components.VerdeelHulp.nietNu")}</button>
-            <button onClick={() => { voorstel.forEach((v) => stelVerdelingVoor(v.id, v.ouder)); setOpen(false); }} className="rounded-md bg-brand py-2 text-sm font-semibold text-primary-foreground">{t("components.VerdeelHulp.alsVoorstel")}</button>
+            <button onClick={() => setOpen(false)} className="rounded-full border border-border py-2 text-sm font-semibold text-ink-soft">{t("components.VerdeelHulp.nietNu")}</button>
+            <button onClick={() => { voorstel.forEach((v) => stelVerdelingVoor(v.id, v.ouder)); setOpen(false); }} className="rounded-full bg-brand py-2 text-sm font-semibold text-primary-foreground">{t("components.VerdeelHulp.alsVoorstel")}</button>
           </div>
         </div>) : null}
     </div>);

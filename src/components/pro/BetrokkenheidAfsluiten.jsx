@@ -4,7 +4,8 @@ import { taalLocale } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { datumKort, doelStatusLabel, duurBetrokkenheid, trekToegangIn, vandaagIso } from "@/lib/pro-journaal-store";
-const veld = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm";
+import { VELD } from "@/lib/ui-stijl";
+const veld = `mt-1 w-full ${VELD}`;
 const datum = (iso) => new Date(iso).toLocaleDateString(taalLocale(), { day: "numeric", month: "long", year: "numeric" });
 /** Redenwaarden blijven Nederlands (logica: "Anders"); weergave via vertaling. */
 const redenen = [["Begeleiding afgerond", "afgerond"], ["Ouders gaan zelfstandig verder", "zelfstandig"], ["Overdracht naar een andere professional", "overdracht"], ["Op verzoek van ouders", "verzoek"], ["Anders", "anders"]];
